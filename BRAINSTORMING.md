@@ -1,0 +1,2 @@
+- If I have an an idea where to implement direclty , for instance agents 
+- create a setup archetect that gives you all componetes you need based on you project 
