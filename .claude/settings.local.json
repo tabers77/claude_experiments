@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "WebFetch(domain:docs.anthropic.com)",
+      "WebSearch",
+      "Bash(where:*)",
+      "Bash(CLAUDE_CODE_GIT_BASH_PATH=\"C:/Users/delacruzribadenc/AppData/Local/Programs/Git/bin/bash.exe\" claude plugin validate \"C:/Users/delacruzribadenc/Documents/Repos/my_own_projects/claude_experiments\")",
+      "Bash(ls:*)"
     ]
   }
 }

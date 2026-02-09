@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [master, dev]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test-project:
+    name: Test Project (pytest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: test_project
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - run: pytest -v
+
+  validate-skills:
+    name: Validate Skills
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install pyyaml
+      - run: python tests/test_skills.py
+
+  validate-plugin:
+    name: Validate Plugin Manifest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python -c "import json; json.load(open('.claude-plugin/plugin.json'))"
+      - run: |
+          python -c "
+          import json
+          m = json.load(open('.claude-plugin/plugin.json'))
+          assert 'name' in m, 'Missing name'
+          assert 'version' in m, 'Missing version'
+          print('Plugin manifest valid: ' + m['name'] + '@' + m['version'])
+          "

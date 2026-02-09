@@ -1,8 +1,25 @@
-# Claude Code Library
+# Claude Code Library (Plugin)
 
 ## Purpose
 
-A reusable library of Claude Code configurations (skills, hooks, rules, templates) that can be copied into other projects.
+A reusable Claude Code **plugin** that provides skills, agents, hooks, and rules to any project. Connect once, use everywhere — no copying files.
+
+## Quick Start
+
+### Connect to any project
+```bash
+# Use as a plugin from any project
+claude --plugin-dir /path/to/claude_experiments
+
+# Or add to your project's .claude/settings.json:
+# { "plugins": ["/path/to/claude_experiments"] }
+```
+
+### Plugin skills are namespaced
+```bash
+/claude-library:architecture-arch    # Build mental model of codebase
+/claude-library:meta-project-setup   # Analyze project & get recommendations
+```
 
 ## Key Commands
 
@@ -16,43 +33,97 @@ cd test_project && uvicorn src.main:app --reload
 
 ## Repo Structure
 
-- `playbook/` - Source of truth: "How I Use Claude Code.md"
-- `library/skills/` - Reusable skills organized by use-case
-- `library/hooks/` - Hook configuration examples
-- `library/rules/` - Reusable .claude/rules/ templates
-- `library/templates/` - CLAUDE.md templates for different project types
-- `test_project/` - Simple project to verify skills work
-- `audits/` - Output from /audit_setup
-
-## How to Use
-
-### Copy a skill to your project
-```bash
-cp -r library/skills/architecture/arch/ your-project/.claude/skills/
 ```
-
-### Copy a template for new project
-```bash
-cp -r library/templates/python-api/* your-new-project/
+claude_experiments/
+├── .claude-plugin/
+│   └── plugin.json              # Plugin manifest
+├── skills/                       # Plugin skills (auto-discovered)
+│   ├── architecture-arch/
+│   ├── safe-changes-refactor-safe/
+│   ├── safe-changes-impact-check/
+│   ├── planning-spec-from-text/
+│   ├── planning-impl-plan/
+│   ├── api-development-api-impl/
+│   ├── quality-review/
+│   ├── learning-codebase-mastery/
+│   ├── meta-experiment-feature/
+│   ├── meta-project-setup/
+│   ├── meta-skill-audit/
+│   ├── meta-sync-references/
+│   ├── learning-algo-practice/
+│   ├── learning-concept-recall/
+│   ├── learning-debug-training/
+│   └── learning-code-review-eye/
+├── agents/                       # Agent definitions
+│   └── code-reviewer.md
+├── hooks/                        # Hook configurations
+│   └── hooks.json
+├── documentation/                # All generated .md docs go here
+│   ├── PLAN.md
+│   ├── PROBLEM_STATEMENT.md
+│   ├── BRAINSTORMING.md
+│   ├── SKILL_AUDIT.md
+│   └── CLAUDE_SETUP.md
+├── library/                      # Reference material
+│   ├── hooks/                    # Hook examples by category
+│   ├── rules/                    # Reusable rule templates
+│   └── templates/                # CLAUDE.md templates
+├── playbook/                     # Source of truth
+├── test_project/                 # Verification project
+└── experiments/                  # Feature experiments
 ```
-
-## Invariants
-
-1. **Playbook is source of truth** - All skills derive from `playbook/How I Use Claude Code.md`
-2. **Library is copy-paste ready** - Skills should work immediately when copied
-3. **Organized by use-case** - Not by feature type
 
 ## Available Skills
 
 | Use Case | Skill | Purpose |
 |----------|-------|---------|
-| Architecture | `/arch` | Build mental model before coding |
-| Safe Changes | `/refactor_safe` | Refactor with explicit invariants |
-| Safe Changes | `/impact_check` | Understand blast radius |
-| Planning | `/spec_from_text` | Convert vague input to specs |
-| Planning | `/impl_plan` | Design before coding |
-| API Dev | `/api_impl` | Consistent endpoint implementation |
-| Quality | `/project_review` | Evidence-based project assessment |
-| Quality | `/risk_prioritizer` | Prioritize what matters |
-| Learning | `/codebase_mastery` | Deep understanding + tutor mode |
-| Meta | `/audit_setup` | Audit any repo's Claude setup |
+| Architecture | `/architecture-arch` | Build mental model before coding |
+| Safe Changes | `/safe-changes-refactor-safe` | Refactor with explicit invariants |
+| Safe Changes | `/safe-changes-impact-check` | Understand blast radius |
+| Planning | `/planning-spec-from-text` | Convert vague input to specs |
+| Planning | `/planning-impl-plan` | Design before coding |
+| API Dev | `/api-development-api-impl` | Consistent endpoint implementation |
+| Quality | `/quality-review` | Assess quality + prioritize improvements |
+| Learning | `/learning-codebase-mastery` | Deep understanding + tutor mode |
+| Learning | `/learning-algo-practice` | Algorithm & interview prep for data scientists |
+| Learning | `/learning-concept-recall` | Spaced repetition for DS concepts |
+| Learning | `/learning-debug-training` | Systematic debugging training |
+| Learning | `/learning-code-review-eye` | Train your code review skills |
+| Meta | `/meta-experiment-feature` | Set up experiments for new features |
+| Meta | `/meta-project-setup` | Audit setup, recommend artifacts, detect library gaps |
+| Meta | `/meta-skill-audit` | Audit library for overlaps and gaps |
+| Meta | `/meta-sync-references` | Sync cross-references across all files |
+
+## Agents
+
+| Agent | Purpose |
+|-------|---------|
+| `code-reviewer` | Expert code review after writing/modifying code |
+
+## How to Use
+
+### As a plugin (recommended)
+```bash
+claude --plugin-dir /path/to/claude_experiments
+# Then use: /claude-library:meta-project-setup
+```
+
+### Copy individual artifacts
+```bash
+# Copy a rule to your project
+cp library/rules/api.md your-project/.claude/rules/
+
+# Copy a template
+cp library/templates/python-api/CLAUDE.md your-project/
+
+# Copy hooks config
+cp hooks/hooks.json your-project/.claude/hooks.json
+```
+
+## Invariants
+
+1. **Playbook is source of truth** - All skills derive from `playbook/How I Use Claude Code.md`
+2. **Plugin-first** - Skills live in `skills/` for plugin discovery
+3. **Hyphenated names** - Skill names use hyphens only (no underscores) per Claude Code spec
+4. **Self-contained** - Each skill works independently when loaded via plugin
+5. **Organized by use-case** - Not by feature type

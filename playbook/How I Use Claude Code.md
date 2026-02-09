@@ -4,9 +4,15 @@
 
 ---
 
-TODO: 
-custom agents 
-CLAUDE tutor mode 
+TODO:
+custom agents
+CLAUDE tutor mode
+
+> **Note (2026-02-06):** This playbook is the source of truth. Skills are now
+> packaged as a Claude Code plugin (`claude-library`). Skill files live in
+> `skills/<name>/SKILL.md` (hyphenated names, e.g. `architecture-arch`).
+> Use via: `claude --plugin-dir /path/to/claude_experiments`
+> Or locally: `bash setup-local.sh` to create .claude/skills/ links.
 
 ## Mental model: Understanding Claude Code's architecture
 
@@ -142,7 +148,7 @@ These are **reusable thinking procedures**, not prompts.
 - Extension points
 - Risk zones
 
-**Skill template:** `.claude/skills/arch/SKILL.md`
+**Skill template:** `skills/architecture-arch/SKILL.md`
 
 ```markdown
 # Skill: arch
@@ -207,7 +213,7 @@ claude
 - Small diffs
 - Verification after each step
 
-**Skill template:** `.claude/skills/refactor_safe/SKILL.md`
+**Skill template:** `skills/safe-changes-refactor-safe/SKILL.md`
 
 ```markdown
 # Skill: refactor_safe
@@ -275,7 +281,7 @@ This is exactly the "engineers work properly" pattern: **plan → small change �
 - What needs regression testing
 - Rollback thinking
 
-**Skill template:** `.claude/skills/impact_check/SKILL.md`
+**Skill template:** `skills/safe-changes-impact-check/SKILL.md`
 
 ```markdown
 # Skill: impact_check
@@ -324,7 +330,7 @@ Focus on:
 - Missing info surfaced early
 - Separation of "what" from "how"
 
-**Skill template:** `.claude/skills/spec_from_text/SKILL.md`
+**Skill template:** `skills/planning-spec-from-text/SKILL.md`
 
 ```markdown
 # Skill: spec_from_text
@@ -371,7 +377,7 @@ This is foundational for **"business case → reusable workflow"** goals.
 - Test strategy
 - Stop points
 
-**Skill template:** `.claude/skills/impl_plan/SKILL.md`
+**Skill template:** `skills/planning-impl-plan/SKILL.md`
 
 ```markdown
 # Skill: impl_plan
@@ -419,7 +425,7 @@ Design a Composer module that:
 - Structured logs + trace IDs
 - Timeouts, retries if calling downstream
 
-**Skill template:** `.claude/skills/api_impl/SKILL.md`
+**Skill template:** `skills/api-development-api-impl/SKILL.md`
 
 ```markdown
 # Skill: api_impl
@@ -497,7 +503,7 @@ I use this when:
 
 ## 4. Project quality & technical debt
 
-### `/project_review` or `/project_review_plus`
+### `/quality-review`
 
 Purpose: **calibrated judgment, not fake precision**
 
@@ -516,7 +522,7 @@ It gives me:
 
 > Scores without evidence or confidence are ignored.
 
-### Full skill template: `.claude/skills/project_review/SKILL.md`
+### Full skill template: `skills/quality-review/SKILL.md`
 
 ```markdown
 # Skill: project_review
@@ -564,17 +570,17 @@ If any category cannot be assessed, mark as "unknown" and reduce confidence.
 
 ```
 # Fast review:
-/project_review run tests if possible; focus on test quality and architecture boundaries
+/quality-review run tests if possible; focus on test quality and architecture boundaries
 
 # Security-sensitive:
-/project_review do not run commands; static review only
+/quality-review do not run commands; static review only
 ```
 
 ---
 
 ## 5. Decision support & prioritization
 
-### `/risk_prioritizer`
+### Risk prioritization (now part of `/quality-review` Phase 2)
 
 I use this when:
 
@@ -655,21 +661,20 @@ It helps me answer:
 
 ### A) New repo / unfamiliar area
 
-1. `/arch_map`
-2. `/codebase_mastery tutor`
+1. `/architecture-arch`
+2. `/learning-codebase-mastery tutor`
 3. Small manual change + run tests
 
 ### B) Refactor or feature work
 
-1. `/spec_from_text` (if input is vague)
-2. `/impl_plan`
-3. `/impact_check`
-4. `/refactor_safe`
+1. `/planning-spec-from-text` (if input is vague)
+2. `/planning-impl-plan`
+3. `/safe-changes-impact-check`
+4. `/safe-changes-refactor-safe`
 
 ### C) Quality & debt assessment
 
-1. `/project_review_plus`
-2. `/risk_prioritizer`
+1. `/quality-review` (assessment + prioritization in one skill)
 
 ---
 

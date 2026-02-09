@@ -49,7 +49,7 @@ test_project/
 ## Testing Skills
 
 Use this project to test:
-- `/arch` - Map the structure
-- `/project_review` - Assess quality
-- `/api_impl` - Add new endpoint
-- `/refactor_safe` - Modify existing code
+- `/architecture-arch` - Map the structure
+- `/quality-review` - Assess quality + prioritize improvements
+- `/api-development-api-impl` - Add new endpoint
+- `/safe-changes-refactor-safe` - Modify existing code

@@ -3,7 +3,7 @@
 **Last updated**: 2025-02-06
 **Source**: Official Claude Code documentation
 
-This file serves as a local reference for the `/audit_setup` skill to compare against.
+This file serves as a local reference for the `/meta-project-setup` skill (audit section) to compare against.
 
 ---
 
