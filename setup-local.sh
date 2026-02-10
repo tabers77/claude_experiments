@@ -23,9 +23,15 @@ fi
 
 # Detect OS and create appropriate links
 if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" || "$OSTYPE" == "win32" ]]; then
-    # Windows: use directory junctions (no admin required)
-    cmd //c "mklink /J \"$(cygpath -w "$CLAUDE_DIR/skills")\" \"$(cygpath -w "$SCRIPT_DIR/skills")\""
-    cmd //c "mklink /J \"$(cygpath -w "$CLAUDE_DIR/agents")\" \"$(cygpath -w "$SCRIPT_DIR/agents")\""
+    # Windows: use directory junctions via PowerShell (no admin required)
+    # Note: cmd //c mklink + cygpath is fragile with nested quoting;
+    # PowerShell's New-Item -ItemType Junction works reliably from Git Bash.
+    SKILLS_WIN=$(cygpath -w "$CLAUDE_DIR/skills")
+    SKILLS_TARGET_WIN=$(cygpath -w "$SCRIPT_DIR/skills")
+    AGENTS_WIN=$(cygpath -w "$CLAUDE_DIR/agents")
+    AGENTS_TARGET_WIN=$(cygpath -w "$SCRIPT_DIR/agents")
+    powershell -Command "New-Item -ItemType Junction -Path '$SKILLS_WIN' -Target '$SKILLS_TARGET_WIN'" > /dev/null
+    powershell -Command "New-Item -ItemType Junction -Path '$AGENTS_WIN' -Target '$AGENTS_TARGET_WIN'" > /dev/null
 else
     # Linux/Mac: use symbolic links (relative paths for portability)
     ln -s ../skills "$CLAUDE_DIR/skills"

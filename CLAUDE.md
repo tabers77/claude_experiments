@@ -39,6 +39,7 @@ claude_experiments/
 │   └── plugin.json              # Plugin manifest
 ├── skills/                       # Plugin skills (auto-discovered)
 │   ├── architecture-arch/
+│   ├── code-diagnosis/
 │   ├── safe-changes-refactor-safe/
 │   ├── safe-changes-impact-check/
 │   ├── planning-spec-from-text/
@@ -46,53 +47,54 @@ claude_experiments/
 │   ├── api-development-api-impl/
 │   ├── quality-review/
 │   ├── learning-codebase-mastery/
-│   ├── meta-experiment-feature/
-│   ├── meta-project-setup/
-│   ├── meta-skill-audit/
-│   ├── meta-sync-references/
 │   ├── learning-algo-practice/
 │   ├── learning-concept-recall/
 │   ├── learning-debug-training/
-│   └── learning-code-review-eye/
+│   ├── learning-code-review-eye/
+│   ├── meta-experiment-feature/
+│   ├── meta-project-setup/
+│   ├── meta-skill-audit/
+│   └── meta-sync-references/
 ├── agents/                       # Agent definitions
 │   └── code-reviewer.md
 ├── hooks/                        # Hook configurations
 │   └── hooks.json
 ├── documentation/                # All generated .md docs go here
-│   ├── PLAN.md
 │   ├── PROBLEM_STATEMENT.md
-│   ├── BRAINSTORMING.md
-│   ├── SKILL_AUDIT.md
-│   └── CLAUDE_SETUP.md
+│   └── BRAINSTORMING.md
 ├── library/                      # Reference material
 │   ├── hooks/                    # Hook examples by category
 │   ├── rules/                    # Reusable rule templates
 │   └── templates/                # CLAUDE.md templates
 ├── playbook/                     # Source of truth
 ├── test_project/                 # Verification project
+├── tests/                        # Validation scripts
 └── experiments/                  # Feature experiments
 ```
 
 ## Available Skills
 
-| Use Case | Skill | Purpose |
-|----------|-------|---------|
-| Architecture | `/architecture-arch` | Build mental model before coding |
-| Safe Changes | `/safe-changes-refactor-safe` | Refactor with explicit invariants |
-| Safe Changes | `/safe-changes-impact-check` | Understand blast radius |
-| Planning | `/planning-spec-from-text` | Convert vague input to specs |
-| Planning | `/planning-impl-plan` | Design before coding |
-| API Dev | `/api-development-api-impl` | Consistent endpoint implementation |
-| Quality | `/quality-review` | Assess quality + prioritize improvements |
-| Learning | `/learning-codebase-mastery` | Deep understanding + tutor mode |
-| Learning | `/learning-algo-practice` | Algorithm & interview prep for data scientists |
-| Learning | `/learning-concept-recall` | Spaced repetition for DS concepts |
-| Learning | `/learning-debug-training` | Systematic debugging training |
-| Learning | `/learning-code-review-eye` | Train your code review skills |
-| Meta | `/meta-experiment-feature` | Set up experiments for new features |
-| Meta | `/meta-project-setup` | Audit setup, recommend artifacts, detect library gaps |
-| Meta | `/meta-skill-audit` | Audit library for overlaps and gaps |
-| Meta | `/meta-sync-references` | Sync cross-references across all files |
+Skills are organized by workflow phase:
+
+| Phase | Skill | Purpose |
+|-------|-------|---------|
+| **Understand** | `/architecture-arch` | Build mental model before coding |
+| **Understand** | `/learning-codebase-mastery` | Deep understanding + tutor mode |
+| **Diagnose** | `/code-diagnosis` | Targeted scan for bugs, smells, refactoring opportunities |
+| **Diagnose** | `/quality-review` | Repo-wide health audit + prioritized improvements |
+| **Plan** | `/planning-spec-from-text` | Convert vague input to specs |
+| **Plan** | `/planning-impl-plan` | Design before coding |
+| **Build** | `/api-development-api-impl` | Consistent endpoint implementation |
+| **Build** | `/safe-changes-refactor-safe` | Refactor with explicit invariants |
+| **Build** | `/safe-changes-impact-check` | Understand blast radius |
+| **Learn** | `/learning-algo-practice` | Algorithm & interview prep for data scientists |
+| **Learn** | `/learning-concept-recall` | Spaced repetition for DS concepts |
+| **Learn** | `/learning-debug-training` | Systematic debugging training |
+| **Learn** | `/learning-code-review-eye` | Train your code review skills |
+| **Maintain** | `/meta-experiment-feature` | Set up experiments for new features |
+| **Maintain** | `/meta-project-setup` | Audit setup, recommend artifacts, detect library gaps |
+| **Maintain** | `/meta-skill-audit` | Audit library for overlaps and gaps |
+| **Maintain** | `/meta-sync-references` | Sync cross-references across all files |
 
 ## Agents
 

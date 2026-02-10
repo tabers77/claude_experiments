@@ -14,6 +14,12 @@ description: Analyze any project, audit its Claude Code setup, recommend existin
 - Need a tailored CLAUDE.md and rules generated for a project
 - Onboarding to a project and want optimal Claude Code configuration
 
+**Tip**: You can pass natural language arguments to focus on specific steps. For example:
+```
+/meta-project-setup only detect gaps for this project
+/meta-project-setup just audit the existing Claude setup
+```
+
 ---
 
 ## Process

@@ -40,30 +40,99 @@ bash setup-local.sh
 
 ## Available Skills
 
-| Category | Skill | Purpose |
-|----------|-------|---------|
-| **Architecture** | `/architecture-arch` | Build mental model before touching code |
-| **Safe Changes** | `/safe-changes-refactor-safe` | Refactor with explicit invariants and checkpoints |
-| **Safe Changes** | `/safe-changes-impact-check` | Understand blast radius before risky changes |
-| **Planning** | `/planning-spec-from-text` | Convert vague requirements into testable specs |
-| **Planning** | `/planning-impl-plan` | Design implementation before coding |
-| **API Development** | `/api-development-api-impl` | Implement endpoints with consistent patterns |
-| **Quality Review** | `/quality-review` | Assess quality + prioritize improvements |
-| **Learning** | `/learning-codebase-mastery` | Deep understanding + interactive tutor mode |
-| **Learning** | `/learning-algo-practice` | Algorithm & interview prep for data scientists |
-| **Learning** | `/learning-concept-recall` | Spaced repetition for DS concepts |
-| **Learning** | `/learning-debug-training` | Systematic debugging training |
-| **Learning** | `/learning-code-review-eye` | Train your code review skills |
-| **Meta** | `/meta-experiment-feature` | Set up experiments for new Claude Code features |
-| **Meta** | `/meta-project-setup` | Audit setup, recommend artifacts, detect library gaps |
-| **Meta** | `/meta-skill-audit` | Audit library for overlaps and gaps |
-| **Meta** | `/meta-sync-references` | Sync cross-references across all files |
+Skills are organized by **workflow phase** — what you're trying to do right now.
 
-## Agents
+### Understand — "What does this code do?"
+
+| Skill | Purpose | Use when... |
+|-------|---------|-------------|
+| `/architecture-arch` | Structural map of components, flows, risks | You need a **reference document** to look at while working |
+| `/learning-codebase-mastery` | Deep understanding through quizzes and exercises | You need to **learn and retain** how something works |
+
+### Diagnose — "What's wrong with it?"
+
+| Skill | Purpose | Use when... |
+|-------|---------|-------------|
+| `/code-diagnosis` | Targeted scan for bugs, smells, refactoring opportunities | You want to scan a **specific module or file** for concrete issues |
+| `/quality-review` | Repo-wide health audit with scoring and priority matrix | You want a **broad project health score** with prioritized actions |
+| `code-reviewer` agent | Review recent code changes (git diff) | You just **wrote or modified code** and want feedback |
+
+### Plan — "What should I build?"
+
+| Skill | Purpose | Use when... |
+|-------|---------|-------------|
+| `/planning-spec-from-text` | Convert vague requirements into testable specs | Requirements are **unclear or ambiguous** |
+| `/planning-impl-plan` | Design implementation approach before coding | Requirements are clear, you need to **plan the how** |
+
+### Build — "How do I change it safely?"
+
+| Skill | Purpose | Use when... |
+|-------|---------|-------------|
+| `/api-development-api-impl` | Implement endpoints with consistent patterns | Adding a **new API endpoint** |
+| `/safe-changes-refactor-safe` | Refactor with explicit invariants and checkpoints | **Multi-file refactors** or core logic changes |
+| `/safe-changes-impact-check` | Assess blast radius before risky changes | Changes to **DB schema, auth, orchestration**, or unclear scope |
+
+### Learn — "How do I get better?"
+
+| Skill | Purpose | Use when... |
+|-------|---------|-------------|
+| `/learning-algo-practice` | Algorithm & interview prep for data scientists | Practicing **problem-solving patterns** |
+| `/learning-concept-recall` | Spaced repetition for DS concepts | **Retaining** what you've studied |
+| `/learning-debug-training` | Systematic debugging training | Building **debugging instincts** |
+| `/learning-code-review-eye` | Train your code review skills | Sharpening your **review eye** |
+
+### Maintain — "How do I keep the library healthy?"
+
+| Skill | Purpose | Use when... |
+|-------|---------|-------------|
+| `/meta-experiment-feature` | Set up experiments for new Claude Code features | Trying a **new feature** (agents, MCP, hooks) |
+| `/meta-project-setup` | Audit setup, recommend artifacts, detect gaps | **Connecting the plugin** to a new project |
+| `/meta-skill-audit` | Audit library for overlaps and gaps | After **adding or changing skills** |
+| `/meta-sync-references` | Fix stale cross-references across files | After **structural changes** (rename, move, delete) |
+
+### Agents
 
 | Agent | Purpose |
 |-------|---------|
-| `code-reviewer` | Expert code review after writing/modifying code |
+| `code-reviewer` | Expert code review after writing/modifying code (listed under Diagnose above) |
+
+---
+
+## Quick Reference: Which Skill When?
+
+```
+I need to...                          Use this
+────────────────────────────────────────────────────────────────
+UNDERSTAND
+  Map a codebase (reference doc)      /architecture-arch
+  Learn a codebase (retain it)        /learning-codebase-mastery
+
+DIAGNOSE
+  Scan specific code for issues       /code-diagnosis
+  Assess overall project health       /quality-review
+  Review code I just wrote            code-reviewer agent
+
+PLAN
+  Clarify vague requirements          /planning-spec-from-text
+  Design before coding                /planning-impl-plan
+
+BUILD
+  Add an API endpoint                 /api-development-api-impl
+  Refactor safely                     /safe-changes-refactor-safe
+  Check blast radius                  /safe-changes-impact-check
+
+LEARN
+  Practice algorithms & interviews    /learning-algo-practice
+  Retain concepts (spaced repetition) /learning-concept-recall
+  Train debugging skills              /learning-debug-training
+  Sharpen code review instincts       /learning-code-review-eye
+
+MAINTAIN
+  Try a new Claude feature            /meta-experiment-feature
+  Set up Claude in a new project      /meta-project-setup
+  Check for skill overlaps            /meta-skill-audit
+  Fix stale references                /meta-sync-references
+```
 
 ---
 
@@ -75,6 +144,7 @@ claude_experiments/
 │   └── plugin.json              # Plugin manifest (hooks inline)
 ├── skills/                       # Plugin skills (auto-discovered)
 │   ├── architecture-arch/
+│   ├── code-diagnosis/
 │   ├── safe-changes-refactor-safe/
 │   ├── safe-changes-impact-check/
 │   ├── planning-spec-from-text/
@@ -82,24 +152,21 @@ claude_experiments/
 │   ├── api-development-api-impl/
 │   ├── quality-review/
 │   ├── learning-codebase-mastery/
-│   ├── meta-experiment-feature/
-│   ├── meta-project-setup/
-│   ├── meta-skill-audit/
-│   ├── meta-sync-references/
 │   ├── learning-algo-practice/
 │   ├── learning-concept-recall/
 │   ├── learning-debug-training/
-│   └── learning-code-review-eye/
+│   ├── learning-code-review-eye/
+│   ├── meta-experiment-feature/
+│   ├── meta-project-setup/
+│   ├── meta-skill-audit/
+│   └── meta-sync-references/
 ├── agents/                       # Agent definitions
 │   └── code-reviewer.md
 ├── hooks/                        # Hook reference copy
 │   └── hooks.json
 ├── documentation/                # All generated .md docs
-│   ├── PLAN.md
 │   ├── PROBLEM_STATEMENT.md
-│   ├── BRAINSTORMING.md
-│   ├── SKILL_AUDIT.md
-│   └── CLAUDE_SETUP.md
+│   └── BRAINSTORMING.md
 ├── library/                      # Reference material
 │   ├── hooks/                    # Hook examples by category
 │   ├── rules/                    # Reusable rule templates
@@ -122,9 +189,9 @@ Skills are designed to be **chained**, not used in isolation. This guide shows w
 
 ```
 1. /meta-project-setup              # Re-audit setup, check for new best practices
-2. /meta-skill-audit                 # Check for overlaps or gaps after recent changes
-3. /meta-sync-references             # Fix any stale references across files
-4. python tests/test_skills.py       # Verify all skills are valid
+2. /meta-skill-audit                # Check for overlaps or gaps after recent changes
+3. /meta-sync-references            # Fix any stale references across files
+4. python tests/test_skills.py      # Verify all skills are valid
 ```
 
 Run this every week or after a batch of changes. This is your "hygiene" loop — it catches drift before it accumulates.
@@ -132,15 +199,15 @@ Run this every week or after a batch of changes. This is your "hygiene" loop —
 #### After Adding or Modifying a Skill
 
 ```
-1. /meta-skill-audit                 # Does the new skill overlap with existing ones?
-2. /meta-sync-references             # Update CLAUDE.md, README, tests with new skill
-3. python tests/test_skills.py       # Confirm structure is valid
+1. /meta-skill-audit                # Does the new skill overlap with existing ones?
+2. /meta-sync-references            # Update CLAUDE.md, README, tests with new skill
+3. python tests/test_skills.py      # Confirm structure is valid
 ```
 
 #### After Any Structural Change (moving files, renaming, deleting)
 
 ```
-1. /meta-sync-references             # Detect and fix all broken references
+1. /meta-sync-references            # Detect and fix all broken references
 ```
 
 ---
@@ -155,12 +222,9 @@ You just connected the plugin to a project you've never seen before.
 1. /meta-project-setup               # Fingerprint the project, get tailored recommendations
 2. /architecture-arch                 # Map the structure — components, paths, risks
 3. /learning-codebase-mastery         # Deep dive into critical modules (tutor mode)
-4. /quality-review                    # Baseline health score + what needs fixing
+4. /code-diagnosis                    # Scan key modules for bugs and smells
+5. /quality-review                    # Baseline health score + what needs fixing
 ```
-
-**When to use which for understanding code:**
-- `/architecture-arch` → you need a **reference map** to look at while working
-- `/learning-codebase-mastery` → you need to **learn and retain** how something works
 
 #### Planning a New Feature
 
@@ -188,9 +252,10 @@ You have a feature request — from a clear spec to a vague idea.
 
 ```
 1. /architecture-arch                 # Understand what you're about to change
-2. /safe-changes-impact-check         # Assess blast radius — what breaks?
-3. /safe-changes-refactor-safe        # Execute with invariants and checkpoints
-4. code-reviewer agent                # Verify the result
+2. /code-diagnosis                    # Find all issues in the target area
+3. /safe-changes-impact-check         # Assess blast radius — what breaks?
+4. /safe-changes-refactor-safe        # Execute with invariants and checkpoints
+5. code-reviewer agent                # Verify the result
 ```
 
 #### Tackling Tech Debt
@@ -199,9 +264,17 @@ You have a feature request — from a clear spec to a vague idea.
 1. /quality-review                    # Score the project, get the priority matrix
    # Phase 1: identifies all issues with evidence
    # Phase 2: categorizes into Do Now / Plan Soon / Monitor / Accept
-2. Pick items from "Do Now"
+2. /code-diagnosis                    # Deep dive into "Do Now" items
 3. /safe-changes-refactor-safe        # Execute each fix safely
 4. /quality-review                    # Re-score to measure improvement
+```
+
+#### Investigating Suspicious Code
+
+```
+1. /code-diagnosis                    # Scan for bugs, smells, security issues
+2. /safe-changes-impact-check         # Before fixing — what's the blast radius?
+3. /safe-changes-refactor-safe        # Fix with explicit invariants
 ```
 
 #### Experimenting with a New Claude Code Feature
@@ -230,13 +303,6 @@ You have a feature request — from a clear spec to a vague idea.
 1. /learning-concept-recall add concepts               # Register new topics for future recall
 ```
 
-**When to use which learning skill:**
-- `/learning-codebase-mastery` -> learn a **specific codebase** you're working in
-- `/learning-algo-practice` -> build **problem-solving patterns** for interviews
-- `/learning-concept-recall` -> **retain** what you've already studied
-- `/learning-debug-training` -> develop **systematic debugging** instincts
-- `/learning-code-review-eye` -> sharpen your **code review** eye
-
 #### Making a Risky Change (DB schema, auth, core logic)
 
 ```
@@ -245,32 +311,6 @@ You have a feature request — from a clear spec to a vague idea.
 2. /planning-impl-plan                # Plan the safest approach
 3. /safe-changes-refactor-safe        # Execute with explicit invariants
 4. code-reviewer agent                # Final review
-```
-
----
-
-### Quick Reference: Which Skill When?
-
-```
-I need to...                          Use this
-─────────────────────────────────────────────────────────
-Understand a codebase (map)           /architecture-arch
-Understand a codebase (learn)         /learning-codebase-mastery
-Clarify vague requirements            /planning-spec-from-text
-Plan before coding                    /planning-impl-plan
-Add an API endpoint                   /api-development-api-impl
-Refactor safely                       /safe-changes-refactor-safe
-Check blast radius                    /safe-changes-impact-check
-Assess project health                 /quality-review
-Review code after changes             code-reviewer agent
-Try a new Claude feature              /meta-experiment-feature
-Set up Claude in a new project        /meta-project-setup
-Check for skill overlaps              /meta-skill-audit
-Fix stale references                  /meta-sync-references
-Practice algorithms & interviews      /learning-algo-practice
-Retain concepts (spaced repetition)   /learning-concept-recall
-Train debugging skills                /learning-debug-training
-Sharpen code review instincts         /learning-code-review-eye
 ```
 
 ---
@@ -289,6 +329,18 @@ Before touching unfamiliar code, map it first:
 ```
 
 **Output**: 10-line overview, component map, execution paths, critical files, risks.
+
+### `/code-diagnosis` — Targeted Code Diagnosis
+
+Point it at code you're suspicious of:
+
+```
+/code-diagnosis src/auth/
+/code-diagnosis src/pipeline.py focus on performance
+/code-diagnosis src/utils/ I'm about to refactor this — what should I know?
+```
+
+**Output**: Bugs (fix now), smells (fix soon), opportunities (fix when convenient), refactoring roadmap.
 
 ### `/safe-changes-refactor-safe` — Safe Refactoring
 
