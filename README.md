@@ -18,13 +18,35 @@ This library provides all of these, extracted from real-world usage patterns doc
 ### As a plugin (recommended)
 
 ```bash
-# Connect to any project — all skills available instantly
+# One-time use from any project
 claude --plugin-dir /path/to/claude_experiments
 
 # Skills are namespaced
 /claude-library:architecture-arch    # Build mental model of codebase
 /claude-library:meta-project-setup   # Analyze project & get recommendations
 ```
+
+### Permanent setup (no `--plugin-dir` needed)
+
+Add to **`~/.claude/settings.json`** (global — all projects) or **`your-project/.claude/settings.json`** (per-project):
+
+```json
+{
+  "enabledPlugins": {
+    "claude-library@local-library": true
+  },
+  "extraKnownMarketplaces": {
+    "local-library": {
+      "source": {
+        "source": "directory",
+        "path": "/path/to/claude_experiments"
+      }
+    }
+  }
+}
+```
+
+Then just run `claude` — the plugin loads automatically. Use the global path for all projects, or per-project to share with teammates via git.
 
 ### Local development (this repo)
 
@@ -409,6 +431,90 @@ Hooks are inlined in `.claude-plugin/plugin.json`. Reference copies in `hooks/ho
 ```
 
 See `library/hooks/*/README.md` for more examples.
+
+---
+
+## Setting Up Rules
+
+Rules are `.md` files in `.claude/rules/` that Claude reads automatically on every conversation. They teach Claude your project's conventions so you don't repeat yourself.
+
+**Rules vs `CLAUDE.md`**: `CLAUDE.md` is the project overview (the "what"). Rules are behavioral constraints Claude must follow (the "how").
+
+### Where rules live
+
+```
+your-project/
+└── .claude/
+    └── rules/
+        ├── style.md       # Naming, formatting, imports
+        ├── testing.md      # Test conventions and coverage
+        ├── security.md     # Secrets, validation, auth
+        └── api.md          # Endpoint patterns (if applicable)
+```
+
+### Minimum rules for any project
+
+You need at least **two rules** to get meaningful value. These cover the most common sources of "Claude did something I wouldn't do."
+
+**1. `style.md`** (required) — prevents Claude from using wrong naming, skipping type hints, or misorganizing imports:
+
+```markdown
+# Style Rules
+
+## Naming Conventions
+- Functions/variables: `snake_case`
+- Classes: `PascalCase`
+- Constants: `UPPER_SNAKE_CASE`
+
+## Type Hints
+- Required for function signatures
+- Use `Optional[]` for nullable
+
+## Imports
+- Standard library first, third-party second, local third
+- Sorted alphabetically within groups
+
+## Formatting
+- Use project formatter (ruff/black)
+- Line length: 88-100 characters
+```
+
+**2. `testing.md`** (required) — ensures tests go in the right place with the right patterns:
+
+```markdown
+# Testing Rules
+
+## Structure
+- Unit tests in `tests/unit/`, integration in `tests/integration/`
+- Files named `test_*.py`
+
+## Conventions
+- One assertion concept per test
+- Names: `test_[what]_[condition]_[expected]`
+- Use fixtures for common setup
+- Mock external dependencies
+
+## Coverage
+- Critical paths: 90%+
+- Happy + error paths: covered
+```
+
+### Additional rules (add as needed)
+
+| Rule | When to add | What it prevents |
+|------|-------------|-----------------|
+| `security.md` | Projects with user input, auth, or secrets | Hardcoded secrets, skipped validation, careless auth changes |
+| `api.md` | Projects with API endpoints | Inconsistent error formats, wrong status codes, missing docs |
+| `project.md` | Projects with unique workflows | Claude ignoring your team's specific conventions |
+
+Ready-to-copy templates are in `library/rules/`. Or run `/meta-project-setup` to get recommendations tailored to your project.
+
+### Rule writing tips
+
+- **Be specific** — "Functions: `snake_case`" is actionable. "Write clean code" is not.
+- **One topic per file** — Don't mix style and security in the same file.
+- **Include commands** — If the rule relates to running something, include the exact command.
+- **List sensitive paths** — Tell Claude which directories need extra caution.
 
 ---
 

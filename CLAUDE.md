@@ -8,12 +8,31 @@ A reusable Claude Code **plugin** that provides skills, agents, hooks, and rules
 
 ### Connect to any project
 ```bash
-# Use as a plugin from any project
+# One-time use from any project
 claude --plugin-dir /path/to/claude_experiments
-
-# Or add to your project's .claude/settings.json:
-# { "plugins": ["/path/to/claude_experiments"] }
 ```
+
+### Permanent setup (no flag needed)
+
+Add to **`~/.claude/settings.json`** (global — all projects) or **`your-project/.claude/settings.json`** (per-project):
+
+```json
+{
+  "enabledPlugins": {
+    "claude-library@local-library": true
+  },
+  "extraKnownMarketplaces": {
+    "local-library": {
+      "source": {
+        "source": "directory",
+        "path": "/path/to/claude_experiments"
+      }
+    }
+  }
+}
+```
+
+Then just run `claude` — the plugin loads automatically.
 
 ### Plugin skills are namespaced
 ```bash
