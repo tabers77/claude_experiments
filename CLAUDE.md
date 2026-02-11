@@ -87,28 +87,28 @@ claude_experiments/
 
 ## Available Skills
 
-Skills are organized by workflow phase:
+Skills are organized by tier:
 
-| Phase | Skill | Purpose |
-|-------|-------|---------|
-| **Understand** | `/architecture-arch` | Build mental model before coding |
-| **Understand** | `/learning-codebase-mastery` | Deep understanding + tutor mode |
-| **Diagnose** | `/code-diagnosis` | Targeted scan for bugs, smells, refactoring opportunities |
-| **Diagnose** | `/quality-review` | Repo-wide health audit + prioritized improvements |
-| **Diagnose** | `/quality-upgrade-advisor` | Ecosystem currency check + prioritized upgrade roadmap |
-| **Plan** | `/planning-spec-from-text` | Convert vague input to specs |
-| **Plan** | `/planning-impl-plan` | Design before coding |
-| **Build** | `/api-development-api-impl` | Consistent endpoint implementation |
-| **Build** | `/safe-changes-refactor-safe` | Refactor with explicit invariants |
-| **Build** | `/safe-changes-impact-check` | Understand blast radius |
-| **Learn** | `/learning-algo-practice` | Algorithm & interview prep for data scientists |
-| **Learn** | `/learning-concept-recall` | Spaced repetition for DS concepts |
-| **Learn** | `/learning-debug-training` | Systematic debugging training |
-| **Learn** | `/learning-code-review-eye` | Train your code review skills |
-| **Maintain** | `/meta-experiment-feature` | Set up experiments for new features |
-| **Maintain** | `/meta-project-setup` | Audit setup, recommend artifacts, detect library gaps |
-| **Maintain** | `/meta-skill-audit` | Audit library for overlaps and gaps |
-| **Maintain** | `/meta-sync-references` | Sync cross-references across all files |
+| Tier | Skill | Purpose |
+|------|-------|---------|
+| **Core** | `/quality-review` | Repo-wide health audit + prioritized improvements |
+| **Core** | `/architecture-arch` | Build mental model before coding |
+| **Core** | `/code-diagnosis` | Targeted scan for bugs, smells, refactoring opportunities |
+| **Core** | `/safe-changes-impact-check` | Understand blast radius |
+| **Core** | `/safe-changes-refactor-safe` | Refactor with explicit invariants |
+| **Core** | `/planning-impl-plan` | Design before coding |
+| **Specialized** | `/quality-upgrade-advisor` | Ecosystem currency check + prioritized upgrade roadmap |
+| **Specialized** | `/api-development-api-impl` | Consistent endpoint implementation |
+| **Specialized** | `/planning-spec-from-text` | Convert vague input to specs |
+| **Specialized** | `/learning-codebase-mastery` | Deep understanding + tutor mode |
+| **Specialized** | `/meta-project-setup` | Audit setup, recommend artifacts, detect library gaps |
+| **Specialized** | `/meta-skill-audit` | Audit library for overlaps and gaps |
+| **Specialized** | `/meta-sync-references` | Sync cross-references across all files |
+| **Learning** | `/learning-algo-practice` | Algorithm & interview prep for data scientists |
+| **Learning** | `/learning-concept-recall` | Spaced repetition for DS concepts |
+| **Learning** | `/learning-debug-training` | Systematic debugging training |
+| **Learning** | `/learning-code-review-eye` | Train your code review skills |
+| **Maintenance** | `/meta-experiment-feature` | Set up experiments for new features |
 
 ## Agents
 
