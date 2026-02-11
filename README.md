@@ -15,38 +15,138 @@ This library provides all of these, extracted from real-world usage patterns doc
 
 ## Quick Start
 
-### As a plugin (recommended)
+### One-time use
+
+From any project, pass the plugin path directly:
 
 ```bash
-# One-time use from any project
 claude --plugin-dir /path/to/claude_experiments
+```
 
-# Skills are namespaced
+Skills are namespaced:
+```
 /claude-library:architecture-arch    # Build mental model of codebase
 /claude-library:meta-project-setup   # Analyze project & get recommendations
 ```
 
 ### Permanent setup (no `--plugin-dir` needed)
 
-Add to **`~/.claude/settings.json`** (global — all projects) or **`your-project/.claude/settings.json`** (per-project):
+Instead of typing the full `--plugin-dir` path every time, create a shell alias that does it for you. Follow the guide for your OS below.
 
-```json
-{
-  "enabledPlugins": {
-    "claude-library@local-library": true
-  },
-  "extraKnownMarketplaces": {
-    "local-library": {
-      "source": {
-        "source": "directory",
-        "path": "/path/to/claude_experiments"
-      }
-    }
-  }
-}
+> **Why not `settings.json`?** Claude Code's `extraKnownMarketplaces` config is for **marketplace directories** (folders containing multiple plugins in subdirectories). A single plugin repo like this one doesn't fit that format. The `--plugin-dir` flag is the intended way to load a single plugin, and a shell alias is the cleanest way to avoid retyping it.
+
+---
+
+#### Windows (PowerShell) — step by step
+
+This is what most VS Code users on Windows will use.
+
+**Step 1: Check if you already have a PowerShell profile**
+
+Open a terminal in VS Code (or any PowerShell window) and run:
+
+```powershell
+Test-Path $PROFILE
 ```
 
-Then just run `claude` — the plugin loads automatically. Use the global path for all projects, or per-project to share with teammates via git.
+- If it returns `True` → you already have a profile, skip to Step 3.
+- If it returns `False` → continue to Step 2.
+
+**Step 2: Create the profile file**
+
+```powershell
+New-Item -Path $PROFILE -Type File -Force
+```
+
+**Step 3: Open the profile in Notepad**
+
+```powershell
+notepad $PROFILE
+```
+
+**Step 4: Add the alias function**
+
+In Notepad, add this line (update the path to match where you cloned this repo):
+
+```powershell
+function claude-lib { claude --plugin-dir "C:\Users\YOUR_USERNAME\path\to\claude_experiments" $args }
+```
+
+Save the file and close Notepad.
+
+**Step 5: Reload the profile**
+
+Back in your terminal, run:
+
+```powershell
+. $PROFILE
+```
+
+If you get a script execution error, run this first, then retry:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+```
+
+**Step 6: Verify it works**
+
+Navigate to any project and run:
+
+```powershell
+claude-lib
+```
+
+You should see Claude Code start with all plugin skills available. Done!
+
+---
+
+#### macOS / Linux (Bash or Zsh) — step by step
+
+**Step 1: Open your shell config**
+
+```bash
+# For Zsh (default on macOS)
+nano ~/.zshrc
+
+# For Bash (default on most Linux)
+nano ~/.bashrc
+```
+
+**Step 2: Add the alias**
+
+Add this line at the end of the file (update the path to match where you cloned this repo):
+
+```bash
+alias claude-lib='claude --plugin-dir /path/to/claude_experiments'
+```
+
+Save and exit (`Ctrl+O`, `Enter`, `Ctrl+X` in nano).
+
+**Step 3: Reload**
+
+```bash
+source ~/.zshrc   # or source ~/.bashrc
+```
+
+**Step 4: Verify it works**
+
+Navigate to any project and run:
+
+```bash
+claude-lib
+```
+
+---
+
+#### What `claude-lib` does
+
+`claude-lib` is identical to `claude` — same features, same flags, same behavior. The only difference is it automatically adds `--plugin-dir` for you.
+
+| You type | What actually runs |
+|---|---|
+| `claude-lib` | `claude --plugin-dir "/path/to/claude_experiments"` |
+| `claude-lib --model sonnet` | `claude --plugin-dir "/path/to/claude_experiments" --model sonnet` |
+| `claude-lib --resume` | `claude --plugin-dir "/path/to/claude_experiments" --resume` |
 
 ### Local development (this repo)
 

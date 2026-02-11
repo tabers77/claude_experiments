@@ -6,33 +6,26 @@ A reusable Claude Code **plugin** that provides skills, agents, hooks, and rules
 
 ## Quick Start
 
-### Connect to any project
+### One-time use
 ```bash
-# One-time use from any project
 claude --plugin-dir /path/to/claude_experiments
 ```
 
 ### Permanent setup (no flag needed)
 
-Add to **`~/.claude/settings.json`** (global — all projects) or **`your-project/.claude/settings.json`** (per-project):
+Create a shell alias so `claude-lib` works from any project. See README.md for full step-by-step guides per OS.
 
-```json
-{
-  "enabledPlugins": {
-    "claude-library@local-library": true
-  },
-  "extraKnownMarketplaces": {
-    "local-library": {
-      "source": {
-        "source": "directory",
-        "path": "/path/to/claude_experiments"
-      }
-    }
-  }
-}
+**Windows (PowerShell):** Add to `$PROFILE`:
+```powershell
+function claude-lib { claude --plugin-dir "C:\path\to\claude_experiments" $args }
 ```
 
-Then just run `claude` — the plugin loads automatically.
+**macOS/Linux (Bash/Zsh):** Add to `~/.bashrc` or `~/.zshrc`:
+```bash
+alias claude-lib='claude --plugin-dir /path/to/claude_experiments'
+```
+
+Then run `claude-lib` from any project — identical to `claude` but with the plugin pre-loaded.
 
 ### Plugin skills are namespaced
 ```bash
