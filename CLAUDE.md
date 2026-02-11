@@ -58,6 +58,7 @@ claude_experiments/
 │   ├── planning-impl-plan/
 │   ├── api-development-api-impl/
 │   ├── quality-review/
+│   ├── quality-upgrade-advisor/
 │   ├── learning-codebase-mastery/
 │   ├── learning-algo-practice/
 │   ├── learning-concept-recall/
@@ -94,6 +95,7 @@ Skills are organized by workflow phase:
 | **Understand** | `/learning-codebase-mastery` | Deep understanding + tutor mode |
 | **Diagnose** | `/code-diagnosis` | Targeted scan for bugs, smells, refactoring opportunities |
 | **Diagnose** | `/quality-review` | Repo-wide health audit + prioritized improvements |
+| **Diagnose** | `/quality-upgrade-advisor` | Ecosystem currency check + prioritized upgrade roadmap |
 | **Plan** | `/planning-spec-from-text` | Convert vague input to specs |
 | **Plan** | `/planning-impl-plan` | Design before coding |
 | **Build** | `/api-development-api-impl` | Consistent endpoint implementation |

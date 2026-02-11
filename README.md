@@ -177,6 +177,7 @@ Skills are organized by **workflow phase** — what you're trying to do right no
 |-------|---------|-------------|
 | `/code-diagnosis` | Targeted scan for bugs, smells, refactoring opportunities | You want to scan a **specific module or file** for concrete issues |
 | `/quality-review` | Repo-wide health audit with scoring and priority matrix | You want a **broad project health score** with prioritized actions |
+| `/quality-upgrade-advisor` | Ecosystem currency check + prioritized upgrade roadmap | You want to know which **dependencies are stale** and what to upgrade |
 | `code-reviewer` agent | Review recent code changes (git diff) | You just **wrote or modified code** and want feedback |
 
 ### Plan — "What should I build?"
@@ -232,6 +233,7 @@ UNDERSTAND
 DIAGNOSE
   Scan specific code for issues       /code-diagnosis
   Assess overall project health       /quality-review
+  Check dependency/ecosystem currency /quality-upgrade-advisor
   Review code I just wrote            code-reviewer agent
 
 PLAN
@@ -273,6 +275,7 @@ claude_experiments/
 │   ├── planning-impl-plan/
 │   ├── api-development-api-impl/
 │   ├── quality-review/
+│   ├── quality-upgrade-advisor/
 │   ├── learning-codebase-mastery/
 │   ├── learning-algo-practice/
 │   ├── learning-concept-recall/
@@ -386,9 +389,20 @@ You have a feature request — from a clear spec to a vague idea.
 1. /quality-review                    # Score the project, get the priority matrix
    # Phase 1: identifies all issues with evidence
    # Phase 2: categorizes into Do Now / Plan Soon / Monitor / Accept
-2. /code-diagnosis                    # Deep dive into "Do Now" items
-3. /safe-changes-refactor-safe        # Execute each fix safely
-4. /quality-review                    # Re-score to measure improvement
+2. /quality-upgrade-advisor           # Check ecosystem currency — stale deps, deprecated APIs
+3. /code-diagnosis                    # Deep dive into "Do Now" items
+4. /safe-changes-refactor-safe        # Execute each fix safely
+5. /quality-review                    # Re-score to measure improvement
+```
+
+#### Upgrading Dependencies
+
+```
+1. /quality-upgrade-advisor           # Audit ecosystem currency, get prioritized roadmap
+   # Produces documentation/UPGRADE_ROADMAP.md with batched upgrade steps
+2. /safe-changes-impact-check         # Check blast radius for Critical/Recommended upgrades
+3. /safe-changes-refactor-safe        # Execute each upgrade batch with verification
+4. /quality-upgrade-advisor           # Re-audit to confirm improvements
 ```
 
 #### Investigating Suspicious Code
@@ -499,6 +513,25 @@ Two modes for deep understanding:
 # Interactive tutor mode (Claude asks YOU questions)
 /learning-codebase-mastery tutor src/api/routes.py
 ```
+
+### `/quality-upgrade-advisor` — Ecosystem Currency Check
+
+Audit dependencies against official docs and produce an upgrade roadmap:
+
+```
+# Full ecosystem audit
+/quality-upgrade-advisor
+
+# Focus on security only
+/quality-upgrade-advisor focus on security patches and CVEs only
+
+# With vision context
+/quality-upgrade-advisor
+We want to move toward async-first architecture.
+Only recommend upgrades that help with that goal.
+```
+
+**Output**: Project Identity Card, tiered recommendations (Critical / Recommended / Consider / Skip), batched upgrade sequence with exact commands, `documentation/UPGRADE_ROADMAP.md`.
 
 ---
 
