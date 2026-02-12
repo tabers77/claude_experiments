@@ -297,7 +297,7 @@ Each entry-point skill already recommends next steps in its output, so you rarel
 | **Tackling tech debt** | `/quality-review` | `diagnosis` + `refactor-safe` |
 | **Refactoring existing code** | `/safe-changes-impact-check` | `refactor-safe` + `code-reviewer` |
 | **Planning a new feature** | `/planning-impl-plan` | `spec-from-text` if requirements are vague |
-| **Wrapping up a session** | `/session-wrapup` | (that's it — auto-syncs docs and tracks progress) |
+| **Wrapping up a session** | `/session-wrapup` | `learning-code-review-eye` to quiz yourself on what you just built |
 | **Upgrading dependencies** | `/quality-upgrade-advisor` | `impact-check` + `refactor-safe` |
 | **Adding an API endpoint** | `/api-development-api-impl` | `impl-plan` + `code-reviewer` |
 | **Making a risky change** | `/safe-changes-impact-check` | `impl-plan` + `refactor-safe` |

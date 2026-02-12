@@ -83,21 +83,42 @@ Combine these sources to build the next steps list:
 
 **Priority order**: Plan items first, then code TODOs, then inferred follow-ups.
 
-### Step 4: Auto-Fix Stale Docs (write)
+### Step 4: Update All Relevant Documentation (write)
 
-Based on the session delta, check if structural changes were made that affect docs:
+Based on the session delta, identify **every documentation file** that is affected by the changes and update it. This is not limited to structural changes — any change that makes existing documentation inaccurate or incomplete must be fixed.
 
-- **New skill/agent added or removed?** — Check `CLAUDE.md` and `README.md` tables and directory trees
-- **Files moved or renamed?** — Check for broken references
-- **Skill count changed?** — Check `tests/test_skills.py` expected count
+#### 4a: Identify which docs are affected
 
-If issues are found:
-1. Fix them automatically (update tables, trees, counts)
-2. Report what was fixed
+Read the git changes and determine what was modified. Then check each documentation file for relevance:
 
-If no structural changes were made, skip this step and report "No doc sync needed."
+| What changed | Docs to check and update |
+|---|---|
+| New skill/agent added or removed | `CLAUDE.md` tables + tree, `README.md` tables + tree + quick reference + workflow guide, `tests/test_skills.py` count |
+| New feature or behavior | `README.md` (feature descriptions, workflow guide, skill highlights), `CLAUDE.md` (key commands, available skills) |
+| API or endpoint changes | `README.md` (API examples), `CLAUDE.md` (key commands) |
+| Workflow or process changes | `README.md` (practical workflow guide, quick reference) |
+| Files moved or renamed | All docs — search for broken references to old paths |
+| Configuration changes | `README.md` (setup sections), `CLAUDE.md` (quick start) |
+| Hook or rule changes | `README.md` (hook examples, rules section), `CLAUDE.md` (repo structure) |
+| Test changes | `CLAUDE.md` (key commands if test commands changed) |
+| Dependencies changed | `README.md` (setup/install instructions) |
 
-> **Note**: For comprehensive cross-reference checks beyond the session delta, use `/meta-sync-references` directly.
+#### 4b: For each affected doc, apply fixes
+
+For each documentation file that needs updating:
+1. **Read the current content**
+2. **Compare against the session delta** — what is now inaccurate, missing, or outdated?
+3. **Edit the file** — update tables, descriptions, examples, counts, paths, workflow guides, etc.
+4. **Record what was changed** for the final report
+
+#### 4c: Verify consistency across docs
+
+After individual fixes, cross-check that all docs agree with each other:
+- Skill/agent counts match between `CLAUDE.md`, `README.md`, and `tests/test_skills.py`
+- Tables in `CLAUDE.md` and `README.md` list the same items (though format may differ)
+- Directory trees match the actual filesystem
+
+If no documentation is affected by the changes, report "No doc updates needed."
 
 ### Step 5: Update the Plan File (write)
 
