@@ -21,7 +21,23 @@ description: Close out a coding session cleanly. Git-driven — detects what cha
 
 ## Process
 
-### Step 1: Git Change Detection
+### Step 1: Locate the Implementation Plan
+
+**Ask the user**: "Which file is your implementation/plan file?" and offer common options:
+- A path they provide (e.g., `documentation/IMPLEMENTATION_PLAN.md`, `TODO.md`, `PLAN.md`)
+- Auto-detect: search for files matching common names (`*PLAN*`, `*TODO*`, `*IMPLEMENTATION*`, `*ROADMAP*`) in `documentation/` and repo root
+- Create a new one
+
+If the user provides a file path, use it. If auto-detect finds candidates, present them for selection. Store the chosen path as **plan_file**.
+
+**Read the plan file** (if it exists) and extract:
+- **Planned steps** — any checklist items (`- [ ]`, `- [x]`), numbered steps, or task descriptions
+- **Previous session entries** — any prior wrap-up sections
+- **Overall goals** — the high-level objective described in the plan
+
+Store this as the **plan state** for cross-referencing in later steps.
+
+### Step 2: Git Change Detection
 
 Use git to understand what happened this session — no full repo scan.
 
@@ -42,7 +58,7 @@ git diff --staged
 
 Store the results as the **session delta**.
 
-### Step 2: Uncommitted Work Check
+### Step 3: Uncommitted Work Check
 
 If `git status` shows uncommitted changes:
 
@@ -51,26 +67,30 @@ If `git status` shows uncommitted changes:
 3. If yes — help them commit (suggest a message based on the diff)
 4. If no — note the uncommitted work in the session summary so it's not lost
 
-### Step 3: Summarize What Was Completed
+### Step 4: Cross-Reference Plan vs Changes
 
-From the git log and diffs, extract:
+This is the core step. Compare the **plan state** (from Step 1) against the **session delta** (from Step 2).
 
-- **What was implemented** — list each meaningful change (not every file, but each logical unit of work)
-- **What was modified** — existing code that was updated
-- **What was fixed** — bugs or issues resolved
+#### 4a: Mark completed plan items
+For each planned step/task in the plan file:
+- Check if the git changes (commits + diffs) address that item
+- If yes → mark it as completed (`- [x]`) and note the evidence (commit hash or changed files)
+- If partially done → leave unchecked but add a note about progress
 
-Write this as a concise bullet list. Use commit messages as the primary source, supplemented by diff analysis for uncommitted work.
+#### 4b: Flag plan inaccuracies
+- **Steps that are done but not in the plan** — work was done that the plan didn't anticipate. Add these as new completed items.
+- **Steps marked as done previously but code was reverted/changed** — flag as potentially stale.
+- **Steps that are no longer relevant** — if the approach changed, flag for user review.
 
-### Step 4: Identify Next Steps
+#### 4c: Identify next steps
+Combine these sources to build the next steps list:
+1. **Remaining unchecked items from the plan** — these are the primary next steps
+2. **TODOs in code** — Scan changed files for `TODO`, `FIXME`, `HACK`, `XXX` comments
+3. **Partial implementations** — Functions with `pass`, `NotImplementedError`, or stub returns
+4. **Failing tests** — If test files were changed, note which tests may need attention
+5. **Logical follow-ups** — Based on what was done, what naturally comes next?
 
-Analyze the session delta to infer what's pending:
-
-1. **TODOs in code** — Scan changed files for `TODO`, `FIXME`, `HACK`, `XXX` comments
-2. **Partial implementations** — Functions with `pass`, `NotImplementedError`, or stub returns
-3. **Failing tests** — If test files were changed, note which tests may need attention
-4. **Logical follow-ups** — Based on what was done, what naturally comes next?
-
-Present these as actionable next steps, not vague suggestions.
+**Priority order**: Plan items first, then code TODOs, then inferred follow-ups.
 
 ### Step 5: Auto-Fix Stale Docs
 
@@ -88,48 +108,54 @@ If no structural changes were made, skip this step and report "No doc sync neede
 
 > **Note**: For comprehensive cross-reference checks beyond the session delta, use `/meta-sync-references` directly.
 
-### Step 6: Update Implementation Plan
+### Step 6: Update the Plan File
 
-Write or append to the project's implementation tracking document (typically `documentation/IMPLEMENTATION_PLAN.md` or whichever planning doc exists).
+**This step writes to the plan file. Everything from this session must be persisted — not just displayed in the terminal.**
 
-#### If the planning doc exists:
+#### If the plan file exists:
 
-Append a new session entry:
+1. **Update existing checklist items** — mark completed items as `- [x]` based on Step 4a findings
+2. **Add any unplanned completed work** — new items from Step 4b, marked as `- [x]`
+3. **Append a session entry** at the end of the file:
 
 ```markdown
 ---
 
 ## Session: [YYYY-MM-DD] — [branch name]
 
-### Completed
-- [bullet list from Step 3]
+### Completed This Session
+- [bullet list of what was done, from Step 4a + 4b]
 
 ### In Progress (uncommitted)
 - [any uncommitted work, or "None — all changes committed"]
 
-### Next Steps
-- [ ] [actionable item from Step 4]
-- [ ] [actionable item from Step 4]
-- [ ] ...
+### Remaining Steps
+- [ ] [unchecked plan items, ordered by priority]
+- [ ] [new next steps from Step 4c]
+
+### Plan Accuracy Notes
+- [any inaccuracies found in Step 4b, or "Plan is accurate"]
 
 ### Doc Sync
 - [what was auto-fixed, or "No doc sync needed"]
 ```
 
-#### If no planning doc exists:
+#### If the plan file does not exist:
 
-Create `documentation/IMPLEMENTATION_PLAN.md` with:
+Create it at the chosen path with:
 
 ```markdown
 # Implementation Plan
 
+> Auto-created by /session-wrapup on [YYYY-MM-DD]
+
 ## Session: [YYYY-MM-DD] — [branch name]
 
 ### Completed
-- [bullet list]
+- [bullet list from this session]
 
 ### Next Steps
-- [ ] [items]
+- [ ] [items from Step 4c]
 
 ### Doc Sync
 - [auto-fix results]
@@ -137,7 +163,7 @@ Create `documentation/IMPLEMENTATION_PLAN.md` with:
 
 ### Step 7: Final Report
 
-Output a summary to the console:
+Output a summary to the console. **This is a summary — the full details are in the plan file.**
 
 ```
 ## Session Wrap-Up: [branch name]
@@ -148,12 +174,18 @@ Output a summary to the console:
 ### Uncommitted Work
 - [list or "All committed"]
 
-### Next Steps
-- [ ] [actionable items]
+### Plan Status
+- [N] items completed (marked in plan)
+- [N] items remaining
+- [any accuracy notes]
+
+### Next Steps (top 3-5)
+- [ ] [highest priority items]
 
 ### Docs
 - [auto-fixed items or "All in sync"]
 
+### Plan file updated: [path to plan file]
 ### Status: Ready to switch
 ```
 
@@ -195,14 +227,20 @@ Output a summary to the console:
 ## Example Usage
 
 ```
-# Standard session wrap-up
+# Standard session wrap-up (will ask for your plan file)
 /session-wrapup
+
+# Point directly to your plan file
+/session-wrapup
+Plan file: documentation/IMPLEMENTATION_PLAN.md
 
 # Wrap up with context about what you were working on
 /session-wrapup
+Plan file: TODO.md
 I was working on the auth module — focus the next steps on that area
 
 # Wrap up a specific time range
 /session-wrapup
+Plan file: documentation/PLAN.md
 Only look at commits from the last 2 hours
 ```
