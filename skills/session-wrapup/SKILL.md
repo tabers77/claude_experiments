@@ -58,31 +58,22 @@ git diff --staged
 
 Store the results as the **session delta**.
 
-### Step 3: Uncommitted Work Check
+### Step 3: Cross-Reference Plan vs Changes (analysis only)
 
-If `git status` shows uncommitted changes:
+This is the core analysis step. Compare the **plan state** (from Step 1) against the **session delta** (from Step 2). **Do not write any files yet — just gather findings.**
 
-1. **List the uncommitted files** with a brief summary of what changed in each
-2. **Ask the user**: "You have uncommitted changes. Would you like to commit before wrapping up?"
-3. If yes — help them commit (suggest a message based on the diff)
-4. If no — note the uncommitted work in the session summary so it's not lost
-
-### Step 4: Cross-Reference Plan vs Changes
-
-This is the core step. Compare the **plan state** (from Step 1) against the **session delta** (from Step 2).
-
-#### 4a: Mark completed plan items
+#### 3a: Mark completed plan items
 For each planned step/task in the plan file:
 - Check if the git changes (commits + diffs) address that item
-- If yes → mark it as completed (`- [x]`) and note the evidence (commit hash or changed files)
-- If partially done → leave unchecked but add a note about progress
+- If yes → flag it for completion (`- [x]`) and note the evidence (commit hash or changed files)
+- If partially done → leave unchecked but prepare a note about progress
 
-#### 4b: Flag plan inaccuracies
-- **Steps that are done but not in the plan** — work was done that the plan didn't anticipate. Add these as new completed items.
+#### 3b: Flag plan inaccuracies
+- **Steps that are done but not in the plan** — work was done that the plan didn't anticipate. Prepare to add these as new completed items.
 - **Steps marked as done previously but code was reverted/changed** — flag as potentially stale.
 - **Steps that are no longer relevant** — if the approach changed, flag for user review.
 
-#### 4c: Identify next steps
+#### 3c: Identify next steps
 Combine these sources to build the next steps list:
 1. **Remaining unchecked items from the plan** — these are the primary next steps
 2. **TODOs in code** — Scan changed files for `TODO`, `FIXME`, `HACK`, `XXX` comments
@@ -92,7 +83,7 @@ Combine these sources to build the next steps list:
 
 **Priority order**: Plan items first, then code TODOs, then inferred follow-ups.
 
-### Step 5: Auto-Fix Stale Docs
+### Step 4: Auto-Fix Stale Docs (write)
 
 Based on the session delta, check if structural changes were made that affect docs:
 
@@ -108,14 +99,14 @@ If no structural changes were made, skip this step and report "No doc sync neede
 
 > **Note**: For comprehensive cross-reference checks beyond the session delta, use `/meta-sync-references` directly.
 
-### Step 6: Update the Plan File
+### Step 5: Update the Plan File (write)
 
 **This step writes to the plan file. Everything from this session must be persisted — not just displayed in the terminal.**
 
 #### If the plan file exists:
 
-1. **Update existing checklist items** — mark completed items as `- [x]` based on Step 4a findings
-2. **Add any unplanned completed work** — new items from Step 4b, marked as `- [x]`
+1. **Update existing checklist items** — mark completed items as `- [x]` based on Step 3a findings
+2. **Add any unplanned completed work** — new items from Step 3b, marked as `- [x]`
 3. **Append a session entry** at the end of the file:
 
 ```markdown
@@ -124,17 +115,17 @@ If no structural changes were made, skip this step and report "No doc sync neede
 ## Session: [YYYY-MM-DD] — [branch name]
 
 ### Completed This Session
-- [bullet list of what was done, from Step 4a + 4b]
+- [bullet list of what was done, from Step 3a + 3b]
 
 ### In Progress (uncommitted)
 - [any uncommitted work, or "None — all changes committed"]
 
 ### Remaining Steps
 - [ ] [unchecked plan items, ordered by priority]
-- [ ] [new next steps from Step 4c]
+- [ ] [new next steps from Step 3c]
 
 ### Plan Accuracy Notes
-- [any inaccuracies found in Step 4b, or "Plan is accurate"]
+- [any inaccuracies found in Step 3b, or "Plan is accurate"]
 
 ### Doc Sync
 - [what was auto-fixed, or "No doc sync needed"]
@@ -155,11 +146,23 @@ Create it at the chosen path with:
 - [bullet list from this session]
 
 ### Next Steps
-- [ ] [items from Step 4c]
+- [ ] [items from Step 3c]
 
 ### Doc Sync
 - [auto-fix results]
 ```
+
+### Step 6: Commit & Push
+
+**All file writes (doc fixes + plan update) are done. Now commit everything in one clean operation.**
+
+1. **Stage all changes** — the user's code changes + updated plan file + any auto-fixed docs
+2. **Ask the user** to confirm the commit message (suggest one based on the session summary)
+3. **Commit** everything together — one commit, no leftover uncommitted files
+4. **Ask the user**: "Push to remote?" — only push if they confirm
+5. After push (or skip), verify with `git status` that the working tree is clean
+
+> **Why this order matters**: The plan file and doc fixes are written *before* committing, so everything goes into a single commit. No "branch ahead with uncommitted changes" situation.
 
 ### Step 7: Final Report
 
@@ -170,9 +173,6 @@ Output a summary to the console. **This is a summary — the full details are in
 
 ### Completed This Session
 - [concise list]
-
-### Uncommitted Work
-- [list or "All committed"]
 
 ### Plan Status
 - [N] items completed (marked in plan)
@@ -186,6 +186,7 @@ Output a summary to the console. **This is a summary — the full details are in
 - [auto-fixed items or "All in sync"]
 
 ### Plan file updated: [path to plan file]
+### Git: [committed and pushed / committed only / nothing to commit]
 ### Status: Ready to switch
 ```
 
@@ -194,31 +195,28 @@ Output a summary to the console. **This is a summary — the full details are in
 ## Output Format (Console)
 
 ```
-## Session Wrap-Up: [branch-name] — [YYYY-MM-DD]
+## Session Wrap-Up: feature/auth — 2026-02-12
 
-### Commits This Session
-- abc1234 feat: added user auth endpoint
-- def5678 fix: corrected validation logic
-
-### Uncommitted Changes
-- src/utils.py — new helper function (not committed)
-- [or] All changes committed
-
-### Completed
+### Completed This Session
 - Implemented user authentication endpoint
 - Fixed input validation for registration
 
-### Next Steps
+### Plan Status
+- 3 items completed (marked in IMPLEMENTATION.md)
+- 5 items remaining
+- 1 unplanned item added (input validation fix)
+
+### Next Steps (from plan)
 - [ ] Add unit tests for auth endpoint
 - [ ] Implement refresh token logic
 - [ ] TODO in src/auth.py:45 — handle token expiry edge case
 
-### Doc Sync
-- Updated CLAUDE.md skill table (added session-wrapup)
-- Updated README.md directory tree
+### Docs
+- Updated CLAUDE.md skill table (added new endpoint)
 - [or] No structural changes — docs are in sync
 
-### Implementation plan updated: documentation/IMPLEMENTATION_PLAN.md
+### Plan file updated: IMPLEMENTATION.md
+### Git: Committed and pushed to origin/feature/auth
 ### Status: Ready to switch
 ```
 
