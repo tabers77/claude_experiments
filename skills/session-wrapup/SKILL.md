@@ -69,9 +69,10 @@ Compare git changes against the plan file:
 #### 4a: Update the plan file
 
 If the plan file exists:
-1. Mark completed items as `- [x]`
-2. Add any unplanned completed work as new `- [x]` items
-3. Append a session entry:
+1. **Verify factual claims** — Scan the plan file for any concrete numbers or facts (test counts, file counts, dependency versions, endpoint counts, etc.). If the git changes affect any of these, update them to match reality. For example, if the plan says "275 tests across 28 files" but you added 23 new tests, update the number.
+2. Mark completed items as `- [x]`
+3. Add any unplanned completed work as new `- [x]` items
+4. Append a session entry:
 
 ```markdown
 ---
