@@ -56,6 +56,7 @@ claude_experiments/
 │   ├── safe-changes-impact-check/
 │   ├── planning-spec-from-text/
 │   ├── planning-impl-plan/
+│   ├── session-wrapup/
 │   ├── api-development-api-impl/
 │   ├── quality-review/
 │   ├── quality-upgrade-advisor/
@@ -97,6 +98,7 @@ Skills are organized by tier:
 | **Core** | `/safe-changes-impact-check` | Understand blast radius |
 | **Core** | `/safe-changes-refactor-safe` | Refactor with explicit invariants |
 | **Core** | `/planning-impl-plan` | Design before coding |
+| **Core** | `/session-wrapup` | Close out a session — record progress, sync docs, set next steps |
 | **Specialized** | `/quality-upgrade-advisor` | Ecosystem currency check + prioritized upgrade roadmap |
 | **Specialized** | `/api-development-api-impl` | Consistent endpoint implementation |
 | **Specialized** | `/planning-spec-from-text` | Convert vague input to specs |

@@ -174,6 +174,7 @@ Skills are organized by **tier** — how often you'll reach for them.
 | `/safe-changes-impact-check` | Assess blast radius before risky changes | "What breaks if I change this?" |
 | `/safe-changes-refactor-safe` | Refactor with explicit invariants and checkpoints | "Refactor this without breaking anything" |
 | `/planning-impl-plan` | Design implementation approach before coding | "How should I build this?" |
+| `/session-wrapup` | Close out a session — record progress, sync docs, set next steps | "I'm switching projects — wrap up" |
 | `code-reviewer` agent | Review recent code changes (git diff) | "Review what I just wrote" |
 
 ### Specialized — use when the situation fits
@@ -217,6 +218,7 @@ CORE (use constantly)
   Check blast radius                  /safe-changes-impact-check
   Refactor safely                     /safe-changes-refactor-safe
   Design before coding                /planning-impl-plan
+  Wrap up before switching projects   /session-wrapup
   Review code I just wrote            code-reviewer agent
 
 SPECIALIZED (use when the situation fits)
@@ -253,6 +255,7 @@ claude_experiments/
 │   ├── safe-changes-impact-check/
 │   ├── planning-spec-from-text/
 │   ├── planning-impl-plan/
+│   ├── session-wrapup/
 │   ├── api-development-api-impl/
 │   ├── quality-review/
 │   ├── quality-upgrade-advisor/
@@ -294,6 +297,7 @@ Each entry-point skill already recommends next steps in its output, so you rarel
 | **Tackling tech debt** | `/quality-review` | `diagnosis` + `refactor-safe` |
 | **Refactoring existing code** | `/safe-changes-impact-check` | `refactor-safe` + `code-reviewer` |
 | **Planning a new feature** | `/planning-impl-plan` | `spec-from-text` if requirements are vague |
+| **Wrapping up a session** | `/session-wrapup` | (that's it — auto-syncs docs and tracks progress) |
 | **Upgrading dependencies** | `/quality-upgrade-advisor` | `impact-check` + `refactor-safe` |
 | **Adding an API endpoint** | `/api-development-api-impl` | `impl-plan` + `code-reviewer` |
 | **Making a risky change** | `/safe-changes-impact-check` | `impl-plan` + `refactor-safe` |
