@@ -66,6 +66,7 @@ claude_experiments/
 │   ├── learning-debug-training/
 │   ├── learning-code-review-eye/
 │   ├── learning-pair-programming/
+│   ├── meta-discover-features/
 │   ├── meta-experiment-feature/
 │   ├── meta-project-setup/
 │   ├── meta-skill-audit/
@@ -111,7 +112,8 @@ Skills are organized by **development phase**. **Essential** = don't skip. *If n
 | | | `/learning-concept-recall` | Spaced repetition for DS concepts |
 | | | `/learning-debug-training` | Systematic debugging training |
 | | | `/learning-code-review-eye` | Train code review skills |
-| **Library Maintenance** | | `/meta-experiment-feature` | Experiment with new features |
+| **Library Maintenance** | | `/meta-discover-features` | Scout official docs + community for new features to adopt |
+| | | `/meta-experiment-feature` | Experiment with a known feature |
 | | | `/meta-skill-audit` | Audit library for overlaps/gaps |
 | | | `/meta-sync-references` | Fix stale cross-references |
 

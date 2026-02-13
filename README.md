@@ -231,9 +231,12 @@ Skills are organized by **development phase** — find the phase you're in, pick
 
 | Skill | What it does |
 |-------|-------------|
-| `/meta-experiment-feature` | Set up experiments for new Claude Code features |
+| `/meta-discover-features` | Scout official docs + community for new Claude Code features to adopt |
+| `/meta-experiment-feature` | Set up experiments for a specific feature you already know about |
 | `/meta-skill-audit` | Audit library for overlaps and gaps |
 | `/meta-sync-references` | Fix stale cross-references across files |
+
+> **Discovery workflow**: `/meta-discover-features` finds what's new → you pick what's relevant → `/meta-experiment-feature` sets up the experiment → `/meta-skill-audit` checks the result fits cleanly.
 
 ---
 
@@ -274,7 +277,8 @@ SKILL BUILDING (anytime)
   Pair program on real tasks          /learning-pair-programming
 
 LIBRARY MAINTENANCE
-  Try a new Claude feature            /meta-experiment-feature
+  What's new in Claude Code?          /meta-discover-features
+  Try a specific new feature          /meta-experiment-feature
   Check for skill overlaps            /meta-skill-audit
   Fix stale references                /meta-sync-references
 ```
@@ -304,6 +308,7 @@ claude_experiments/
 │   ├── learning-debug-training/
 │   ├── learning-code-review-eye/
 │   ├── learning-pair-programming/
+│   ├── meta-discover-features/
 │   ├── meta-experiment-feature/
 │   ├── meta-project-setup/
 │   ├── meta-skill-audit/
@@ -344,6 +349,7 @@ Each skill recommends next steps in its output, so you rarely need to plan chain
 | **Upgrading dependencies** | `/quality-upgrade-advisor` | `impact-check` + `refactor-safe` |
 | **Wrapping up a session** | `/session-wrapup` | `code-review-eye` to quiz yourself |
 | **Skill building** | `/learning-concept-recall` daily | Add other learning skills as needed |
+| **What's new in Claude Code?** | `/meta-discover-features` | `meta-experiment-feature` to try what's relevant |
 | **Weekly maintenance** | `/meta-sync-references` + `pytest` | (that's it) |
 
 ---

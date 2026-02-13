@@ -172,10 +172,10 @@ def test_expected_skill_count():
         for name in os.listdir(SKILLS_DIR)
         if os.path.isdir(os.path.join(SKILLS_DIR, name))
     )
-    if count < 20:
-        print(f"FAIL: Expected at least 20 skills, found {count}")
+    if count < 21:
+        print(f"FAIL: Expected at least 21 skills, found {count}")
         return False
-    print(f"PASS: Found {count} skills (expected >= 20)")
+    print(f"PASS: Found {count} skills (expected >= 21)")
     return True
 
 
