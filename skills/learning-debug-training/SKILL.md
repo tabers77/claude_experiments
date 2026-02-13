@@ -1,6 +1,8 @@
 ---
 name: learning-debug-training
 description: Systematic debugging training for data scientists. Presents buggy code (Python, SQL, pandas, ML pipelines) and teaches you to find bugs methodically, not by guessing.
+context: fork
+agent: learning-coach
 ---
 
 # Skill: debug_training
@@ -70,8 +72,10 @@ description: Systematic debugging training for data scientists. Presents buggy c
 
 ### 1) Setup
 
+**First**: Check your memory for existing progress (`debug-training.md`). If found, load the learner's debugging process scores, bug patterns encountered, and weak categories. Greet with context: "Welcome back — your systematic approach score was [X], let's work on that."
+
 Ask the user:
-- **Category**: Which bug category? (A-F or "mix")
+- **Category**: Which bug category? (A-F, "mix", or "weak areas from memory")
 - **Difficulty**: Easy (obvious bug) / Medium (subtle) / Hard (multiple interacting bugs)
 - **Mode**:
   - **Find the bug**: Claude shows buggy code, you identify the issue
@@ -152,6 +156,8 @@ After evaluation:
 - Use .copy() explicitly when subsetting DataFrames
 - Remember: NULL != NULL in SQL
 ```
+
+**After the summary**: Save all progress to memory. Update `debug-training.md` with debugging process scores and bug pattern history. Update `MEMORY.md` with a concise session summary.
 
 ---
 

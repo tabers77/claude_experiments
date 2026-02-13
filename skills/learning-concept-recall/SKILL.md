@@ -1,6 +1,8 @@
 ---
 name: learning-concept-recall
 description: Spaced repetition for data science and engineering concepts. Quizzes you on what you've learned, adapts to your retention patterns, and reinforces weak areas. Tracks mastery over time.
+context: fork
+agent: learning-coach
 ---
 
 # Skill: concept_recall
@@ -79,11 +81,12 @@ Register new topics you've been studying. Claude generates recall questions for 
 
 ### 1) Start Session
 
+**First**: Check your memory for existing progress (`concept-recall.md`). If found, load the learner's mastery levels, weak areas, and review schedule. Greet with context: "Welcome back — last time you were weak on [X], let's start there."
+
 Ask the user:
 - **Mode**: Quiz / Teach-Back / Add Concepts
-- **Topics**: Which categories? (or "all", or "weak areas")
+- **Topics**: Which categories? (or "all", or "weak areas from memory")
 - **Duration**: Quick (5 questions) / Standard (15) / Deep (30)
-- **Previous session?**: If returning, load previous weak areas first
 
 ### 2) Quiz Mode Process
 
@@ -152,6 +155,8 @@ Claude generates:
 Focus on: A/B testing methodology, regularization
 Recommended in: 3 days (spaced repetition interval)
 ```
+
+**After the summary**: Save all progress to memory. Update `concept-recall.md` with the full mastery tracker and `MEMORY.md` with a concise session summary.
 
 ---
 

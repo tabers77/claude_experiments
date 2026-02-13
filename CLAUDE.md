@@ -72,7 +72,8 @@ claude_experiments/
 │   ├── meta-skill-audit/
 │   └── meta-sync-references/
 ├── agents/                       # Agent definitions
-│   └── code-reviewer.md
+│   ├── code-reviewer.md
+│   └── learning-coach.md
 ├── hooks/                        # Hook configurations
 │   └── hooks.json
 ├── documentation/                # All generated .md docs go here
@@ -98,7 +99,7 @@ Skills are organized by **development phase**. **Essential** = don't skip. *If n
 | | **Essential** | `/architecture-arch` | Map codebase structure |
 | | *If needed* | `/quality-review` | Health audit + priority matrix |
 | | *If needed* | `/quality-upgrade-advisor` | Upgrade roadmap for stale deps |
-| | *If needed* | `/learning-codebase-mastery` | Deep learning + tutor mode |
+| | *If needed* | `/learning-codebase-mastery` | Deep dive + tutor quiz + recent changes quiz |
 | **Planning & Design** | **Essential** | `/planning-impl-plan` | Design before coding |
 | | *If needed* | `/planning-spec-from-text` | Convert vague input to specs |
 | **Building** | *If needed* | `/learning-pair-programming` | Pair program with Claude as guide |
@@ -116,6 +117,13 @@ Skills are organized by **development phase**. **Essential** = don't skip. *If n
 | | | `/meta-experiment-feature` | Experiment with a known feature |
 | | | `/meta-skill-audit` | Audit library for overlaps/gaps |
 | | | `/meta-sync-references` | Fix stale cross-references |
+
+## Agents
+
+| Agent | Purpose |
+|-------|---------|
+| `code-reviewer` | Expert code review after writing/modifying code |
+| `learning-coach` | Persistent learning coach for all learning skills — tracks progress, weak areas, and mastery across sessions via `memory: user` |
 
 ## How to Use
 

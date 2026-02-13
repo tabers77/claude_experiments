@@ -176,7 +176,14 @@ Skills are organized by **development phase** — find the phase you're in, pick
 | **Essential** | `/architecture-arch` | Map the codebase structure before touching anything |
 | *If needed* | `/quality-review` | Want a health score with evidence and priority matrix |
 | *If needed* | `/quality-upgrade-advisor` | Dependencies look outdated, need an upgrade plan |
-| *If needed* | `/learning-codebase-mastery` | Want to deeply *learn* the code (quizzes, exercises), not just map it |
+| *If needed* | `/learning-codebase-mastery` | Deeply *learn* and retain codebase knowledge (3 modes below) |
+
+> **`/learning-codebase-mastery` has 3 modes** — pick by situation:
+> | Mode | Trigger words | When to use |
+> |------|--------------|-------------|
+> | **Deep Dive** (default) | `deep dive`, `analyze` | Understand a module's architecture before touching it |
+> | **Tutor** | `tutor`, `quiz`, `interactive` | Test yourself on code you've been reading |
+> | **Recent Changes** | `what changed`, `catch up`, `recent changes` | Catch up on git commits — quiz on what changed and why |
 
 ### 2. Planning & Design
 
@@ -219,6 +226,8 @@ Skills are organized by **development phase** — find the phase you're in, pick
 
 *Not tied to a specific project. Practice sessions you can do anytime.*
 
+> All learning skills use the `learning-coach` agent with persistent memory. Your progress, weak areas, and mastery levels carry across sessions automatically.
+
 | Skill | What it does |
 |-------|-------------|
 | `/learning-algo-practice` | Algorithm & interview prep (DSA, SQL, pandas, ML) |
@@ -251,6 +260,7 @@ PROJECT SETUP & ONBOARDING
   Assess project health               /quality-review
   Audit stale dependencies            /quality-upgrade-advisor
   Deeply learn a codebase             /learning-codebase-mastery
+  Catch up on recent git changes      /learning-codebase-mastery what changed
 
 PLANNING & DESIGN
   Design before coding                /planning-impl-plan         [essential]
@@ -314,7 +324,8 @@ claude_experiments/
 │   ├── meta-skill-audit/
 │   └── meta-sync-references/
 ├── agents/                       # Agent definitions
-│   └── code-reviewer.md
+│   ├── code-reviewer.md
+│   └── learning-coach.md
 ├── hooks/                        # Hook reference copy
 │   └── hooks.json
 ├── documentation/                # All generated .md docs
@@ -340,6 +351,7 @@ Each skill recommends next steps in its output, so you rarely need to plan chain
 |----------|-----------|---------------------|
 | **Onboarding to a new project** | `/meta-project-setup` | `arch` + `quality-review` |
 | **Planning a new feature** | `/planning-impl-plan` | `spec-from-text` if requirements are vague |
+| **Catching up on changes** | `/learning-codebase-mastery what changed` | `code-diagnosis` if something looks off |
 | **Building with guidance** | `/learning-pair-programming` | `code-reviewer` when done |
 | **Adding an API endpoint** | `/api-development-api-impl` | `impl-plan` + `code-reviewer` |
 | **Investigating suspicious code** | `/code-diagnosis` | `impact-check` + `refactor-safe` |

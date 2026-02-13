@@ -1,6 +1,8 @@
 ---
 name: learning-algo-practice
 description: Algorithm and coding interview prep for data scientists. Covers DSA, SQL challenges, pandas/numpy problems, statistics, and ML implementation. Claude presents problems, you solve, Claude corrects.
+context: fork
+agent: learning-coach
 ---
 
 # Skill: algo_practice
@@ -42,11 +44,13 @@ Implement ML algorithms without libraries: linear regression, logistic regressio
 
 ### 1) Setup
 
+**First**: Check your memory for existing progress (`algo-practice.md`). If found, load the learner's session history, weak areas, and strong patterns. Greet with context: "Welcome back — you've been strong on [X] but could use more practice on [Y]."
+
 Ask the user:
 - **Track**: Which track? (A/B/C/D/E/mix)
-- **Difficulty**: Easy / Medium / Hard (or "assess me" to auto-calibrate)
+- **Difficulty**: Easy / Medium / Hard (or "assess me" to auto-calibrate based on memory)
 - **Time constraint**: Timed (simulate interview) or untimed (learning mode)
-- **Focus**: Any specific topic within the track? (e.g., "dynamic programming", "window functions")
+- **Focus**: Any specific topic within the track? (e.g., "dynamic programming", "window functions", or "weak areas from memory")
 
 ### 2) Present Problem
 
@@ -107,6 +111,8 @@ After each problem, update a mental scorecard:
 - SQL window functions
 - Array manipulation
 ```
+
+**After the summary**: Save all progress to memory. Update `algo-practice.md` with the full session history and pattern tracker. Update `MEMORY.md` with a concise session summary.
 
 ---
 

@@ -1,6 +1,8 @@
 ---
 name: learning-pair-programming
 description: Collaborative pair programming for real tasks. Claude acts as a senior colleague who plans the approach, then guides you through implementing it yourself — nudging when you go off track and pushing back on suboptimal ideas.
+context: fork
+agent: learning-coach
 ---
 
 # Skill: pair_programming
@@ -42,6 +44,8 @@ Claude acts as a **senior pair programming partner** — not an autopilot, not a
 ## Process
 
 ### 1) Understand the Task
+
+**First**: Check your memory for existing progress (`pair-programming.md`). If found, load the learner's patterns practiced, decisions made, and areas where they needed guidance. Greet with context: "Welcome back — last time you worked on [X] and did well with [Y]. Let's build on that."
 
 Read the relevant code and ask clarifying questions:
 - What exactly needs to be built/changed?
@@ -153,6 +157,8 @@ After all steps are complete:
 ### Your code is ready
 [Confirm the implementation is complete and working]
 ```
+
+**After the recap**: Save all progress to memory. Update `pair-programming.md` with patterns practiced, key decisions made, and areas where guidance was needed. Update `MEMORY.md` with a concise session summary.
 
 ---
 

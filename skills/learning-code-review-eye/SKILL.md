@@ -1,6 +1,8 @@
 ---
 name: learning-code-review-eye
 description: Train your code review skills for data science. Claude shows you code diffs, you spot issues before Claude reveals them. Tracks which categories of issues you consistently miss.
+context: fork
+agent: learning-coach
 ---
 
 # Skill: code_review_eye
@@ -72,6 +74,8 @@ description: Train your code review skills for data science. Claude shows you co
 ## Process
 
 ### 1) Setup
+
+**First**: Check your memory for existing progress (`code-review-eye.md`). If found, load the learner's blind spot tracker, category hit rates, and weak areas. Greet with context: "Welcome back — your weakest category was [X] at [Y]% hit rate, let's focus there."
 
 Ask the user:
 - **Focus**: Which categories to emphasize? (A-G or "all")
@@ -169,6 +173,8 @@ For each issue the user missed:
 ### Recommendation
 Focus next session on: Performance + ML-Specific categories
 ```
+
+**After the summary**: Save all progress to memory. Update `code-review-eye.md` with the full blind spot tracker and category hit rates. Update `MEMORY.md` with a concise session summary.
 
 ---
 

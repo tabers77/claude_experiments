@@ -1,38 +1,53 @@
 ---
 name: learning-codebase-mastery
-description: Deep understanding through active learning. Use when onboarding to a new codebase, understanding critical files, or preparing to implement features.
+description: Deep understanding through active learning. Three modes — Deep Dive (structured analysis), Tutor (quiz yourself on code), and Recent Changes (quiz on what changed in git). Use when onboarding, preparing to implement, or catching up on teammate changes.
 ---
 
 # Skill: codebase_mastery
 
-**Purpose**: Deep understanding through active learning
+**Purpose**: Deep understanding through active learning — understand the code, not just read it.
 
 **Use when**:
 - Onboarding to a new codebase
 - Understanding a critical file before modifying
 - Preparing to implement features yourself
 - Need to move from passive reading to active understanding
+- Catching up on what changed while you were away
+- Reviewing a teammate's recent work to understand their approach
 
 > **vs `/architecture-arch`**: Use `/learning-codebase-mastery` when you want to **learn and retain** through quizzes, deep dives, and exercises. Use `/architecture-arch` when you need a quick **reference document** — a structural map you can refer back to.
+>
+> **vs `/learning-code-review-eye`**: That skill trains you to **spot bugs** in synthetic diffs. This skill's Recent Changes mode helps you **understand** real changes — what moved, why, and what the impact is.
 
 ---
 
 ## Modes
 
 ### A) Deep Dive Mode (default)
-Structured understanding of code:
-- Call graphs
-- Invariants
-- Extension points
-- Data flow
+**Goal**: Understand the architecture and internals of a module or file.
+- Trigger: default, or include "deep dive", "analyze" in request
+- Structured analysis: call graphs, invariants, extension points, data flow
+- You read, Claude explains — reference document as output
+
+**Use this when**: You need to understand how code works before touching it.
 
 ### B) Tutor Mode
-Interactive learning where Claude asks YOU questions:
+**Goal**: Test and solidify your understanding through interactive quizzes.
 - Trigger: include "tutor", "quiz", or "interactive" in request
-- Claude asks questions first
-- You answer
-- Claude corrects with evidence (paths, snippets, commands)
-- You get micro-exercises to implement yourself
+- Claude asks questions first — you answer — Claude corrects with evidence
+- Micro-exercises after each batch
+- Increasing difficulty: locate → explain → trace → predict → modify
+
+**Use this when**: You've read the code but want to make sure you actually understand it.
+
+### C) Recent Changes Mode
+**Goal**: Understand what changed recently in the codebase and why.
+- Trigger: include "recent changes", "what changed", "catch up", or "git log" in request
+- Claude reads recent git history (commits, diffs) and quizzes you on the changes
+- Tests: what files changed, what the change does, why it was needed, what it could break
+- Covers your own commits (do you remember what you did?) and teammates' commits
+
+**Use this when**: You've been away from the project, a teammate pushed changes, or you want to verify you understand recent work.
 
 ---
 
@@ -85,6 +100,52 @@ Interactive learning where Claude asks YOU questions:
 
 ---
 
+## Recent Changes Process
+
+1) **Determine scope**:
+   - Ask the user: how far back? (default: last 5 commits, or "today", "this week", "since Monday", specific commit range)
+   - Optionally filter by author, file path, or directory
+   - Run `git log --oneline` for the range to get an overview
+
+2) **Read the changes**:
+   - For each commit in range: read the diff (`git diff <commit>~1 <commit>`)
+   - Understand what changed: new files, modified functions, deleted code, config changes
+   - Identify the intent behind each change (bug fix, new feature, refactor, etc.)
+
+3) **Build quiz questions** (6-10 questions, varying types):
+   - **"What changed"**: "Which files were modified in commit X?" or "What function was added/removed?"
+   - **"Why"**: "What problem was commit X solving?" or "Why was this import added?"
+   - **"Impact"**: "What could break if this change has a bug?" or "Which other modules depend on the changed code?"
+   - **"Trace"**: "Walk through the new code path for scenario Y"
+   - **"Spot the risk"**: "Is there anything in these changes that could cause issues?" (not every change has a risk — sometimes the answer is "looks clean")
+
+4) **Ask 2-3 questions at a time** — wait for user answers
+
+5) **Grade + correct**:
+   - For each answer: correct / partially correct / wrong
+   - Show the actual diff snippet as evidence
+   - Explain what the user missed and why it matters
+
+6) **Summary**:
+   ```
+   ## Recent Changes Quiz Summary
+
+   ### Commits covered: [range]
+   ### Questions: [N]
+   ### Score: [X]/[N] ([%])
+
+   ### Changes you understood well
+   - [commit/change description]
+
+   ### Changes you need to review again
+   - [commit/change description] — [what was missed]
+
+   ### Key takeaways
+   - [1-2 things to remember about these changes]
+   ```
+
+---
+
 ## Output Format (Deep Dive)
 
 ```
@@ -122,12 +183,24 @@ Interactive learning where Claude asks YOU questions:
 ## Example Usage
 
 ```
-# Deep dive
-/learning_codebase_mastery src/orchestrator/
+# Deep dive — understand a module's architecture
+/learning-codebase-mastery deep dive src/orchestrator/
 
-# Tutor mode
-/learning_codebase_mastery tutor src/auth/middleware.py
+# Tutor mode — quiz yourself on code you've been reading
+/learning-codebase-mastery tutor src/auth/middleware.py
 
 # Focused understanding
-/learning_codebase_mastery focus on how requests flow from API to database
+/learning-codebase-mastery focus on how requests flow from API to database
+
+# Recent changes — catch up on what happened this week
+/learning-codebase-mastery what changed this week
+
+# Recent changes — understand a teammate's work
+/learning-codebase-mastery recent changes by @teammate, last 10 commits
+
+# Recent changes — review your own recent commits
+/learning-codebase-mastery quiz me on my last 5 commits
+
+# Recent changes — specific directory
+/learning-codebase-mastery catch up on changes in src/api/
 ```
