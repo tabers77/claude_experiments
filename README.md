@@ -197,6 +197,7 @@ Skills are organized by **tier** — how often you'll reach for them.
 | `/learning-concept-recall` | Spaced repetition for DS concepts | "Quiz me on what I've studied" |
 | `/learning-debug-training` | Systematic debugging training | "Train my debugging instincts" |
 | `/learning-code-review-eye` | Train your code review skills | "Sharpen my review eye" |
+| `/learning-pair-programming` | Pair program on real tasks with Claude as guide | "Help me implement this — but I want to write the code" |
 
 ### Maintenance — keep the library itself healthy
 
@@ -235,6 +236,7 @@ LEARNING (standalone practice)
   Retain concepts (spaced repetition) /learning-concept-recall
   Train debugging skills              /learning-debug-training
   Sharpen code review instincts       /learning-code-review-eye
+  Implement real tasks with guidance   /learning-pair-programming
 
 MAINTENANCE (library upkeep)
   Try a new Claude feature            /meta-experiment-feature
@@ -264,6 +266,7 @@ claude_experiments/
 │   ├── learning-concept-recall/
 │   ├── learning-debug-training/
 │   ├── learning-code-review-eye/
+│   ├── learning-pair-programming/
 │   ├── meta-experiment-feature/
 │   ├── meta-project-setup/
 │   ├── meta-skill-audit/
@@ -304,6 +307,7 @@ Each entry-point skill already recommends next steps in its output, so you rarel
 | **Investigating suspicious code** | `/code-diagnosis` | `impact-check` + `refactor-safe` |
 | **Weekly maintenance** | `/meta-sync-references` + `pytest` | (that's it) |
 | **Skill building** | `/learning-concept-recall` daily | Add other learning skills as needed |
+| **Implementing with guidance** | `/learning-pair-programming` | `code-reviewer` when done |
 
 ---
 

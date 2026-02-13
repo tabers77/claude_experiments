@@ -65,6 +65,7 @@ claude_experiments/
 │   ├── learning-concept-recall/
 │   ├── learning-debug-training/
 │   ├── learning-code-review-eye/
+│   ├── learning-pair-programming/
 │   ├── meta-experiment-feature/
 │   ├── meta-project-setup/
 │   ├── meta-skill-audit/
@@ -110,6 +111,7 @@ Skills are organized by tier:
 | **Learning** | `/learning-concept-recall` | Spaced repetition for DS concepts |
 | **Learning** | `/learning-debug-training` | Systematic debugging training |
 | **Learning** | `/learning-code-review-eye` | Train your code review skills |
+| **Learning** | `/learning-pair-programming` | Pair program on real tasks with Claude as guide |
 | **Maintenance** | `/meta-experiment-feature` | Set up experiments for new features |
 
 ## Agents
