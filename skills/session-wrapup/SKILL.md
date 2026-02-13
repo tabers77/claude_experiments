@@ -115,11 +115,12 @@ If nothing is outdated, skip it.
 
 All writes are done. Now commit everything cleanly.
 
-1. **Stage all changes** — code + plan file + CLAUDE.md + README.md
-2. **Suggest a commit message** based on what was done this session
-3. **Commit** — one commit with everything
-4. **Ask**: "Push to remote?" — push only if confirmed
-5. **Verify** with `git status` that the working tree is clean
+1. **Stage only the files this skill modified** — the plan file, CLAUDE.md, and README.md. Do NOT use `git add -A` or `git add .` — only add files by name. Other uncommitted changes in the repo are the user's in-progress work and must not be touched.
+2. **Ask the user**: "These are the files I'll commit: [list]. Should I also include any other files from this session?" — let the user decide if session code changes should be in the same commit or separate.
+3. **Suggest a commit message** based on what was done this session
+4. **Commit** — one commit with the approved files
+5. **Ask**: "Push to remote?" — push only if confirmed
+6. **Verify** with `git status` — the staged files should be committed; other changes remain unstaged as before
 
 ### Step 6: Final Report
 
