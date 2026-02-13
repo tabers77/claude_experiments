@@ -89,36 +89,31 @@ claude_experiments/
 
 ## Available Skills
 
-Skills are organized by tier:
+Skills are organized by **development phase**. **Essential** = don't skip. *If needed* = use when the situation fits.
 
-| Tier | Skill | Purpose |
-|------|-------|---------|
-| **Core** | `/quality-review` | Repo-wide health audit + prioritized improvements |
-| **Core** | `/architecture-arch` | Build mental model before coding |
-| **Core** | `/code-diagnosis` | Targeted scan for bugs, smells, refactoring opportunities |
-| **Core** | `/safe-changes-impact-check` | Understand blast radius |
-| **Core** | `/safe-changes-refactor-safe` | Refactor with explicit invariants |
-| **Core** | `/planning-impl-plan` | Design before coding |
-| **Core** | `/session-wrapup` | Close out a session — record progress, sync docs, set next steps |
-| **Specialized** | `/quality-upgrade-advisor` | Ecosystem currency check + prioritized upgrade roadmap |
-| **Specialized** | `/api-development-api-impl` | Consistent endpoint implementation |
-| **Specialized** | `/planning-spec-from-text` | Convert vague input to specs |
-| **Specialized** | `/learning-codebase-mastery` | Deep understanding + tutor mode |
-| **Specialized** | `/meta-project-setup` | Audit setup, recommend artifacts, detect library gaps |
-| **Specialized** | `/meta-skill-audit` | Audit library for overlaps and gaps |
-| **Specialized** | `/meta-sync-references` | Sync cross-references across all files |
-| **Learning** | `/learning-algo-practice` | Algorithm & interview prep for data scientists |
-| **Learning** | `/learning-concept-recall` | Spaced repetition for DS concepts |
-| **Learning** | `/learning-debug-training` | Systematic debugging training |
-| **Learning** | `/learning-code-review-eye` | Train your code review skills |
-| **Learning** | `/learning-pair-programming` | Pair program on real tasks with Claude as guide |
-| **Maintenance** | `/meta-experiment-feature` | Set up experiments for new features |
-
-## Agents
-
-| Agent | Purpose |
-|-------|---------|
-| `code-reviewer` | Expert code review after writing/modifying code |
+| Phase | | Skill | Purpose |
+|-------|--|-------|---------|
+| **Setup & Onboarding** | **Essential** | `/meta-project-setup` | Audit setup, recommend artifacts |
+| | **Essential** | `/architecture-arch` | Map codebase structure |
+| | *If needed* | `/quality-review` | Health audit + priority matrix |
+| | *If needed* | `/quality-upgrade-advisor` | Upgrade roadmap for stale deps |
+| | *If needed* | `/learning-codebase-mastery` | Deep learning + tutor mode |
+| **Planning & Design** | **Essential** | `/planning-impl-plan` | Design before coding |
+| | *If needed* | `/planning-spec-from-text` | Convert vague input to specs |
+| **Building** | *If needed* | `/learning-pair-programming` | Pair program with Claude as guide |
+| | *If needed* | `/api-development-api-impl` | Consistent endpoint implementation |
+| **Reviewing & Refactoring** | **Essential** | `code-reviewer` agent | Review code after changes |
+| | *If needed* | `/code-diagnosis` | Scan for bugs, smells, refactoring opportunities |
+| | *If needed* | `/safe-changes-impact-check` | Check blast radius |
+| | *If needed* | `/safe-changes-refactor-safe` | Refactor with explicit invariants |
+| **Wrapping Up** | **Essential** | `/session-wrapup` | Record progress, sync docs, set next steps |
+| **Skill Building** | | `/learning-algo-practice` | Algorithm & interview prep |
+| | | `/learning-concept-recall` | Spaced repetition for DS concepts |
+| | | `/learning-debug-training` | Systematic debugging training |
+| | | `/learning-code-review-eye` | Train code review skills |
+| **Library Maintenance** | | `/meta-experiment-feature` | Experiment with new features |
+| | | `/meta-skill-audit` | Audit library for overlaps/gaps |
+| | | `/meta-sync-references` | Fix stale cross-references |
 
 ## How to Use
 

@@ -162,84 +162,121 @@ bash setup-local.sh
 
 ## Available Skills
 
-Skills are organized by **tier** — how often you'll reach for them.
+Skills are organized by **development phase** — find the phase you're in, pick the skill you need.
 
-### Core — reach for these constantly
+> **Essential** = don't skip this. **If needed** = reach for it when the situation fits.
 
-| Skill | What it does | Typical trigger |
-|-------|-------------|-----------------|
-| `/quality-review` | Repo-wide health audit with scoring and priority matrix | "How healthy is this project?" |
-| `/architecture-arch` | Structural map of components, flows, risks | "I need a reference doc before I touch anything" |
-| `/code-diagnosis` | Targeted scan for bugs, smells, refactoring opportunities | "Something's off in this module" |
-| `/safe-changes-impact-check` | Assess blast radius before risky changes | "What breaks if I change this?" |
-| `/safe-changes-refactor-safe` | Refactor with explicit invariants and checkpoints | "Refactor this without breaking anything" |
-| `/planning-impl-plan` | Design implementation approach before coding | "How should I build this?" |
-| `/session-wrapup` | Close out a session — record progress, sync docs, set next steps | "I'm switching projects — wrap up" |
-| `code-reviewer` agent | Review recent code changes (git diff) | "Review what I just wrote" |
+### 1. Project Setup & Onboarding
 
-### Specialized — use when the situation fits
+*Joining a project, assessing health, understanding what exists.*
 
-| Skill | What it does | Typical trigger |
-|-------|-------------|-----------------|
-| `/quality-upgrade-advisor` | Ecosystem currency check + prioritized upgrade roadmap | "Which dependencies are stale?" |
-| `/api-development-api-impl` | Implement endpoints with consistent patterns | "Add a new API endpoint" |
-| `/planning-spec-from-text` | Convert vague requirements into testable specs | "Requirements are vague — help me clarify" |
-| `/learning-codebase-mastery` | Deep understanding through quizzes and exercises | "I need to truly learn this codebase" |
-| `/meta-project-setup` | Audit setup, recommend artifacts, detect gaps | "Set up Claude in this new project" |
-| `/meta-skill-audit` | Audit library for overlaps and gaps | "Do any skills overlap or have gaps?" |
-| `/meta-sync-references` | Fix stale cross-references across files | "Sync all references after structural changes" |
+|  | Skill | When to use |
+|--|-------|-------------|
+| **Essential** | `/meta-project-setup` | First thing on any new project — audit setup, get recommendations |
+| **Essential** | `/architecture-arch` | Map the codebase structure before touching anything |
+| *If needed* | `/quality-review` | Want a health score with evidence and priority matrix |
+| *If needed* | `/quality-upgrade-advisor` | Dependencies look outdated, need an upgrade plan |
+| *If needed* | `/learning-codebase-mastery` | Want to deeply *learn* the code (quizzes, exercises), not just map it |
 
-### Learning — standalone practice sessions
+### 2. Planning & Design
 
-| Skill | What it does | Typical trigger |
-|-------|-------------|-----------------|
-| `/learning-algo-practice` | Algorithm & interview prep for data scientists | "Practice problem-solving patterns" |
-| `/learning-concept-recall` | Spaced repetition for DS concepts | "Quiz me on what I've studied" |
-| `/learning-debug-training` | Systematic debugging training | "Train my debugging instincts" |
-| `/learning-code-review-eye` | Train your code review skills | "Sharpen my review eye" |
-| `/learning-pair-programming` | Pair program on real tasks with Claude as guide | "Help me implement this — but I want to write the code" |
+*Turning ideas into a concrete plan before writing code.*
 
-### Maintenance — keep the library itself healthy
+|  | Skill | When to use |
+|--|-------|-------------|
+| **Essential** | `/planning-impl-plan` | Design the implementation approach before coding |
+| *If needed* | `/planning-spec-from-text` | Requirements are vague — turn them into testable specs first |
 
-| Skill | What it does | Typical trigger |
-|-------|-------------|-----------------|
-| `/meta-experiment-feature` | Set up experiments for new Claude Code features | "Try a new Claude feature (agents, MCP, hooks)" |
+### 3. Building & Implementing
+
+*Writing new code — features, endpoints, methods.*
+
+|  | Skill | When to use |
+|--|-------|-------------|
+| *If needed* | `/learning-pair-programming` | Want to implement it yourself with Claude guiding you step by step |
+| *If needed* | `/api-development-api-impl` | Adding API endpoints with consistent patterns |
+
+### 4. Reviewing & Refactoring
+
+*Improving existing code, catching issues, safe changes.*
+
+|  | Skill | When to use |
+|--|-------|-------------|
+| **Essential** | `code-reviewer` agent | After writing or modifying code — review your changes |
+| *If needed* | `/code-diagnosis` | Something smells off in a specific module or file |
+| *If needed* | `/safe-changes-impact-check` | About to make a risky change — check the blast radius |
+| *If needed* | `/safe-changes-refactor-safe` | Multi-file refactor — need explicit invariants and checkpoints |
+
+### 5. Wrapping Up
+
+*End of session — don't lose context.*
+
+|  | Skill | When to use |
+|--|-------|-------------|
+| **Essential** | `/session-wrapup` | Record progress, sync docs, set next steps before switching context |
+
+### 6. Skill Building — standalone practice
+
+*Not tied to a specific project. Practice sessions you can do anytime.*
+
+| Skill | What it does |
+|-------|-------------|
+| `/learning-algo-practice` | Algorithm & interview prep (DSA, SQL, pandas, ML) |
+| `/learning-concept-recall` | Spaced repetition — quiz yourself on what you've studied |
+| `/learning-debug-training` | Systematic debugging training — find bugs methodically |
+| `/learning-code-review-eye` | Train your code review instincts on diffs |
+| `/learning-pair-programming` | Pair program on real tasks with Claude as senior colleague |
+
+### 7. Library Maintenance — this plugin only
+
+| Skill | What it does |
+|-------|-------------|
+| `/meta-experiment-feature` | Set up experiments for new Claude Code features |
+| `/meta-skill-audit` | Audit library for overlaps and gaps |
+| `/meta-sync-references` | Fix stale cross-references across files |
 
 ---
 
 ## Quick Reference: Which Skill When?
 
 ```
-I need to...                          Use this
+I'm in this phase...                  Use this
 ────────────────────────────────────────────────────────────────
-CORE (use constantly)
-  Assess overall project health       /quality-review
-  Map a codebase (reference doc)      /architecture-arch
+PROJECT SETUP & ONBOARDING
+  Set up Claude in a new project      /meta-project-setup        [essential]
+  Map the codebase                    /architecture-arch          [essential]
+  Assess project health               /quality-review
+  Audit stale dependencies            /quality-upgrade-advisor
+  Deeply learn a codebase             /learning-codebase-mastery
+
+PLANNING & DESIGN
+  Design before coding                /planning-impl-plan         [essential]
+  Clarify vague requirements          /planning-spec-from-text
+
+BUILDING & IMPLEMENTING
+  Implement with guidance             /learning-pair-programming
+  Add an API endpoint                 /api-development-api-impl
+
+REVIEWING & REFACTORING
+  Review code I just wrote            code-reviewer agent         [essential]
   Scan specific code for issues       /code-diagnosis
   Check blast radius                  /safe-changes-impact-check
   Refactor safely                     /safe-changes-refactor-safe
-  Design before coding                /planning-impl-plan
-  Wrap up before switching projects   /session-wrapup
-  Review code I just wrote            code-reviewer agent
 
-SPECIALIZED (use when the situation fits)
-  Audit stale dependencies            /quality-upgrade-advisor
-  Add an API endpoint                 /api-development-api-impl
-  Clarify vague requirements          /planning-spec-from-text
-  Learn a codebase (retain it)        /learning-codebase-mastery
-  Set up Claude in a new project      /meta-project-setup
-  Check for skill overlaps            /meta-skill-audit
-  Fix stale references                /meta-sync-references
+WRAPPING UP
+  End of session                      /session-wrapup             [essential]
 
-LEARNING (standalone practice)
+SKILL BUILDING (anytime)
   Practice algorithms & interviews    /learning-algo-practice
   Retain concepts (spaced repetition) /learning-concept-recall
   Train debugging skills              /learning-debug-training
   Sharpen code review instincts       /learning-code-review-eye
-  Implement real tasks with guidance   /learning-pair-programming
+  Pair program on real tasks          /learning-pair-programming
 
-MAINTENANCE (library upkeep)
+LIBRARY MAINTENANCE
   Try a new Claude feature            /meta-experiment-feature
+  Check for skill overlaps            /meta-skill-audit
+  Fix stale references                /meta-sync-references
 ```
 
 ---
@@ -292,22 +329,22 @@ claude_experiments/
 
 ## Practical Workflow Guide
 
-Each entry-point skill already recommends next steps in its output, so you rarely need to plan multi-step chains yourself. **Start with one skill; go deeper only if needed.**
+Each skill recommends next steps in its output, so you rarely need to plan chains yourself. **Start with one skill; go deeper only if needed.**
 
 | Scenario | Start here | Go deeper (optional) |
 |----------|-----------|---------------------|
 | **Onboarding to a new project** | `/meta-project-setup` | `arch` + `quality-review` |
-| **Tackling tech debt** | `/quality-review` | `diagnosis` + `refactor-safe` |
-| **Refactoring existing code** | `/safe-changes-impact-check` | `refactor-safe` + `code-reviewer` |
 | **Planning a new feature** | `/planning-impl-plan` | `spec-from-text` if requirements are vague |
-| **Wrapping up a session** | `/session-wrapup` | `learning-code-review-eye` to quiz yourself on what you just built |
-| **Upgrading dependencies** | `/quality-upgrade-advisor` | `impact-check` + `refactor-safe` |
+| **Building with guidance** | `/learning-pair-programming` | `code-reviewer` when done |
 | **Adding an API endpoint** | `/api-development-api-impl` | `impl-plan` + `code-reviewer` |
-| **Making a risky change** | `/safe-changes-impact-check` | `impl-plan` + `refactor-safe` |
 | **Investigating suspicious code** | `/code-diagnosis` | `impact-check` + `refactor-safe` |
-| **Weekly maintenance** | `/meta-sync-references` + `pytest` | (that's it) |
+| **Making a risky change** | `/safe-changes-impact-check` | `impl-plan` + `refactor-safe` |
+| **Refactoring existing code** | `/safe-changes-impact-check` | `refactor-safe` + `code-reviewer` |
+| **Tackling tech debt** | `/quality-review` | `diagnosis` + `refactor-safe` |
+| **Upgrading dependencies** | `/quality-upgrade-advisor` | `impact-check` + `refactor-safe` |
+| **Wrapping up a session** | `/session-wrapup` | `code-review-eye` to quiz yourself |
 | **Skill building** | `/learning-concept-recall` daily | Add other learning skills as needed |
-| **Implementing with guidance** | `/learning-pair-programming` | `code-reviewer` when done |
+| **Weekly maintenance** | `/meta-sync-references` + `pytest` | (that's it) |
 
 ---
 
