@@ -1,6 +1,6 @@
 ---
 name: learning-codebase-mastery
-description: Deep understanding through active learning. Three modes — Deep Dive (structured analysis), Tutor (quiz yourself on code), and Recent Changes (quiz on what changed in git). Use when onboarding, preparing to implement, or catching up on teammate changes.
+description: Deep understanding through active learning. Four modes — Deep Dive (structured analysis), Tutor (quiz yourself on code), Recent Changes (quiz on what changed in git), and Pre-Commit (quiz on your uncommitted changes before committing). Use when onboarding, preparing to implement, catching up on changes, or verifying you understand what you're about to commit.
 ---
 
 # Skill: codebase_mastery
@@ -14,10 +14,11 @@ description: Deep understanding through active learning. Three modes — Deep Di
 - Need to move from passive reading to active understanding
 - Catching up on what changed while you were away
 - Reviewing a teammate's recent work to understand their approach
+- **Before committing** — verify you understand your own changes
 
 > **vs `/architecture-arch`**: Use `/learning-codebase-mastery` when you want to **learn and retain** through quizzes, deep dives, and exercises. Use `/architecture-arch` when you need a quick **reference document** — a structural map you can refer back to.
 >
-> **vs `/learning-code-review-eye`**: That skill trains you to **spot bugs** in synthetic diffs. This skill's Recent Changes mode helps you **understand** real changes — what moved, why, and what the impact is.
+> **vs `/learning-code-review-eye`**: That skill trains you to **spot bugs** in synthetic diffs. This skill's Pre-Commit mode tests whether you **understand** your own changes — what they do, why you made them, and what they affect. Different goal: comprehension vs bug-finding.
 
 ---
 
@@ -48,6 +49,20 @@ description: Deep understanding through active learning. Three modes — Deep Di
 - Covers your own commits (do you remember what you did?) and teammates' commits
 
 **Use this when**: You've been away from the project, a teammate pushed changes, or you want to verify you understand recent work.
+
+### D) Pre-Commit Quiz Mode
+**Goal**: Verify you understand your own changes before committing — what you changed, why, and what it affects.
+- Trigger: include "pre-commit", "before commit", "before committing", or "review my changes" in request
+- Claude reads your staged and unstaged changes (`git diff` and `git diff --staged`)
+- Generates multiple-choice questions (3 options each) about your own changes
+- You pick answers — Claude grades and explains
+- Configurable number of questions (default: 3)
+
+**Use this when**: You're about to commit and want to make sure you truly understand every change — not just that it works, but that you can explain it.
+
+> **vs Mode C (Recent Changes)**: Mode C quizzes on **already committed** code (git log). Mode D quizzes on **uncommitted** changes (git diff) — what you're about to commit right now.
+>
+> **vs `/learning-code-review-eye`**: That trains you to **find bugs** in code. Mode D tests your **comprehension** — do you understand what your change does, not whether it has bugs.
 
 ---
 
@@ -146,6 +161,104 @@ description: Deep understanding through active learning. Three modes — Deep Di
 
 ---
 
+## Pre-Commit Quiz Process
+
+1) **Read the changes**:
+   - Run `git diff --staged` to see what's staged for commit
+   - Run `git diff` to see unstaged changes (mention these to the user — "you also have unstaged changes in X, Y")
+   - Run `git status` for an overview
+   - If nothing is staged or changed, tell the user: "No changes to quiz on. Stage some changes first."
+
+2) **Analyze the changes**:
+   - For each changed file: understand what was added, removed, or modified
+   - Identify the **intent** behind the changes (new feature, bug fix, refactor, config change, test)
+   - Note which parts of the codebase are affected (which modules, which functions)
+   - If needed, read surrounding code for context (the unchanged parts of modified files)
+
+3) **Determine quiz size**:
+   - Check if the user specified a number (e.g., "5 questions"). Use that.
+   - Default: **3 questions** — enough to verify comprehension without slowing down the workflow
+   - For large diffs (10+ files): suggest more questions ("This is a big changeset — want 5 questions instead of 3?")
+   - For tiny diffs (1-2 lines): reduce to 2 questions
+
+4) **Build multiple-choice questions**:
+   Each question must have **exactly 3 options** (A, B, C). One is correct, two are plausible but wrong.
+
+   **Question types** (mix these based on what the diff contains):
+
+   - **"What does this change do?"** — Tests whether you understand the functional effect
+     > Example: "In `scorer.py`, what does the new `normalize` parameter do?"
+     > A) Scales all scores to 0-1 range before aggregation
+     > B) Removes outlier scores that are more than 2 std devs from the mean
+     > C) Converts negative scores to zero
+
+   - **"Why was this change needed?"** — Tests whether you understand the motivation
+     > Example: "Why was the `try/except` block added around the API call in `fetch_data()`?"
+     > A) To retry failed requests up to 3 times
+     > B) To return a default value instead of crashing when the API is unreachable
+     > C) To log the error and re-raise it with more context
+
+   - **"What could this affect?"** — Tests awareness of side effects and dependencies
+     > Example: "Which other component is most likely affected by renaming `process()` to `process_batch()`?"
+     > A) The CLI argument parser in `cli/main.py`
+     > B) The pipeline runner that calls `process()` in a loop
+     > C) The test fixtures that mock the database connection
+
+   - **"What would happen if...?"** — Tests deeper understanding of the change's behavior
+     > Example: "If `max_retries` is set to 0, what happens when the first request fails?"
+     > A) It retries once (0 means use default of 1)
+     > B) It raises the exception immediately with no retries
+     > C) It silently returns None
+
+   - **"What was the previous behavior?"** — Tests whether you know what you replaced
+     > Example: "Before this change, how did `calculate_score()` handle missing values?"
+     > A) It skipped them and averaged the rest
+     > B) It treated them as zero
+     > C) It raised a ValueError
+
+   **Rules for writing good questions**:
+   - Questions must be answerable from the diff + surrounding context — no trick questions
+   - Wrong options must be **plausible** — not obviously absurd
+   - Each question should test a different aspect of the changes (don't ask the same thing twice)
+   - Reference specific file names and function names from the actual diff
+   - Cover the most important changes first — if there are 10 changed files, focus on the ones that matter most
+
+5) **Present all questions at once** using the AskUserQuestion tool:
+   - Present each question with its 3 options
+   - Use the AskUserQuestion tool so the user can click to select answers
+   - This keeps the interaction fast — one round, not back-and-forth
+
+6) **Grade and explain**:
+   After the user answers all questions:
+
+   ```
+   ## Pre-Commit Quiz Results
+
+   ### Score: [X]/[N] ([emoji based on score])
+
+   ### Q1: [question text]
+   **Your answer**: [A/B/C] — [correct/wrong]
+   **Correct answer**: [A/B/C] — [brief explanation with reference to the diff]
+   [If wrong: "The actual change does X because Y — see line N of file.py"]
+
+   ### Q2: ...
+
+   ### Q3: ...
+   ```
+
+7) **Verdict**:
+   - **All correct**: "You understand these changes. Safe to commit."
+   - **Some wrong**: "You missed [specific aspect]. Review [specific file/section] before committing. Here's what to look at: [pointer]."
+   - **Most wrong**: "These changes have more going on than you think. Let me walk you through what each change does before you commit." Then give a brief explanation of each change.
+
+   **Important**: Do NOT block the commit or refuse to let the user proceed. This is a learning tool, not a gate. The user decides whether to commit.
+
+8) **Save progress** to memory:
+   - Record: date, number of questions, score, which types of questions were missed
+   - Track patterns over time: "You consistently miss 'side effects' questions — try to think about what other code calls the function you changed"
+
+---
+
 ## Output Format (Deep Dive)
 
 ```
@@ -203,4 +316,13 @@ description: Deep understanding through active learning. Three modes — Deep Di
 
 # Recent changes — specific directory
 /learning-codebase-mastery catch up on changes in src/api/
+
+# Pre-commit — quick check before committing (default 3 questions)
+/learning-codebase-mastery pre-commit
+
+# Pre-commit — more questions for a big changeset
+/learning-codebase-mastery before commit, 5 questions
+
+# Pre-commit — focused on specific files
+/learning-codebase-mastery review my changes in src/pipeline/
 ```

@@ -177,14 +177,15 @@ Skills are organized by **development phase** — find the phase you're in, pick
 | *If needed* | `/quality-review` | Want a health score with evidence and priority matrix |
 | *If needed* | `/quality-strategic-advisor` | Research your domain, get ideas for new features and capabilities |
 | *If needed* | `/quality-upgrade-advisor` | Dependencies look outdated, need an upgrade plan |
-| *If needed* | `/learning-codebase-mastery` | Deeply *learn* and retain codebase knowledge (3 modes below) |
+| *If needed* | `/learning-codebase-mastery` | Deeply *learn* and retain codebase knowledge (4 modes below) |
 
-> **`/learning-codebase-mastery` has 3 modes** — pick by situation:
+> **`/learning-codebase-mastery` has 4 modes** — pick by situation:
 > | Mode | Trigger words | When to use |
 > |------|--------------|-------------|
 > | **Deep Dive** (default) | `deep dive`, `analyze` | Understand a module's architecture before touching it |
 > | **Tutor** | `tutor`, `quiz`, `interactive` | Test yourself on code you've been reading |
 > | **Recent Changes** | `what changed`, `catch up`, `recent changes` | Catch up on git commits — quiz on what changed and why |
+> | **Pre-Commit** | `pre-commit`, `before commit`, `review my changes` | Verify you understand your uncommitted changes before committing |
 
 ### 2. Planning & Design
 
@@ -263,6 +264,7 @@ PROJECT SETUP & ONBOARDING
   Audit stale dependencies            /quality-upgrade-advisor
   Deeply learn a codebase             /learning-codebase-mastery
   Catch up on recent git changes      /learning-codebase-mastery what changed
+  Quiz before committing              /learning-codebase-mastery pre-commit
 
 PLANNING & DESIGN
   Design before coding                /planning-impl-plan         [essential]

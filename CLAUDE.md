@@ -101,7 +101,7 @@ Skills are organized by **development phase**. **Essential** = don't skip. *If n
 | | *If needed* | `/quality-review` | Health audit + priority matrix |
 | | *If needed* | `/quality-strategic-advisor` | Research domain, suggest new features and capabilities |
 | | *If needed* | `/quality-upgrade-advisor` | Upgrade roadmap for stale deps |
-| | *If needed* | `/learning-codebase-mastery` | Deep dive + tutor quiz + recent changes quiz |
+| | *If needed* | `/learning-codebase-mastery` | Deep dive + tutor quiz + recent changes quiz + pre-commit quiz |
 | **Planning & Design** | **Essential** | `/planning-impl-plan` | Design before coding |
 | | *If needed* | `/planning-spec-from-text` | Convert vague input to specs |
 | **Building** | *If needed* | `/learning-pair-programming` | Pair program with Claude as guide |
