@@ -12,4 +12,4 @@ When working in this repository:
    - `CLAUDE.md` — update the Available Skills table, directory tree, and any affected sections
    - `README.md` — update the Available Skills table, directory tree, Practical Workflow Guide, and any affected sections
    - `tests/test_skills.py` — update the expected skill count if skills were added or removed
-   - Do NOT wait for the user to ask — do it as part of the change itself. If you forget, run `/meta-update-docs` to catch up.
+   - Do NOT wait for the user to ask — do it as part of the change itself. If you forget, run `/quality-sync-docs` to catch up.

@@ -215,6 +215,7 @@ Skills are organized by **development phase** — find the phase you're in, pick
 | *If needed* | `/code-diagnosis` | Something smells off in a specific module or file |
 | *If needed* | `/safe-changes-impact-check` | About to make a risky change — check the blast radius |
 | *If needed* | `/safe-changes-refactor-safe` | Multi-file refactor — need explicit invariants and checkpoints |
+| *If needed* | `/quality-sync-docs` | After refactoring — fix stale paths, counts, and references in all docs |
 
 ### 5. Wrapping Up
 
@@ -245,7 +246,6 @@ Skills are organized by **development phase** — find the phase you're in, pick
 | `/meta-discover-claude-features` | Scout official docs + community for new Claude Code features to adopt |
 | `/meta-experiment-feature` | Set up experiments for a specific feature you already know about |
 | `/meta-skill-audit` | Audit library for overlaps and gaps |
-| `/meta-update-docs` | Update CLAUDE.md, README.md, and tests after structural changes |
 
 > **Discovery workflow**: `/meta-discover-claude-features` finds what's new → you pick what's relevant → `/meta-experiment-feature` sets up the experiment → `/meta-skill-audit` checks the result fits cleanly.
 
@@ -279,6 +279,7 @@ REVIEWING & REFACTORING
   Scan specific code for issues       /code-diagnosis
   Check blast radius                  /safe-changes-impact-check
   Refactor safely                     /safe-changes-refactor-safe
+  Sync docs after changes             /quality-sync-docs
 
 WRAPPING UP
   End of session                      /session-wrapup             [essential]
@@ -294,7 +295,6 @@ LIBRARY MAINTENANCE
   What's new in Claude Code?          /meta-discover-claude-features
   Try a specific new feature          /meta-experiment-feature
   Check for skill overlaps            /meta-skill-audit
-  Update docs after changes           /meta-update-docs
 ```
 
 ---
@@ -327,7 +327,7 @@ claude_experiments/
 │   ├── meta-experiment-feature/
 │   ├── meta-project-setup/
 │   ├── meta-skill-audit/
-│   └── meta-update-docs/
+│   └── quality-sync-docs/
 ├── agents/                       # Agent definitions
 │   ├── code-reviewer.md
 │   └── learning-coach.md
@@ -361,14 +361,14 @@ Each skill recommends next steps in its output, so you rarely need to plan chain
 | **Adding an API endpoint** | `/api-development-api-impl` | `impl-plan` + `code-reviewer` |
 | **Investigating suspicious code** | `/code-diagnosis` | `impact-check` + `refactor-safe` |
 | **Making a risky change** | `/safe-changes-impact-check` | `impl-plan` + `refactor-safe` |
-| **Refactoring existing code** | `/safe-changes-impact-check` | `refactor-safe` + `code-reviewer` |
+| **Refactoring existing code** | `/safe-changes-impact-check` | `refactor-safe` + `quality-sync-docs` + `code-reviewer` |
 | **Tackling tech debt** | `/quality-review` | `diagnosis` + `refactor-safe` |
 | **Planning next capabilities** | `/quality-strategic-advisor` | `impl-plan` for chosen suggestions |
 | **Upgrading dependencies** | `/quality-upgrade-advisor` | `impact-check` + `refactor-safe` |
 | **Wrapping up a session** | `/session-wrapup` | `code-review-eye` to quiz yourself |
 | **Skill building** | `/learning-concept-recall` daily | Add other learning skills as needed |
 | **What's new in Claude Code?** | `/meta-discover-claude-features` | `meta-experiment-feature` to try what's relevant |
-| **Weekly maintenance** | `/meta-update-docs` + `pytest` | `meta-skill-audit` if skills changed |
+| **Weekly maintenance** | `/quality-sync-docs` + `pytest` | `meta-skill-audit` if skills changed |
 
 ---
 

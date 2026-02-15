@@ -27,7 +27,7 @@
 | 17 | learning-code-review-eye | Skill | Skill Building | Train code review skills on diffs |
 | 18 | meta-experiment-feature | Skill | Library Maintenance | Set up experiments for new Claude Code features |
 | 19 | meta-skill-audit | Skill | Library Maintenance | Audit library for overlaps and gaps |
-| 20 | meta-update-docs | Skill | Library Maintenance | Fix stale cross-references across files |
+| 20 | quality-sync-docs | Skill | Library Maintenance | Fix stale cross-references across files |
 
 ### Agents (1)
 
@@ -128,7 +128,7 @@
 | **Performance analysis** | Medium | No coverage. No skill profiles code or suggests optimizations. | Could create a `code-performance` skill that profiles bottlenecks, analyzes query performance, and suggests optimizations. Or extend `code-diagnosis` with a performance mode. |
 | **Database/migrations** | Low-Medium | `safe-changes-impact-check` mentions DB schema changes but doesn't provide DB-specific guidance (migration safety, rollback plans, data backfill strategies). | Could create a `safe-changes-migration` skill. Or extend `impact-check` with DB-specific checklists when it detects schema changes. |
 | **Deployment/release** | Low | No coverage. No skill for deploy checklists, release notes, or go/no-go decisions. | Could create a `session-deploy` skill for pre-deploy checklist and release notes generation. Different from `session-wrapup` (which is session close, not deployment). |
-| **Documentation generation** | Low | `meta-update-docs` syncs existing docs. No skill generates API docs, user guides, or architectural decision records (ADRs). | Low priority — most projects have their own doc tooling. Could extend `session-wrapup` to optionally generate changelog entries. |
+| **Documentation generation** | Low | `quality-sync-docs` syncs existing docs. No skill generates API docs, user guides, or architectural decision records (ADRs). | Low priority — most projects have their own doc tooling. Could extend `session-wrapup` to optionally generate changelog entries. |
 | **Code scaffolding** | Low | `api-development-api-impl` scaffolds API endpoints. No general scaffolding for other patterns (CLI tools, services, workers, etc.). | Low priority. The `api-impl` model could be replicated for other patterns if demand arises. Not worth creating now. |
 
 ---

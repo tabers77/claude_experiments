@@ -71,7 +71,7 @@ claude_experiments/
 │   ├── meta-experiment-feature/
 │   ├── meta-project-setup/
 │   ├── meta-skill-audit/
-│   └── meta-update-docs/
+│   └── quality-sync-docs/
 ├── agents/                       # Agent definitions
 │   ├── code-reviewer.md
 │   └── learning-coach.md
@@ -110,6 +110,7 @@ Skills are organized by **development phase**. **Essential** = don't skip. *If n
 | | *If needed* | `/code-diagnosis` | Scan for bugs, smells, refactoring opportunities |
 | | *If needed* | `/safe-changes-impact-check` | Check blast radius |
 | | *If needed* | `/safe-changes-refactor-safe` | Refactor with explicit invariants |
+| | *If needed* | `/quality-sync-docs` | Sync docs with codebase — fix stale paths, counts, references |
 | **Wrapping Up** | **Essential** | `/session-wrapup` | Record progress, sync docs, set next steps |
 | **Skill Building** | | `/learning-algo-practice` | Algorithm & interview prep |
 | | | `/learning-concept-recall` | Spaced repetition for DS concepts |
@@ -118,7 +119,6 @@ Skills are organized by **development phase**. **Essential** = don't skip. *If n
 | **Library Maintenance** | | `/meta-discover-claude-features` | Scout official docs + community for new features to adopt |
 | | | `/meta-experiment-feature` | Experiment with a known feature |
 | | | `/meta-skill-audit` | Audit library for overlaps/gaps |
-| | | `/meta-update-docs` | Fix stale cross-references |
 
 ## Agents
 
