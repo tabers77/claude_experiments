@@ -66,11 +66,11 @@ claude_experiments/
 │   ├── learning-debug-training/
 │   ├── learning-code-review-eye/
 │   ├── learning-pair-programming/
-│   ├── meta-discover-features/
+│   ├── meta-discover-claude-features/
 │   ├── meta-experiment-feature/
 │   ├── meta-project-setup/
 │   ├── meta-skill-audit/
-│   └── meta-sync-references/
+│   └── meta-update-docs/
 ├── agents/                       # Agent definitions
 │   ├── code-reviewer.md
 │   └── learning-coach.md
@@ -113,10 +113,10 @@ Skills are organized by **development phase**. **Essential** = don't skip. *If n
 | | | `/learning-concept-recall` | Spaced repetition for DS concepts |
 | | | `/learning-debug-training` | Systematic debugging training |
 | | | `/learning-code-review-eye` | Train code review skills |
-| **Library Maintenance** | | `/meta-discover-features` | Scout official docs + community for new features to adopt |
+| **Library Maintenance** | | `/meta-discover-claude-features` | Scout official docs + community for new features to adopt |
 | | | `/meta-experiment-feature` | Experiment with a known feature |
 | | | `/meta-skill-audit` | Audit library for overlaps/gaps |
-| | | `/meta-sync-references` | Fix stale cross-references |
+| | | `/meta-update-docs` | Fix stale cross-references |
 
 ## Agents
 

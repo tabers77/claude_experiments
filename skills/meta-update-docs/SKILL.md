@@ -1,9 +1,9 @@
 ---
-name: meta-sync-references
+name: meta-update-docs
 description: Detect and fix stale cross-references across the repo. Scans all structural files for broken paths, missing skills, and outdated names, then applies fixes.
 ---
 
-# Skill: sync_references
+# Skill: update_docs
 
 **Purpose**: Keep every file in the repo consistent after structural changes (adding/removing/renaming skills, moving files, changing directories).
 
@@ -191,11 +191,11 @@ After applying fixes:
 
 ```
 # Full sync check + auto-fix
-/meta-sync-references
+/meta-update-docs
 
 # After adding a new skill
-/meta-sync-references just added /my-new-skill
+/meta-update-docs just added /my-new-skill
 
 # Dry run — report only, no fixes
-/meta-sync-references check only, don't fix
+/meta-update-docs check only, don't fix
 ```

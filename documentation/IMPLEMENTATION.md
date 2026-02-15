@@ -1,7 +1,7 @@
 # Implementation Plan
 
 > Last updated: 2026-02-13
-> Source: `/meta-discover-features` audit + `/meta-skill-audit` gap analysis
+> Source: `/meta-discover-claude-features` audit + `/meta-skill-audit` gap analysis
 
 ## Context
 
@@ -16,11 +16,11 @@ The plugin has **21 skills**, **2 agents**, **4 hooks**, **4 rules**. Skills are
 ## Session 2026-02-13: Completed
 
 - [x] Created `learning-pair-programming` skill (collaborative coding, Claude as senior colleague)
-- [x] Created `meta-discover-features` skill (scout official docs + community for new features)
+- [x] Created `meta-discover-claude-features` skill (scout official docs + community for new features)
 - [x] Restructured README.md — skills organized by development phase with Essential/If needed flags
 - [x] Updated CLAUDE.md to match new structure
 - [x] Ran `/meta-skill-audit` — no overlaps need merging, 5 gaps identified
-- [x] Ran `/meta-discover-features` — 3 adopt-now items, 5 plan-next items found
+- [x] Ran `/meta-discover-claude-features` — 3 adopt-now items, 5 plan-next items found
 - [x] **1.1 Agent Memory**: Created `learning-coach` agent with `memory: user`, updated all 5 learning skills with `context: fork` + `agent: learning-coach`
 - [x] **Recent Changes mode**: Added Mode C to `learning-codebase-mastery` — quiz on recent git changes (merged into existing skill instead of creating new one)
 

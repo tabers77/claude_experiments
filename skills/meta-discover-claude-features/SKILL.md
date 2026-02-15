@@ -1,9 +1,9 @@
 ---
-name: meta-discover-features
+name: meta-discover-claude-features
 description: Scout for new Claude Code features and community patterns, then suggest how to adopt them in this plugin. Checks official docs and community repos for what's new and what's relevant.
 ---
 
-# Skill: discover_features
+# Skill: discover_claude_features
 
 **Purpose**: Find new Claude Code features and community patterns, then generate actionable suggestions for adopting them in this plugin — filtered by what's actually relevant to our goals.
 
@@ -199,14 +199,14 @@ Then save to `documentation/FEATURE_DISCOVERY.md` — this becomes the reference
 
 ```
 # Full discovery — check all sources
-/meta-discover-features
+/meta-discover-claude-features
 
 # Focused on official updates only
-/meta-discover-features check official docs only
+/meta-discover-claude-features check official docs only
 
 # Looking for community patterns specifically
-/meta-discover-features what's the community doing with Claude Code agents?
+/meta-discover-claude-features what's the community doing with Claude Code agents?
 
 # After a Claude Code version update
-/meta-discover-features Claude Code just updated — what's new and relevant?
+/meta-discover-claude-features Claude Code just updated — what's new and relevant?
 ```
