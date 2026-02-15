@@ -175,6 +175,7 @@ Skills are organized by **development phase** — find the phase you're in, pick
 | **Essential** | `/meta-project-setup` | First thing on any new project — audit setup, get recommendations |
 | **Essential** | `/architecture-arch` | Map the codebase structure before touching anything |
 | *If needed* | `/quality-review` | Want a health score with evidence and priority matrix |
+| *If needed* | `/quality-strategic-advisor` | Research your domain, get ideas for new features and capabilities |
 | *If needed* | `/quality-upgrade-advisor` | Dependencies look outdated, need an upgrade plan |
 | *If needed* | `/learning-codebase-mastery` | Deeply *learn* and retain codebase knowledge (3 modes below) |
 
@@ -258,6 +259,7 @@ PROJECT SETUP & ONBOARDING
   Set up Claude in a new project      /meta-project-setup        [essential]
   Map the codebase                    /architecture-arch          [essential]
   Assess project health               /quality-review
+  Get strategic feature suggestions    /quality-strategic-advisor
   Audit stale dependencies            /quality-upgrade-advisor
   Deeply learn a codebase             /learning-codebase-mastery
   Catch up on recent git changes      /learning-codebase-mastery what changed
@@ -311,6 +313,7 @@ claude_experiments/
 │   ├── session-wrapup/
 │   ├── api-development-api-impl/
 │   ├── quality-review/
+│   ├── quality-strategic-advisor/
 │   ├── quality-upgrade-advisor/
 │   ├── learning-codebase-mastery/
 │   ├── learning-algo-practice/
@@ -358,6 +361,7 @@ Each skill recommends next steps in its output, so you rarely need to plan chain
 | **Making a risky change** | `/safe-changes-impact-check` | `impl-plan` + `refactor-safe` |
 | **Refactoring existing code** | `/safe-changes-impact-check` | `refactor-safe` + `code-reviewer` |
 | **Tackling tech debt** | `/quality-review` | `diagnosis` + `refactor-safe` |
+| **Planning next capabilities** | `/quality-strategic-advisor` | `impl-plan` for chosen suggestions |
 | **Upgrading dependencies** | `/quality-upgrade-advisor` | `impact-check` + `refactor-safe` |
 | **Wrapping up a session** | `/session-wrapup` | `code-review-eye` to quiz yourself |
 | **Skill building** | `/learning-concept-recall` daily | Add other learning skills as needed |
@@ -390,6 +394,22 @@ Before touching unfamiliar code, map it first:
 ```
 
 **Output**: 10-line overview, component map, execution paths, critical files, risks.
+
+### `/quality-strategic-advisor` — Strategic Feature Discovery
+
+Research your project's domain and get actionable suggestions for new capabilities:
+
+```
+/quality-strategic-advisor
+This is an LLM evaluation framework. We want to know:
+- What libraries and techniques exist for multi-agent scoring?
+- What's the state of the art in process reward models?
+- What similar tools do that we don't?
+```
+
+**Output**: Project understanding card, prioritized recommendations (Implement Next / Plan Later / Watch / Skip), implementation sketches, strategic sequence, `documentation/STRATEGIC_ROADMAP.md`.
+
+**vs `/quality-upgrade-advisor`**: That skill checks if your existing dependencies are up to date. This skill finds new libraries, techniques, and features you're not using yet.
 
 ### `/quality-upgrade-advisor` — Ecosystem Currency Check
 

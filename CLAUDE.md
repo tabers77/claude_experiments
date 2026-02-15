@@ -59,6 +59,7 @@ claude_experiments/
 │   ├── session-wrapup/
 │   ├── api-development-api-impl/
 │   ├── quality-review/
+│   ├── quality-strategic-advisor/
 │   ├── quality-upgrade-advisor/
 │   ├── learning-codebase-mastery/
 │   ├── learning-algo-practice/
@@ -98,6 +99,7 @@ Skills are organized by **development phase**. **Essential** = don't skip. *If n
 | **Setup & Onboarding** | **Essential** | `/meta-project-setup` | Audit setup, recommend artifacts |
 | | **Essential** | `/architecture-arch` | Map codebase structure |
 | | *If needed* | `/quality-review` | Health audit + priority matrix |
+| | *If needed* | `/quality-strategic-advisor` | Research domain, suggest new features and capabilities |
 | | *If needed* | `/quality-upgrade-advisor` | Upgrade roadmap for stale deps |
 | | *If needed* | `/learning-codebase-mastery` | Deep dive + tutor quiz + recent changes quiz |
 | **Planning & Design** | **Essential** | `/planning-impl-plan` | Design before coding |
