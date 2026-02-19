@@ -120,6 +120,7 @@ jobs:
           path: ${{ github.workspace }}/.quality-reports/
           if-no-files-found: error
           retention-days: 7
+          include-hidden-files: true
 
   # ---------------------------------------------------------------
   # Job 2: Create issue with findings (Tier 1+)
