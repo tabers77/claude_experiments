@@ -103,11 +103,14 @@ jobs:
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           KEY_VAULT_ENDPOINT: ${{ secrets.KEY_VAULT_ENDPOINT }}
         run: |
+          mkdir -p .quality-reports
           python _quality-action/scripts/quality-action/run_analysis.py \
             --repo-path . \
             --mode "${{ inputs.analysis_mode || 'both' }}" \
             --model "${{ inputs.model || 'gpt-5.2' }}" \
             --output-dir .quality-reports
+          echo "--- Output files ---"
+          ls -la .quality-reports/
 
       - name: Upload report artifact
         if: always()
@@ -115,7 +118,8 @@ jobs:
         with:
           name: quality-report
           path: .quality-reports/
-          if-no-files-found: warn
+          if-no-files-found: error
+          retention-days: 7
 
   # ---------------------------------------------------------------
   # Job 2: Create issue with findings (Tier 1+)
@@ -123,13 +127,14 @@ jobs:
   create-issue:
     name: Report Findings
     needs: analyze
-    if: needs.analyze.outputs.total_findings > 0
+    if: always() && needs.analyze.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Download report
         uses: actions/download-artifact@v4
         with:
           name: quality-report
+          path: .quality-reports
           path: .quality-reports
 
       - name: Create or update issue
