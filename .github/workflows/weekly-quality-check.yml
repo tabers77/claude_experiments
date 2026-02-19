@@ -9,8 +9,8 @@ on:
     inputs:
       auto_merge_tier:
         description: "1=issues only, 2=PRs only, 3=auto-merge safe changes"
-        type: number
-        default: 2
+        type: string
+        default: "2"
       test_command:
         description: "Command to run tests (must pass for auto-merge)"
         type: string
