@@ -17,7 +17,13 @@ import os
 import sys
 from pathlib import Path
 
-from azure.identity import ClientSecretCredential
+try:
+    from dotenv import load_dotenv
+    load_dotenv()  # Load .env file if present (local testing)
+except ImportError:
+    pass  # dotenv not required in CI
+
+from azure.identity import ClientSecretCredential, DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 from openai import OpenAI
 
@@ -26,23 +32,39 @@ from openai import OpenAI
 # Azure Auth
 # ---------------------------------------------------------------------------
 
-def get_openai_client_from_keyvault() -> tuple[OpenAI, str]:
-    """Authenticate to Azure Key Vault and return an OpenAI client + endpoint."""
-    credential = ClientSecretCredential(
-        tenant_id=os.environ["AZURE_TENANT_ID"],
-        client_id=os.environ["AZURE_CLIENT_ID"],
-        client_secret=os.environ["AZURE_CLIENT_SECRET"],
-    )
-    kv = SecretClient(
-        vault_url=os.environ["KEY_VAULT_ENDPOINT"], credential=credential
-    )
+def get_openai_client_from_keyvault() -> OpenAI:
+    """Authenticate to Azure Key Vault and return an OpenAI client.
+
+    Supports two auth modes:
+    - CI: AZURE_CLIENT_ID + AZURE_TENANT_ID + AZURE_CLIENT_SECRET (service principal)
+    - Local: DefaultAzureCredential (az login, managed identity, etc.)
+    """
+    # Try service principal first (CI), fall back to DefaultAzureCredential (local)
+    client_id = os.environ.get("AZURE_CLIENT_ID")
+    tenant_id = os.environ.get("AZURE_TENANT_ID")
+    client_secret = os.environ.get("AZURE_CLIENT_SECRET")
+
+    if client_id and tenant_id and client_secret:
+        print("  Auth: using service principal credentials")
+        credential = ClientSecretCredential(
+            tenant_id=tenant_id,
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+    else:
+        print("  Auth: using DefaultAzureCredential (az login / managed identity)")
+        credential = DefaultAzureCredential()
+
+    kv_url = os.environ["KEY_VAULT_ENDPOINT"]
+    print(f"  Key Vault: {kv_url}")
+    kv = SecretClient(vault_url=kv_url, credential=credential)
 
     api_key = kv.get_secret("AZURE-OPENAI-API-KEY").value
     endpoint = kv.get_secret("AZURE-OPENAI-CHAT-ENDPOINT").value
     base_url = f"{endpoint.rstrip('/')}/openai/v1/"
 
-    client = OpenAI(api_key=api_key, base_url=base_url)
-    return client, endpoint
+    print(f"  Endpoint: {endpoint}")
+    return OpenAI(api_key=api_key, base_url=base_url)
 
 
 def get_openai_client_direct() -> OpenAI:
@@ -55,10 +77,16 @@ def get_openai_client_direct() -> OpenAI:
 
 def get_client() -> OpenAI:
     """Get OpenAI client — prefer Key Vault, fall back to direct env vars."""
-    if os.environ.get("KEY_VAULT_ENDPOINT"):
-        client, _ = get_openai_client_from_keyvault()
-        return client
-    return get_openai_client_direct()
+    kv_endpoint = os.environ.get("KEY_VAULT_ENDPOINT")
+    if kv_endpoint:
+        return get_openai_client_from_keyvault()
+
+    if os.environ.get("AZURE_OPENAI_API_KEY"):
+        return get_openai_client_direct()
+
+    print("Error: No authentication configured.", file=sys.stderr)
+    print("Set KEY_VAULT_ENDPOINT (preferred) or AZURE_OPENAI_API_KEY + AZURE_OPENAI_ENDPOINT", file=sys.stderr)
+    sys.exit(1)
 
 
 # ---------------------------------------------------------------------------
@@ -100,13 +128,25 @@ def scan_repo(repo_path: Path) -> dict:
         "source_files_sample": {},
     }
 
-    # Collect dependency files
+    # Collect dependency files (root + 1 level deep)
     for fname in DEPENDENCY_FILES:
         fpath = repo_path / fname
         if fpath.exists():
             result["dependency_files"][fname] = fpath.read_text(
                 encoding="utf-8", errors="replace"
-            )[:10000]  # cap at 10k chars
+            )[:10000]
+
+    # Also check subdirectories (1 level) for dependency files
+    skip_dirs = {".git", "__pycache__", "node_modules", ".venv", "venv", "_quality-action"}
+    for subdir in repo_path.iterdir():
+        if subdir.is_dir() and subdir.name not in skip_dirs and not subdir.name.startswith("."):
+            for fname in DEPENDENCY_FILES:
+                fpath = subdir / fname
+                if fpath.exists():
+                    key = f"{subdir.name}/{fname}"
+                    result["dependency_files"][key] = fpath.read_text(
+                        encoding="utf-8", errors="replace"
+                    )[:10000]
 
     # Collect context files
     for fname in CONTEXT_FILES:
@@ -191,6 +231,12 @@ def load_prompt(name: str) -> str:
 
 def call_llm(client: OpenAI, model: str, system_prompt: str, user_content: str) -> str:
     """Call the LLM and return the response text."""
+    # GPT-5+ uses max_completion_tokens; older models use max_tokens
+    is_gpt5_plus = any(tag in model for tag in ("gpt-5", "gpt-6", "o1", "o3"))
+    token_param = (
+        {"max_completion_tokens": 4096} if is_gpt5_plus else {"max_tokens": 4096}
+    )
+
     response = client.chat.completions.create(
         model=model,
         messages=[
@@ -198,7 +244,7 @@ def call_llm(client: OpenAI, model: str, system_prompt: str, user_content: str) 
             {"role": "user", "content": user_content},
         ],
         temperature=0.2,
-        max_tokens=4096,
+        **token_param,
     )
     return response.choices[0].message.content
 

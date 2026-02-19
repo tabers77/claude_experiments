@@ -8,5 +8,6 @@ documentation/BRAINSTORMING.md
 # own local config files
 TODO.md 
 appendix
-
+venv
 .env 
+.vscode
