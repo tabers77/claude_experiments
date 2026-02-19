@@ -110,10 +110,12 @@ jobs:
             --output-dir .quality-reports
 
       - name: Upload report artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: quality-report
           path: .quality-reports/
+          if-no-files-found: warn
 
   # ---------------------------------------------------------------
   # Job 2: Create issue with findings (Tier 1+)
