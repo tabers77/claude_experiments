@@ -49,6 +49,12 @@ cd test_project && uvicorn src.main:app --reload
 claude_experiments/
 ├── .claude-plugin/
 │   └── plugin.json              # Plugin manifest
+├── .github/
+│   └── workflows/
+│       └── weekly-quality-check.yml  # Reusable weekly quality action
+├── scripts/                      # Automation scripts
+│   └── quality-action/           # Weekly quality check (GitHub Action)
+├── appendix/                     # Reference configs (settings.py)
 ├── skills/                       # Plugin skills (auto-discovered)
 │   ├── architecture-arch/
 │   ├── code-diagnosis/

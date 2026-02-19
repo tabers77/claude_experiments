@@ -1,0 +1,356 @@
+name: Weekly Quality Check
+
+# This is a REUSABLE workflow. Other repos call it via workflow_call.
+# It can also run on schedule or manually in this repo.
+
+on:
+  # Reusable — other repos call this
+  workflow_call:
+    inputs:
+      auto_merge_tier:
+        description: "1=issues only, 2=PRs only, 3=auto-merge safe changes"
+        type: number
+        default: 2
+      test_command:
+        description: "Command to run tests (must pass for auto-merge)"
+        type: string
+        default: "pytest tests/ -x"
+      target_branch:
+        description: "Branch to target PRs against"
+        type: string
+        default: "dev"
+      model:
+        description: "Azure OpenAI model to use"
+        type: string
+        default: "gpt-5.2"
+      python_version:
+        description: "Python version for the runner"
+        type: string
+        default: "3.11"
+      analysis_mode:
+        description: "upgrade, strategic, or both"
+        type: string
+        default: "both"
+    secrets:
+      AZURE_CLIENT_ID:
+        required: true
+      AZURE_TENANT_ID:
+        required: true
+      AZURE_CLIENT_SECRET:
+        required: true
+      KEY_VAULT_ENDPOINT:
+        required: true
+
+  # Scheduled — runs every Monday at 9am UTC
+  schedule:
+    - cron: "0 9 * * 1"
+
+  # Manual trigger
+  workflow_dispatch:
+    inputs:
+      auto_merge_tier:
+        description: "1=issues only, 2=PRs only, 3=auto-merge safe changes"
+        type: choice
+        options: ["1", "2", "3"]
+        default: "2"
+      analysis_mode:
+        description: "Analysis mode"
+        type: choice
+        options: ["upgrade", "strategic", "both"]
+        default: "both"
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  # ---------------------------------------------------------------
+  # Job 1: Analyze the repository
+  # ---------------------------------------------------------------
+  analyze:
+    name: Run Quality Analysis
+    runs-on: ubuntu-latest
+    outputs:
+      total_findings: ${{ steps.analyze.outputs.total_findings }}
+      critical_findings: ${{ steps.analyze.outputs.critical_findings }}
+      auto_merge_count: ${{ steps.analyze.outputs.auto_merge_count }}
+      report_path: ${{ steps.analyze.outputs.report_path }}
+    steps:
+      - name: Checkout target repo
+        uses: actions/checkout@v4
+
+      - name: Checkout quality-action scripts
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/claude_experiments
+          path: _quality-action
+          sparse-checkout: scripts/quality-action
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version || '3.11' }}
+
+      - name: Install analysis dependencies
+        run: pip install -r _quality-action/scripts/quality-action/requirements.txt
+
+      - name: Run analysis
+        id: analyze
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          KEY_VAULT_ENDPOINT: ${{ secrets.KEY_VAULT_ENDPOINT }}
+        run: |
+          python _quality-action/scripts/quality-action/run_analysis.py \
+            --repo-path . \
+            --mode "${{ inputs.analysis_mode || 'both' }}" \
+            --model "${{ inputs.model || 'gpt-5.2' }}" \
+            --output-dir .quality-reports
+
+      - name: Upload report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-report
+          path: .quality-reports/
+
+  # ---------------------------------------------------------------
+  # Job 2: Create issue with findings (Tier 1+)
+  # ---------------------------------------------------------------
+  create-issue:
+    name: Report Findings
+    needs: analyze
+    if: needs.analyze.outputs.total_findings > 0
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download report
+        uses: actions/download-artifact@v4
+        with:
+          name: quality-report
+          path: .quality-reports
+
+      - name: Create or update issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = JSON.parse(
+              fs.readFileSync('.quality-reports/quality-report.json', 'utf8')
+            );
+
+            // Build issue body
+            let body = `## Weekly Quality Report\n\n`;
+            body += `**Generated**: ${new Date().toISOString().split('T')[0]}\n`;
+            body += `**Model**: ${{ inputs.model || 'gpt-5.2' }}\n\n`;
+
+            for (const [type, data] of Object.entries(report)) {
+              if (data.error) {
+                body += `### ⚠️ ${type} (error)\n\n${data.error}\n\n`;
+                continue;
+              }
+              body += `### ${type.charAt(0).toUpperCase() + type.slice(1)} Analysis\n\n`;
+              body += `**Findings**: ${data.summary?.total_findings || 0}\n\n`;
+
+              for (const f of (data.findings || [])) {
+                const tier = f.tier || 'unknown';
+                const title = f.title || f.dependency || 'Unknown';
+                const desc = f.description || f.reason || '';
+                const auto = f.auto_mergeable ? ' [auto-mergeable]' : '';
+                body += `- **[${tier}]** ${title}${auto}: ${desc}\n`;
+              }
+              body += `\n`;
+            }
+
+            body += `\n---\n*Generated by [Weekly Quality Check](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})*`;
+
+            // Find existing open issue with our label
+            const label = 'quality-check';
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: label,
+              state: 'open',
+              per_page: 1,
+            });
+
+            if (issues.data.length > 0) {
+              // Update existing issue
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues.data[0].number,
+                body: body,
+              });
+              console.log(`Updated issue #${issues.data[0].number}`);
+            } else {
+              // Ensure label exists
+              try {
+                await github.rest.issues.createLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: label,
+                  color: '0e8a16',
+                  description: 'Automated weekly quality check',
+                });
+              } catch (e) {
+                // Label already exists — ignore
+              }
+
+              const issue = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `Weekly Quality Report - ${new Date().toISOString().split('T')[0]}`,
+                body: body,
+                labels: [label],
+              });
+              console.log(`Created issue #${issue.data.number}`);
+            }
+
+  # ---------------------------------------------------------------
+  # Job 3: Apply changes and create PR (Tier 2+)
+  # ---------------------------------------------------------------
+  create-pr:
+    name: Apply Changes & Create PR
+    needs: analyze
+    if: |
+      (inputs.auto_merge_tier || 2) >= 2 &&
+      needs.analyze.outputs.auto_merge_count > 0
+    runs-on: ubuntu-latest
+    outputs:
+      pr_number: ${{ steps.create-pr.outputs.pr_number }}
+      tests_passed: ${{ steps.tests.outputs.passed }}
+    steps:
+      - name: Checkout target repo
+        uses: actions/checkout@v4
+
+      - name: Checkout quality-action scripts
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/claude_experiments
+          path: _quality-action
+          sparse-checkout: scripts/quality-action
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version || '3.11' }}
+
+      - name: Download report
+        uses: actions/download-artifact@v4
+        with:
+          name: quality-report
+          path: .quality-reports
+
+      - name: Install dependencies
+        run: |
+          pip install -r _quality-action/scripts/quality-action/requirements.txt
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Apply auto-mergeable changes
+        id: apply
+        run: |
+          python _quality-action/scripts/quality-action/apply_changes.py \
+            --repo-path . \
+            --report .quality-reports/quality-report.json
+
+      - name: Run tests
+        id: tests
+        continue-on-error: true
+        run: |
+          ${{ inputs.test_command || 'pytest tests/ -x' }}
+          echo "passed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Create PR branch
+        if: steps.apply.outputs.changes_applied > 0
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          BRANCH="quality/weekly-$(date +%Y%m%d)"
+          git checkout -b "$BRANCH"
+          git add -A
+          git commit -m "chore: weekly quality updates ($(date +%Y-%m-%d))
+
+          Applied auto-mergeable changes from quality analysis.
+          See linked issue for full report.
+
+          Generated by Weekly Quality Check action."
+          git push -u origin "$BRANCH"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Create Pull Request
+        id: create-pr
+        if: steps.apply.outputs.changes_applied > 0
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const candidates = JSON.parse(
+              fs.readFileSync('.quality-reports/auto-merge-candidates.json', 'utf8')
+            );
+
+            const testsPassed = '${{ steps.tests.outputs.passed }}' === 'true';
+            const branch = `quality/weekly-${new Date().toISOString().split('T')[0].replace(/-/g, '')}`;
+            const target = '${{ inputs.target_branch || 'dev' }}';
+
+            let body = `## Weekly Quality Updates\n\n`;
+            body += `**Tests**: ${testsPassed ? 'Passed' : 'Failed'}\n`;
+            body += `**Changes applied**: ${candidates.length}\n\n`;
+            body += `### Changes\n\n`;
+
+            for (const c of candidates) {
+              const name = c.title || c.dependency || 'Unknown';
+              body += `- ${name}: ${c.reason || c.description || ''}\n`;
+            }
+
+            body += `\n---\n*Generated by [Weekly Quality Check](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})*`;
+
+            const pr = await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `chore: weekly quality updates (${new Date().toISOString().split('T')[0]})`,
+              body: body,
+              head: branch,
+              base: target,
+              labels: ['quality-check', 'auto-generated'],
+            }).catch(async (e) => {
+              // Labels might not exist yet
+              console.log('PR creation note:', e.message);
+              return await github.rest.pulls.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `chore: weekly quality updates (${new Date().toISOString().split('T')[0]})`,
+                body: body,
+                head: branch,
+                base: target,
+              });
+            });
+
+            core.setOutput('pr_number', pr.data.number);
+            console.log(`Created PR #${pr.data.number}`);
+
+  # ---------------------------------------------------------------
+  # Job 4: Auto-merge if Tier 3 and tests pass (Tier 3 only)
+  # ---------------------------------------------------------------
+  auto-merge:
+    name: Auto-merge (if safe)
+    needs: [analyze, create-pr]
+    if: |
+      (inputs.auto_merge_tier || 2) >= 3 &&
+      needs.create-pr.outputs.tests_passed == 'true' &&
+      needs.create-pr.outputs.pr_number
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enable auto-merge
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = parseInt('${{ needs.create-pr.outputs.pr_number }}');
+            await github.rest.pulls.merge({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+              merge_method: 'squash',
+              commit_title: `chore: weekly quality updates (auto-merged)`,
+            });
+            console.log(`Auto-merged PR #${prNumber}`);

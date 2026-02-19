@@ -4,3 +4,9 @@ documentation/BRAINSTORMING.md
 # Junctions created by setup-local.sh (point to skills/ and agents/)
 .claude/skills/
 .claude/agents/
+
+# own local config files
+TODO.md 
+appendix
+
+.env 

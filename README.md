@@ -305,6 +305,9 @@ LIBRARY MAINTENANCE
 claude_experiments/
 ├── .claude-plugin/
 │   └── plugin.json              # Plugin manifest (hooks inline)
+├── .github/
+│   └── workflows/
+│       └── weekly-quality-check.yml  # Reusable weekly quality action
 ├── skills/                       # Plugin skills (auto-discovered)
 │   ├── architecture-arch/
 │   ├── code-diagnosis/
@@ -333,6 +336,14 @@ claude_experiments/
 │   └── learning-coach.md
 ├── hooks/                        # Hook reference copy
 │   └── hooks.json
+├── scripts/                      # Automation scripts
+│   └── quality-action/           # Weekly quality check (GitHub Action)
+│       ├── run_analysis.py       # Scan repo → call GPT-5.2 → report
+│       ├── apply_changes.py      # Apply safe auto-mergeable changes
+│       ├── requirements.txt      # Action dependencies
+│       ├── example-caller-workflow.yml
+│       └── prompts/              # LLM prompt templates
+├── appendix/                     # Reference configs (settings.py, etc.)
 ├── documentation/                # All generated .md docs
 │   ├── PROBLEM_STATEMENT.md
 │   └── BRAINSTORMING.md
@@ -560,6 +571,136 @@ Ready-to-copy templates are in `library/rules/`. Or run `/meta-project-setup` to
 - **One topic per file** — Don't mix style and security in the same file.
 - **Include commands** — If the rule relates to running something, include the exact command.
 - **List sensitive paths** — Tell Claude which directories need extra caution.
+
+---
+
+## Automated Weekly Quality Checks (GitHub Action)
+
+This plugin includes a **reusable GitHub Action** that runs `/quality-upgrade-advisor` and `/quality-strategic-advisor` automatically on a weekly schedule. It uses **Azure OpenAI (GPT-5.2)** to analyze your repos and create PRs with improvements.
+
+### How it works
+
+```
+Every Monday 9am UTC (configurable)
+  │
+  ├─ Job 1: Analyze ─── Scans repo → calls GPT-5.2 → JSON report
+  ├─ Job 2: Issue    ─── Opens/updates a GitHub Issue with all findings
+  ├─ Job 3: PR       ─── Applies safe changes → runs tests → opens PR
+  └─ Job 4: Merge    ─── Auto-merges ONLY if Tier 3 + all tests pass
+```
+
+### Three tiers of automation
+
+| Tier | Behavior | Risk |
+|------|----------|------|
+| **1** | Issue only — report findings, no code changes | Zero |
+| **2** (default) | PR with safe changes — human reviews and merges | Low |
+| **3** | Auto-merge if tests pass AND changes are low-risk only | Medium |
+
+Auto-merge (Tier 3) only applies to:
+- Patch/minor dependency bumps with no breaking changes
+- Security patches
+- Trivial code fixes (unused imports, missing `__init__.py`)
+
+It will **never** auto-merge major version bumps, framework upgrades, or logic changes.
+
+### Prerequisites
+
+You need **Azure OpenAI** access with GPT-5.2 (or GPT-4o) deployed, and secrets stored in **Azure Key Vault**. No Anthropic API key is needed.
+
+### Setup (5 minutes)
+
+**Step 1: Add 4 secrets to your GitHub repo**
+
+Go to your repo → Settings → Secrets and variables → Actions → New repository secret:
+
+| Secret name | Value | Where to find it |
+|-------------|-------|-------------------|
+| `AZURE_CLIENT_ID` | Your Azure service principal client ID | Azure Portal → App registrations |
+| `AZURE_TENANT_ID` | Your Azure tenant ID | Azure Portal → Microsoft Entra ID |
+| `AZURE_CLIENT_SECRET` | Your Azure service principal secret | Azure Portal → App registrations → Certificates & secrets |
+| `KEY_VAULT_ENDPOINT` | `https://your-keyvault.vault.azure.net/` | Azure Portal → Key Vault → Overview |
+
+The action authenticates to Key Vault, which provides the Azure OpenAI API key at runtime. No API keys are stored in GitHub.
+
+**Step 2: Copy the caller workflow to your repo**
+
+Create `.github/workflows/weekly-quality.yml` in your target repo:
+
+```yaml
+name: Weekly Quality Check
+
+on:
+  schedule:
+    - cron: "0 9 * * 1"  # Every Monday 9am UTC
+  workflow_dispatch:
+    inputs:
+      auto_merge_tier:
+        description: "1=issues only, 2=PRs only, 3=auto-merge"
+        type: choice
+        options: ["1", "2", "3"]
+        default: "2"
+
+jobs:
+  quality:
+    uses: YOUR_GITHUB_USER/claude_experiments/.github/workflows/weekly-quality-check.yml@master
+    with:
+      auto_merge_tier: ${{ github.event.inputs.auto_merge_tier || 2 }}
+      test_command: "pytest tests/ -x"   # Your test command
+      target_branch: "dev"               # Branch to target PRs against
+      model: "gpt-5.2"                   # Azure OpenAI model
+      analysis_mode: "both"              # upgrade, strategic, or both
+    secrets:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      KEY_VAULT_ENDPOINT: ${{ secrets.KEY_VAULT_ENDPOINT }}
+```
+
+Replace `YOUR_GITHUB_USER` with your GitHub username.
+
+**Step 3: Done.** The action will run every Monday, or trigger it manually from Actions → Weekly Quality Check → Run workflow.
+
+### Configuration options
+
+| Input | Default | Description |
+|-------|---------|-------------|
+| `auto_merge_tier` | `2` | `1`=issues only, `2`=PRs, `3`=auto-merge |
+| `test_command` | `pytest tests/ -x` | Command to validate changes |
+| `target_branch` | `dev` | Branch PRs target |
+| `model` | `gpt-5.2` | Azure OpenAI model (`gpt-5.2` or `gpt-4o`) |
+| `analysis_mode` | `both` | `upgrade`, `strategic`, or `both` |
+| `python_version` | `3.11` | Python version for the runner |
+
+### What it analyzes
+
+**Upgrade analysis** — scans dependency files (requirements.txt, pyproject.toml, package.json, etc.) and identifies:
+- Security vulnerabilities and CVEs
+- Deprecated packages or EOL versions
+- Available version bumps with risk assessment
+- Exact upgrade commands
+
+**Strategic analysis** — scans codebase structure and source files for:
+- Anti-patterns and code quality improvements
+- Missing best practices
+- Architecture improvements
+- Performance and security suggestions
+
+### Files
+
+```
+scripts/quality-action/
+├── run_analysis.py             # Main: scan repo → call GPT-5.2 → JSON report
+├── apply_changes.py            # Apply safe auto-mergeable changes only
+├── requirements.txt            # Action dependencies (openai, azure-identity)
+├── example-caller-workflow.yml # Copy this to your repos
+└── prompts/
+    ├── upgrade_advisor.md      # Dependency analysis prompt
+    └── strategic_advisor.md    # Code/architecture analysis prompt
+
+.github/workflows/
+└── weekly-quality-check.yml    # Reusable workflow (called by other repos)
+```
 
 ---
 
