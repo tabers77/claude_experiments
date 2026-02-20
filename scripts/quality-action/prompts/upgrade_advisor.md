@@ -49,10 +49,10 @@ Return ONLY valid JSON with this structure:
 
 ## Rules for `auto_mergeable`
 
-Set `auto_mergeable: true` ONLY when ALL of these are true:
+Set `auto_mergeable: true` when ALL of these are true:
 - It's a patch or minor version bump (not major)
 - No breaking changes documented
-- The dependency is not a core framework (e.g., Django, FastAPI, React)
-- The upgrade is a security patch
+- The dependency is not a core framework (e.g., Django, FastAPI, React, torch, tensorflow)
+- effort is "low" and risk is "low"
 
 Otherwise set `auto_mergeable: false`.

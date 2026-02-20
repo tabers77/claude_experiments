@@ -47,10 +47,11 @@ Return ONLY valid JSON with this structure:
 
 ## Rules for `auto_mergeable`
 
-Set `auto_mergeable: true` ONLY for:
-- Adding missing `__init__.py` files
-- Adding type hints to function signatures
-- Removing unused imports
-- Fixing obvious code style issues (consistent quotes, trailing whitespace)
+Set `auto_mergeable: true` when ALL of these are true:
+- tier is "implement_next"
+- effort is "small" and risk is "low"
+- category is "code_quality" or "testing"
+- The change is localized (affects 1-2 files, no architectural impact)
+- suggested_changes contains specific, concrete code (not just advice)
 
-Everything else should be `auto_mergeable: false`.
+Otherwise set `auto_mergeable: false`.
