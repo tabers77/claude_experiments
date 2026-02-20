@@ -13,6 +13,7 @@ import argparse
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -30,9 +31,11 @@ def apply_upgrade_finding(repo_path: Path, finding: dict) -> bool:
         print(f"  Skipping unsafe command: {cmd}")
         return False
 
-    print(f"  Applying: {cmd}")
+    # Strip quotes from arguments — LLMs often wrap specs like 'pytest>=8.0'
+    parts = shlex.split(cmd)
+    print(f"  Applying: {' '.join(parts)}")
     result = subprocess.run(
-        cmd.split(), cwd=repo_path, capture_output=True, text=True, timeout=120
+        parts, cwd=repo_path, capture_output=True, text=True, timeout=120
     )
 
     if result.returncode != 0:
