@@ -277,7 +277,9 @@ jobs:
           BRANCH="quality/weekly-$(date +%Y%m%d)"
           git checkout -b "$BRANCH"
           # Only stage actual project files — exclude action checkout and report artifacts
-          git add -A -- ':!_quality-action' ':!.quality-reports'
+          echo "_quality-action/" >> .gitignore
+          echo ".quality-reports/" >> .gitignore
+          git add -A
           git commit -m "chore: weekly quality updates ($(date +%Y-%m-%d))
 
           Applied auto-mergeable changes from quality analysis.
