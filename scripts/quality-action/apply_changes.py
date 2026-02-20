@@ -25,8 +25,11 @@ def apply_upgrade_finding(repo_path: Path, finding: dict) -> bool:
     if not cmd:
         return False
 
-    # Safety: only allow pip install, npm install, cargo update
-    allowed_prefixes = ["pip install", "npm install", "cargo update", "poetry add"]
+    # Safety: only allow known package manager install commands
+    allowed_prefixes = [
+        "pip install", "python -m pip install",
+        "npm install", "cargo update", "poetry add",
+    ]
     if not any(cmd.strip().startswith(p) for p in allowed_prefixes):
         print(f"  Skipping unsafe command: {cmd}")
         return False
@@ -43,7 +46,7 @@ def apply_upgrade_finding(repo_path: Path, finding: dict) -> bool:
         return False
 
     # Update requirements.txt if it's a pip install
-    if cmd.startswith("pip install") and (repo_path / "requirements.txt").exists():
+    if ("pip install" in cmd) and (repo_path / "requirements.txt").exists():
         _update_requirements_txt(repo_path, finding)
 
     return True
