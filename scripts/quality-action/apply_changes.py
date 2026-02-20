@@ -19,11 +19,38 @@ import sys
 from pathlib import Path
 
 
-def apply_upgrade_finding(repo_path: Path, finding: dict) -> bool:
-    """Apply a single upgrade finding (dependency version bump)."""
+def _get_tracked_files_snapshot(repo_path: Path) -> dict[str, str]:
+    """Snapshot all tracked + untracked file contents for change detection."""
+    snapshot = {}
+    for p in repo_path.rglob("*"):
+        if not p.is_file():
+            continue
+        rel = str(p.relative_to(repo_path))
+        # Skip dirs that are not project code
+        if any(part in rel for part in [".git", "_quality-action", ".quality-reports", "__pycache__", "node_modules"]):
+            continue
+        try:
+            snapshot[rel] = p.read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+    return snapshot
+
+
+def _files_actually_changed(before: dict[str, str], after: dict[str, str]) -> list[str]:
+    """Return list of files that changed between two snapshots."""
+    changed = []
+    all_keys = set(before.keys()) | set(after.keys())
+    for key in all_keys:
+        if before.get(key) != after.get(key):
+            changed.append(key)
+    return changed
+
+
+def apply_upgrade_finding(repo_path: Path, finding: dict) -> list[str]:
+    """Apply a single upgrade finding. Returns list of files actually modified."""
     cmd = finding.get("upgrade_command")
     if not cmd:
-        return False
+        return []
 
     # Safety: only allow known package manager install commands
     allowed_prefixes = [
@@ -32,66 +59,121 @@ def apply_upgrade_finding(repo_path: Path, finding: dict) -> bool:
     ]
     if not any(cmd.strip().startswith(p) for p in allowed_prefixes):
         print(f"  Skipping unsafe command: {cmd}")
-        return False
+        return []
 
-    # Strip quotes from arguments — LLMs often wrap specs like 'pytest>=8.0'
-    parts = shlex.split(cmd)
-    print(f"  Applying: {' '.join(parts)}")
-    result = subprocess.run(
-        parts, cwd=repo_path, capture_output=True, text=True, timeout=120
-    )
+    dep = finding.get("dependency", "")
+    new_ver = finding.get("recommended_version", "")
 
-    if result.returncode != 0:
-        print(f"  Failed: {result.stderr[:500]}")
-        return False
+    # Try to update dependency files directly first
+    modified = _update_dependency_files(repo_path, dep, new_ver)
 
-    # Update requirements.txt if it's a pip install
-    if ("pip install" in cmd) and (repo_path / "requirements.txt").exists():
-        _update_requirements_txt(repo_path, finding)
+    if not modified:
+        # Fall back to running the command and checking if files changed
+        before = _get_tracked_files_snapshot(repo_path)
 
-    return True
+        parts = shlex.split(cmd)
+        print(f"  Running: {' '.join(parts)}")
+        result = subprocess.run(
+            parts, cwd=repo_path, capture_output=True, text=True, timeout=120
+        )
+
+        if result.returncode != 0:
+            print(f"  Failed: {result.stderr[:500]}")
+            return []
+
+        after = _get_tracked_files_snapshot(repo_path)
+        modified = _files_actually_changed(before, after)
+
+    return modified
 
 
-def _update_requirements_txt(repo_path: Path, finding: dict):
-    """Update requirements.txt with the new version."""
+def _update_dependency_files(repo_path: Path, dep: str, new_ver: str) -> list[str]:
+    """Update dependency version in requirements.txt, pyproject.toml, or setup.cfg.
+    Returns list of files that were modified."""
+    if not dep or not new_ver:
+        return []
+
+    modified = []
+
+    # --- requirements.txt ---
     req_file = repo_path / "requirements.txt"
-    content = req_file.read_text(encoding="utf-8")
-    dep = finding["dependency"]
-    new_ver = finding["recommended_version"]
+    if req_file.exists():
+        content = req_file.read_text(encoding="utf-8")
+        # Match: package==1.0.0, package>=1.0.0, package~=1.0.0, package>=1.0,<2
+        pattern = rf"^({re.escape(dep)})\s*([>=<~!]+)\s*[\d][^\n]*"
+        replacement = rf"\1\2{new_ver}"
+        new_content = re.sub(pattern, replacement, content, flags=re.MULTILINE | re.IGNORECASE)
+        if new_content != content:
+            req_file.write_text(new_content, encoding="utf-8")
+            print(f"  Updated requirements.txt: {dep} -> {new_ver}")
+            modified.append("requirements.txt")
 
-    # Match patterns: package==1.0.0, package>=1.0.0, package~=1.0.0
-    pattern = rf"^({re.escape(dep)})\s*([>=<~!]+)\s*[\d][^\n]*"
-    replacement = rf"\1\2{new_ver}"
-    new_content = re.sub(pattern, replacement, content, flags=re.MULTILINE)
+    # --- pyproject.toml ---
+    pyproject = repo_path / "pyproject.toml"
+    if pyproject.exists():
+        content = pyproject.read_text(encoding="utf-8")
+        # Match patterns in dependencies lists:
+        #   "package>=1.0.0"  "package>=1.0,<2"  "package~=1.0"  "package==1.0"
+        pattern = rf'("{re.escape(dep)}\s*[>=<~!]+)\s*[\d][^"]*(")'
+        replacement = rf"\g<1>{new_ver}\2"
+        new_content = re.sub(pattern, replacement, content, flags=re.IGNORECASE)
+        if new_content != content:
+            pyproject.write_text(new_content, encoding="utf-8")
+            print(f"  Updated pyproject.toml: {dep} -> {new_ver}")
+            modified.append("pyproject.toml")
 
-    if new_content != content:
-        req_file.write_text(new_content, encoding="utf-8")
-        print(f"  Updated requirements.txt: {dep} -> {new_ver}")
+    # --- setup.cfg ---
+    setup_cfg = repo_path / "setup.cfg"
+    if setup_cfg.exists():
+        content = setup_cfg.read_text(encoding="utf-8")
+        pattern = rf"^(\s*{re.escape(dep)}\s*[>=<~!]+)\s*[\d][^\n]*"
+        replacement = rf"\1{new_ver}"
+        new_content = re.sub(pattern, replacement, content, flags=re.MULTILINE | re.IGNORECASE)
+        if new_content != content:
+            setup_cfg.write_text(new_content, encoding="utf-8")
+            print(f"  Updated setup.cfg: {dep} -> {new_ver}")
+            modified.append("setup.cfg")
+
+    # --- Also check subdirectory requirements files ---
+    for req in repo_path.glob("*/requirements*.txt"):
+        rel = str(req.relative_to(repo_path))
+        content = req.read_text(encoding="utf-8")
+        pattern = rf"^({re.escape(dep)})\s*([>=<~!]+)\s*[\d][^\n]*"
+        replacement = rf"\1\2{new_ver}"
+        new_content = re.sub(pattern, replacement, content, flags=re.MULTILINE | re.IGNORECASE)
+        if new_content != content:
+            req.write_text(new_content, encoding="utf-8")
+            print(f"  Updated {rel}: {dep} -> {new_ver}")
+            modified.append(rel)
+
+    return modified
 
 
-def apply_strategic_finding(repo_path: Path, finding: dict) -> bool:
-    """Apply a strategic finding (only trivial code changes)."""
+def apply_strategic_finding(repo_path: Path, finding: dict) -> list[str]:
+    """Apply a strategic finding. Returns list of files actually modified."""
     changes = finding.get("suggested_changes")
     if not changes:
-        return False
+        return []
 
     category = finding.get("category", "")
     # Only apply truly safe categories
-    if category not in ("code_quality",):
-        return False
+    if category not in ("code_quality", "testing"):
+        return []
 
-    # For now, only handle "add missing __init__.py"
+    modified = []
+
+    # Handle "add missing __init__.py"
     if "__init__.py" in changes.lower():
         affected = finding.get("affected_files", [])
         for fpath in affected:
             full = repo_path / fpath
-            if not full.exists():
+            if not full.exists() and fpath.endswith("__init__.py"):
                 full.parent.mkdir(parents=True, exist_ok=True)
                 full.write_text("", encoding="utf-8")
                 print(f"  Created: {fpath}")
-        return True
+                modified.append(fpath)
 
-    return False
+    return modified
 
 
 def main():
@@ -110,7 +192,7 @@ def main():
     repo_path = Path(args.repo_path).resolve()
     report = json.loads(Path(args.report).read_text(encoding="utf-8"))
 
-    applied = 0
+    all_modified_files = []
     skipped = 0
 
     for analysis_type, data in report.items():
@@ -123,24 +205,32 @@ def main():
 
             if args.dry_run:
                 print("  (dry run — would apply)")
-                applied += 1
+                all_modified_files.append("(dry-run)")
                 continue
 
             if analysis_type == "upgrade":
-                ok = apply_upgrade_finding(repo_path, finding)
+                modified = apply_upgrade_finding(repo_path, finding)
             elif analysis_type == "strategic":
-                ok = apply_strategic_finding(repo_path, finding)
+                modified = apply_strategic_finding(repo_path, finding)
             else:
-                ok = False
+                modified = []
 
-            if ok:
-                applied += 1
+            if modified:
+                print(f"  Modified files: {', '.join(modified)}")
+                all_modified_files.extend(modified)
             else:
+                print("  No files changed — skipping")
                 skipped += 1
 
-    print(f"\nDone: {applied} applied, {skipped} skipped")
+    # Deduplicate
+    unique_files = sorted(set(all_modified_files))
+    applied = len(unique_files)
 
-    # Set GitHub Actions outputs
+    print(f"\nDone: {applied} file(s) modified, {skipped} skipped")
+    if unique_files:
+        print(f"Modified files: {', '.join(unique_files)}")
+
+    # Set GitHub Actions outputs — only count as applied if files actually changed
     if os.environ.get("GITHUB_OUTPUT"):
         with open(os.environ["GITHUB_OUTPUT"], "a") as f:
             f.write(f"changes_applied={applied}\n")
