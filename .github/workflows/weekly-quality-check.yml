@@ -270,11 +270,12 @@ jobs:
           echo "passed=true" >> "$GITHUB_OUTPUT"
 
       - name: Create PR branch
+        id: create-branch
         if: steps.apply.outputs.changes_applied > 0
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          BRANCH="quality/weekly-$(date +%Y%m%d)"
+          BRANCH="quality/weekly-$(date +%Y%m%d)-${{ github.run_number }}"
           git checkout -b "$BRANCH"
           # Only stage actual project files — exclude action checkout and report artifacts
           echo "_quality-action/" >> .gitignore
@@ -301,7 +302,7 @@ jobs:
             );
 
             const testsPassed = '${{ steps.tests.outputs.passed }}' === 'true';
-            const branch = `quality/weekly-${new Date().toISOString().split('T')[0].replace(/-/g, '')}`;
+            const branch = '${{ steps.create-branch.outputs.branch }}';
             const target = '${{ inputs.target_branch || 'dev' }}';
 
             let body = `## Weekly Quality Updates\n\n`;
