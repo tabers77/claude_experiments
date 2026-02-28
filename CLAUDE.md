@@ -25,7 +25,7 @@ CI runs three jobs on push/PR: `validate-skills`, `test-project`, `validate-plug
 
 ### Plugin Loading
 - **Manifest:** `.claude-plugin/plugin.json` — defines hooks inline (PreToolUse/PostToolUse)
-- **Skills:** Auto-discovered from `skills/<name>/SKILL.md` (24 skills)
+- **Skills:** Auto-discovered from `skills/<name>/SKILL.md` (22 skills)
 - **Agents:** Auto-discovered from `agents/<name>.md` (2 agents)
 - **Local dev:** `bash setup-local.sh` creates symlink junctions so skills work without `--plugin-dir`
 
@@ -57,7 +57,18 @@ The 5 learning skills use `context: fork` + `agent: learning-coach` to get persi
    - `README.md` — skills table, directory tree, workflow guide
    - `tests/test_skills.py` — expected skill count (currently >= 22)
 
-## Available Skills (24)
+### Implementation Roadmap Sync
+
+`documentation/IMPLEMENTATION.md` is the **single source of truth** for the project roadmap, priority items, and progress tracking. `README.md` contains a summarized status section that must mirror it.
+
+When updating roadmap status, priorities, or completed items:
+1. **Always update `documentation/IMPLEMENTATION.md` first** — project goals, priority sections, and completed work
+2. **Then update `README.md`** to reflect the same status
+3. Never update one without the other — if you mark an item as done in one file, mark it in both
+
+If a new priority item is added or an existing one is split/merged/completed, update both files in the same edit session.
+
+## Available Skills (22)
 
 | Phase | Skills |
 |-------|--------|
@@ -67,4 +78,4 @@ The 5 learning skills use `context: fork` + `agent: learning-coach` to get persi
 | Reviewing & Refactoring | `code-diagnosis`, `safe-changes-impact-check`, `safe-changes-refactor-safe`, `quality-sync-docs` |
 | Wrapping Up | `session-wrapup` |
 | Learning | `learning-algo-practice`, `learning-concept-recall`, `learning-debug-training`, `learning-code-review-eye` |
-| Library Maintenance | `meta-discover-claude-features`, `meta-experiment-feature`, `meta-skill-audit`, `keybindings-help` |
+| Library Maintenance | `meta-discover-claude-features`, `meta-experiment-feature`, `meta-skill-audit` |
