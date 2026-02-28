@@ -1,162 +1,70 @@
-# Claude Code Library (Plugin)
+# CLAUDE.md
 
-## Purpose
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-A reusable Claude Code **plugin** that provides skills, agents, hooks, and rules to any project. Connect once, use everywhere — no copying files.
+## What This Is
 
-## Quick Start
+A Claude Code plugin (`claude-library`) that provides reusable skills, agents, hooks, and rules for any software project. Not an application — a library of automation workflows loaded via `claude --plugin-dir /path/to/claude_experiments`.
 
-### One-time use
-```bash
-claude --plugin-dir /path/to/claude_experiments
-```
-
-### Permanent setup (no flag needed)
-
-Create a shell alias so `claude-lib` works from any project. See README.md for full step-by-step guides per OS.
-
-**Windows (PowerShell):** Add to `$PROFILE`:
-```powershell
-function claude-lib { claude --plugin-dir "C:\path\to\claude_experiments" $args }
-```
-
-**macOS/Linux (Bash/Zsh):** Add to `~/.bashrc` or `~/.zshrc`:
-```bash
-alias claude-lib='claude --plugin-dir /path/to/claude_experiments'
-```
-
-Then run `claude-lib` from any project — identical to `claude` but with the plugin pre-loaded.
-
-### Plugin skills are namespaced
-```bash
-/claude-library:architecture-arch    # Build mental model of codebase
-/claude-library:meta-project-setup   # Analyze project & get recommendations
-```
-
-## Key Commands
+## Running Tests and Validation
 
 ```bash
-# Test the test_project
+# Validate all skills (frontmatter, naming, count)
+python tests/test_skills.py
+
+# Run test project tests
 cd test_project && pip install -r requirements.txt && pytest
 
-# Run the test API
-cd test_project && uvicorn src.main:app --reload
+# Validate plugin manifest
+python -c "import json; json.load(open('.claude-plugin/plugin.json'))"
 ```
 
-## Repo Structure
+CI runs three jobs on push/PR: `validate-skills`, `test-project`, `validate-plugin`.
 
-```
-claude_experiments/
-├── .claude-plugin/
-│   └── plugin.json              # Plugin manifest
-├── .github/
-│   └── workflows/
-│       └── weekly-quality-check.yml  # Reusable weekly quality action
-├── scripts/                      # Automation scripts
-│   └── quality-action/           # Weekly quality check (GitHub Action)
-├── appendix/                     # Reference configs (settings.py)
-├── skills/                       # Plugin skills (auto-discovered)
-│   ├── architecture-arch/
-│   ├── code-diagnosis/
-│   ├── safe-changes-refactor-safe/
-│   ├── safe-changes-impact-check/
-│   ├── planning-spec-from-text/
-│   ├── planning-impl-plan/
-│   ├── session-wrapup/
-│   ├── api-development-api-impl/
-│   ├── quality-review/
-│   ├── quality-strategic-advisor/
-│   ├── quality-upgrade-advisor/
-│   ├── learning-codebase-mastery/
-│   ├── learning-algo-practice/
-│   ├── learning-concept-recall/
-│   ├── learning-debug-training/
-│   ├── learning-code-review-eye/
-│   ├── learning-pair-programming/
-│   ├── meta-discover-claude-features/
-│   ├── meta-experiment-feature/
-│   ├── meta-project-setup/
-│   ├── meta-skill-audit/
-│   └── quality-sync-docs/
-├── agents/                       # Agent definitions
-│   ├── code-reviewer.md
-│   └── learning-coach.md
-├── hooks/                        # Hook configurations
-│   └── hooks.json
-├── documentation/                # All generated .md docs go here
-│   ├── PROBLEM_STATEMENT.md
-│   └── BRAINSTORMING.md
-├── library/                      # Reference material
-│   ├── hooks/                    # Hook examples by category
-│   ├── rules/                    # Reusable rule templates
-│   └── templates/                # CLAUDE.md templates
-├── playbook/                     # Source of truth
-├── test_project/                 # Verification project
-├── tests/                        # Validation scripts
-└── experiments/                  # Feature experiments
-```
+## Architecture
 
-## Available Skills
+### Plugin Loading
+- **Manifest:** `.claude-plugin/plugin.json` — defines hooks inline (PreToolUse/PostToolUse)
+- **Skills:** Auto-discovered from `skills/<name>/SKILL.md` (24 skills)
+- **Agents:** Auto-discovered from `agents/<name>.md` (2 agents)
+- **Local dev:** `bash setup-local.sh` creates symlink junctions so skills work without `--plugin-dir`
 
-Skills are organized by **development phase**. **Essential** = don't skip. *If needed* = use when the situation fits.
+### Skill Structure
+Each skill is a `skills/<name>/SKILL.md` with YAML frontmatter (`name`, `description`) and a markdown body defining purpose, process, and output format. Optional frontmatter: `agent`, `context: fork`, `model`, `tools`.
 
-| Phase | | Skill | Purpose |
-|-------|--|-------|---------|
-| **Setup & Onboarding** | **Essential** | `/meta-project-setup` | Audit setup, recommend artifacts |
-| | **Essential** | `/architecture-arch` | Map codebase structure |
-| | *If needed* | `/quality-review` | Health audit + priority matrix |
-| | *If needed* | `/quality-strategic-advisor` | Research domain, suggest new features and capabilities |
-| | *If needed* | `/quality-upgrade-advisor` | Upgrade roadmap for stale deps |
-| | *If needed* | `/learning-codebase-mastery` | Deep dive + tutor quiz + recent changes quiz + pre-commit quiz |
-| **Planning & Design** | **Essential** | `/planning-impl-plan` | Design before coding |
-| | *If needed* | `/planning-spec-from-text` | Convert vague input to specs |
-| **Building** | *If needed* | `/learning-pair-programming` | Pair program with Claude as guide |
-| | *If needed* | `/api-development-api-impl` | Consistent endpoint implementation |
-| **Reviewing & Refactoring** | **Essential** | `code-reviewer` agent | Review code after changes |
-| | *If needed* | `/code-diagnosis` | Scan for bugs, smells, refactoring opportunities |
-| | *If needed* | `/safe-changes-impact-check` | Check blast radius |
-| | *If needed* | `/safe-changes-refactor-safe` | Refactor with explicit invariants |
-| | *If needed* | `/quality-sync-docs` | Sync docs with codebase — fix stale paths, counts, references |
-| **Wrapping Up** | **Essential** | `/session-wrapup` | Record progress, sync docs, set next steps |
-| **Skill Building** | | `/learning-algo-practice` | Algorithm & interview prep |
-| | | `/learning-concept-recall` | Spaced repetition for DS concepts |
-| | | `/learning-debug-training` | Systematic debugging training |
-| | | `/learning-code-review-eye` | Train code review skills |
-| **Library Maintenance** | | `/meta-discover-claude-features` | Scout official docs + community for new features to adopt |
-| | | `/meta-experiment-feature` | Experiment with a known feature |
-| | | `/meta-skill-audit` | Audit library for overlaps/gaps |
+### Agent Memory Pattern
+The 5 learning skills use `context: fork` + `agent: learning-coach` to get persistent memory. The `learning-coach` agent has `memory: user` which stores state in `~/.claude/agent-memory/learning-coach/`. The `code-reviewer` agent has no persistent memory and uses model `sonnet`.
 
-## Agents
+### Hooks
+- **PreToolUse:** Block edits to `protected/`, `migrations/`, `.env`; block `git push --force`, `reset --hard`, `clean -f`
+- **PostToolUse:** Log all edits to `.claude/edit_log.txt`; auto-lint `.py` files with `ruff`; alert on config/secret/auth file changes
 
-| Agent | Purpose |
-|-------|---------|
-| `code-reviewer` | Expert code review after writing/modifying code |
-| `learning-coach` | Persistent learning coach for all learning skills — tracks progress, weak areas, and mastery across sessions via `memory: user` |
+### Key Directories
+- `library/` — Reference templates (hook examples, rule templates, CLAUDE.md templates)
+- `test_project/` — Minimal FastAPI app used to validate skills work
+- `playbook/` — Source-of-truth guide ("How I Use Claude Code.md")
+- `documentation/` — All generated `.md` output files (audits, plans, reports)
+- `scripts/quality-action/` — GitHub Action implementation for weekly quality checks
 
-## How to Use
+## Rules for Contributing
 
-### As a plugin (recommended)
-```bash
-claude --plugin-dir /path/to/claude_experiments
-# Then use: /claude-library:meta-project-setup
-```
+1. **Skills must be self-contained** — each skill folder works independently when loaded as plugin
+2. **Test in `test_project/`** — verify skills before considering them complete
+3. **Skill directories use hyphens**, not underscores; name in frontmatter must match directory name
+4. **Documentation `.md` files go in `documentation/`** — only `CLAUDE.md` and `README.md` at repo root
+5. **Keep docs in sync after every change** — when adding/removing/modifying skills, update:
+   - This file (`CLAUDE.md`) — skills table, directory tree
+   - `README.md` — skills table, directory tree, workflow guide
+   - `tests/test_skills.py` — expected skill count (currently >= 22)
 
-### Copy individual artifacts
-```bash
-# Copy a rule to your project
-cp library/rules/api.md your-project/.claude/rules/
+## Available Skills (24)
 
-# Copy a template
-cp library/templates/python-api/CLAUDE.md your-project/
-
-# Copy hooks config
-cp hooks/hooks.json your-project/.claude/hooks.json
-```
-
-## Invariants
-
-1. **Playbook is source of truth** - All skills derive from `playbook/How I Use Claude Code.md`
-2. **Plugin-first** - Skills live in `skills/` for plugin discovery
-3. **Hyphenated names** - Skill names use hyphens only (no underscores) per Claude Code spec
-4. **Self-contained** - Each skill works independently when loaded via plugin
-5. **Organized by use-case** - Not by feature type
+| Phase | Skills |
+|-------|--------|
+| Setup & Onboarding | `meta-project-setup`, `architecture-arch`, `quality-review`, `quality-strategic-advisor`, `quality-upgrade-advisor`, `learning-codebase-mastery` |
+| Planning | `planning-impl-plan`, `planning-spec-from-text` |
+| Building | `learning-pair-programming`, `api-development-api-impl` |
+| Reviewing & Refactoring | `code-diagnosis`, `safe-changes-impact-check`, `safe-changes-refactor-safe`, `quality-sync-docs` |
+| Wrapping Up | `session-wrapup` |
+| Learning | `learning-algo-practice`, `learning-concept-recall`, `learning-debug-training`, `learning-code-review-eye` |
+| Library Maintenance | `meta-discover-claude-features`, `meta-experiment-feature`, `meta-skill-audit`, `keybindings-help` |

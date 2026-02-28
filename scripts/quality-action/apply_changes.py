@@ -87,10 +87,28 @@ def apply_upgrade_finding(repo_path: Path, finding: dict) -> list[str]:
     return modified
 
 
+def _clean_version(ver: str) -> str:
+    """Strip operator prefixes and trailing comments from a version string.
+    e.g. '>=8.0 (already allows latest)' -> '8.0'"""
+    # Strip leading operators: >=, ==, ~=, <=, !=, >, <
+    ver = re.sub(r'^[>=<~!]+\s*', '', ver.strip())
+    # Strip trailing comments/descriptions: '8.0 (some note)' -> '8.0'
+    ver = re.split(r'\s+[\(\[]', ver)[0].strip()
+    # Strip trailing non-version chars
+    ver = re.match(r'[\d][\d.,*]*', ver)
+    return ver.group(0) if ver else ""
+
+
 def _update_dependency_files(repo_path: Path, dep: str, new_ver: str) -> list[str]:
     """Update dependency version in requirements.txt, pyproject.toml, or setup.cfg.
     Returns list of files that were modified."""
     if not dep or not new_ver:
+        return []
+
+    # Clean version — LLMs often include operators or comments
+    new_ver = _clean_version(new_ver)
+    if not new_ver:
+        print(f"  Could not parse version from: {new_ver}")
         return []
 
     modified = []

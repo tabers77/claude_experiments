@@ -275,14 +275,13 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          # Exclude non-project dirs from git tracking
-          echo "_quality-action/" >> .gitignore
-          echo ".quality-reports/" >> .gitignore
+          # Exclude non-project dirs via local git exclude (not committed)
+          echo "_quality-action/" >> .git/info/exclude
+          echo ".quality-reports/" >> .git/info/exclude
 
-          # Check if there are real file changes (beyond .gitignore)
+          # Check if there are real file changes
           git add -A
-          git reset -- _quality-action .quality-reports
-          CHANGED=$(git diff --cached --name-only | grep -v '^\.gitignore$' | head -5)
+          CHANGED=$(git diff --cached --name-only | head -5)
           if [ -z "$CHANGED" ]; then
             echo "No project files were modified — skipping PR"
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
@@ -320,9 +319,10 @@ jobs:
             const branch = '${{ steps.create-branch.outputs.branch }}';
             const target = '${{ inputs.target_branch || 'dev' }}';
 
+            const filesChanged = '${{ steps.apply.outputs.changes_applied }}';
             let body = `## Weekly Quality Updates\n\n`;
             body += `**Tests**: ${testsPassed ? 'Passed' : 'Failed'}\n`;
-            body += `**Changes applied**: ${candidates.length}\n\n`;
+            body += `**Upgrades**: ${candidates.length} | **Files modified**: ${filesChanged}\n\n`;
             body += `### Changes\n\n`;
 
             for (const c of candidates) {
