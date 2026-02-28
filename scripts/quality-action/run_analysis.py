@@ -1,27 +1,24 @@
 """
-Weekly Quality Analysis Script
+Weekly Quality Analysis — Simplified
 
-Authenticates to Azure Key Vault, scans the repo for dependencies and code,
-calls GPT-5.2 (or GPT-4o) via Azure OpenAI for upgrade and strategic analysis,
-and outputs structured JSON reports that the GitHub Action uses to create PRs.
+Authenticates to Azure Key Vault, scans the repo, calls Azure OpenAI,
+and outputs a markdown report for use as a GitHub issue body.
 
 Usage:
-    python run_analysis.py --repo-path /path/to/repo --mode upgrade
-    python run_analysis.py --repo-path /path/to/repo --mode strategic
     python run_analysis.py --repo-path /path/to/repo --mode both
+    python run_analysis.py --repo-path /path/to/repo --mode upgrade --output report.md
 """
 
 import argparse
-import json
 import os
 import sys
 from pathlib import Path
 
 try:
     from dotenv import load_dotenv
-    load_dotenv()  # Load .env file if present (local testing)
+    load_dotenv()
 except ImportError:
-    pass  # dotenv not required in CI
+    pass
 
 from azure.identity import ClientSecretCredential, DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
@@ -32,60 +29,30 @@ from openai import OpenAI
 # Azure Auth
 # ---------------------------------------------------------------------------
 
-def get_openai_client_from_keyvault() -> OpenAI:
-    """Authenticate to Azure Key Vault and return an OpenAI client.
-
-    Supports two auth modes:
-    - CI: AZURE_CLIENT_ID + AZURE_TENANT_ID + AZURE_CLIENT_SECRET (service principal)
-    - Local: DefaultAzureCredential (az login, managed identity, etc.)
-    """
-    # Try service principal first (CI), fall back to DefaultAzureCredential (local)
-    client_id = os.environ.get("AZURE_CLIENT_ID")
-    tenant_id = os.environ.get("AZURE_TENANT_ID")
-    client_secret = os.environ.get("AZURE_CLIENT_SECRET")
-
-    if client_id and tenant_id and client_secret:
-        print("  Auth: using service principal credentials")
-        credential = ClientSecretCredential(
-            tenant_id=tenant_id,
-            client_id=client_id,
-            client_secret=client_secret,
-        )
-    else:
-        print("  Auth: using DefaultAzureCredential (az login / managed identity)")
-        credential = DefaultAzureCredential()
-
-    kv_url = os.environ["KEY_VAULT_ENDPOINT"]
-    print(f"  Key Vault: {kv_url}")
-    kv = SecretClient(vault_url=kv_url, credential=credential)
-
-    api_key = kv.get_secret("AZURE-OPENAI-API-KEY").value
-    endpoint = kv.get_secret("AZURE-OPENAI-CHAT-ENDPOINT").value
-    base_url = f"{endpoint.rstrip('/')}/openai/v1/"
-
-    print(f"  Endpoint: {endpoint}")
-    return OpenAI(api_key=api_key, base_url=base_url)
-
-
-def get_openai_client_direct() -> OpenAI:
-    """Use AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT directly (no Key Vault)."""
-    api_key = os.environ["AZURE_OPENAI_API_KEY"]
-    endpoint = os.environ["AZURE_OPENAI_ENDPOINT"]
-    base_url = f"{endpoint.rstrip('/')}/openai/v1/"
-    return OpenAI(api_key=api_key, base_url=base_url)
-
-
 def get_client() -> OpenAI:
-    """Get OpenAI client — prefer Key Vault, fall back to direct env vars."""
-    kv_endpoint = os.environ.get("KEY_VAULT_ENDPOINT")
-    if kv_endpoint:
-        return get_openai_client_from_keyvault()
+    """Get OpenAI client via Key Vault or direct env vars."""
+    kv_url = os.environ.get("KEY_VAULT_ENDPOINT")
+    if kv_url:
+        client_id = os.environ.get("AZURE_CLIENT_ID")
+        tenant_id = os.environ.get("AZURE_TENANT_ID")
+        client_secret = os.environ.get("AZURE_CLIENT_SECRET")
+
+        if client_id and tenant_id and client_secret:
+            credential = ClientSecretCredential(tenant_id, client_id, client_secret)
+        else:
+            credential = DefaultAzureCredential()
+
+        kv = SecretClient(vault_url=kv_url, credential=credential)
+        api_key = kv.get_secret("AZURE-OPENAI-API-KEY").value
+        endpoint = kv.get_secret("AZURE-OPENAI-CHAT-ENDPOINT").value
+        return OpenAI(api_key=api_key, base_url=f"{endpoint.rstrip('/')}/openai/v1/")
 
     if os.environ.get("AZURE_OPENAI_API_KEY"):
-        return get_openai_client_direct()
+        api_key = os.environ["AZURE_OPENAI_API_KEY"]
+        endpoint = os.environ["AZURE_OPENAI_ENDPOINT"]
+        return OpenAI(api_key=api_key, base_url=f"{endpoint.rstrip('/')}/openai/v1/")
 
-    print("Error: No authentication configured.", file=sys.stderr)
-    print("Set KEY_VAULT_ENDPOINT (preferred) or AZURE_OPENAI_API_KEY + AZURE_OPENAI_ENDPOINT", file=sys.stderr)
+    print("Error: Set KEY_VAULT_ENDPOINT or AZURE_OPENAI_API_KEY + AZURE_OPENAI_ENDPOINT", file=sys.stderr)
     sys.exit(1)
 
 
@@ -94,148 +61,125 @@ def get_client() -> OpenAI:
 # ---------------------------------------------------------------------------
 
 DEPENDENCY_FILES = [
-    "requirements.txt",
-    "pyproject.toml",
-    "setup.py",
-    "setup.cfg",
-    "Pipfile",
-    "poetry.lock",
-    "package.json",
-    "package-lock.json",
-    "Cargo.toml",
-    "go.mod",
-    "Gemfile",
+    "requirements.txt", "pyproject.toml", "setup.py", "setup.cfg",
+    "Pipfile", "package.json", "Cargo.toml", "go.mod", "Gemfile",
 ]
 
-CONTEXT_FILES = [
-    "README.md",
-    "CLAUDE.md",
-    "Dockerfile",
-    "docker-compose.yml",
-    "docker-compose.yaml",
-    ".python-version",
-    ".node-version",
-    ".tool-versions",
-]
+CONTEXT_FILES = ["README.md", "CLAUDE.md", ".python-version", ".node-version"]
+
+SKIP_DIRS = {".git", "__pycache__", "node_modules", ".venv", "venv", "_quality-action", ".quality-reports"}
 
 
-def scan_repo(repo_path: Path) -> dict:
-    """Scan the repo and collect dependency files, context files, and directory structure."""
-    result = {
-        "dependency_files": {},
-        "context_files": {},
-        "directory_structure": "",
-        "source_files_sample": {},
-    }
+def scan_repo(repo_path: Path) -> str:
+    """Scan repo and return a text summary for the LLM prompt."""
+    sections = []
 
-    # Collect dependency files (root + 1 level deep)
+    # Dependency files (root + 1 level deep)
+    dep_files = {}
     for fname in DEPENDENCY_FILES:
         fpath = repo_path / fname
         if fpath.exists():
-            result["dependency_files"][fname] = fpath.read_text(
-                encoding="utf-8", errors="replace"
-            )[:10000]
-
-    # Also check subdirectories (1 level) for dependency files
-    skip_dirs = {".git", "__pycache__", "node_modules", ".venv", "venv", "_quality-action"}
+            dep_files[fname] = fpath.read_text(encoding="utf-8", errors="replace")[:8000]
     for subdir in repo_path.iterdir():
-        if subdir.is_dir() and subdir.name not in skip_dirs and not subdir.name.startswith("."):
+        if subdir.is_dir() and subdir.name not in SKIP_DIRS and not subdir.name.startswith("."):
             for fname in DEPENDENCY_FILES:
                 fpath = subdir / fname
                 if fpath.exists():
-                    key = f"{subdir.name}/{fname}"
-                    result["dependency_files"][key] = fpath.read_text(
-                        encoding="utf-8", errors="replace"
-                    )[:10000]
+                    dep_files[f"{subdir.name}/{fname}"] = fpath.read_text(encoding="utf-8", errors="replace")[:8000]
 
-    # Collect context files
+    if dep_files:
+        sections.append("## Dependency Files\n")
+        for fname, content in dep_files.items():
+            sections.append(f"### {fname}\n```\n{content}\n```\n")
+
+    # Context files
     for fname in CONTEXT_FILES:
         fpath = repo_path / fname
         if fpath.exists():
-            result["context_files"][fname] = fpath.read_text(
-                encoding="utf-8", errors="replace"
-            )[:5000]
+            content = fpath.read_text(encoding="utf-8", errors="replace")[:4000]
+            sections.append(f"## {fname}\n```\n{content}\n```\n")
 
-    # Directory structure (top 3 levels)
-    result["directory_structure"] = _get_tree(repo_path, max_depth=3)
-
-    # Sample source files (first 20 .py or .js files, first 100 lines each)
-    source_exts = {".py", ".js", ".ts", ".jsx", ".tsx", ".go", ".rs"}
-    count = 0
-    for p in sorted(repo_path.rglob("*")):
-        if count >= 20:
-            break
-        if (
-            p.is_file()
-            and p.suffix in source_exts
-            and ".venv" not in str(p)
-            and "node_modules" not in str(p)
-            and "__pycache__" not in str(p)
-            and ".git" not in str(p)
-        ):
+    # Directory structure (top 2 levels)
+    sections.append("## Directory Structure\n```")
+    for entry in sorted(repo_path.iterdir(), key=lambda e: (not e.is_dir(), e.name)):
+        if entry.name in SKIP_DIRS or entry.name.startswith("."):
+            continue
+        if entry.is_dir():
+            sections.append(f"{entry.name}/")
             try:
-                lines = p.read_text(encoding="utf-8", errors="replace").splitlines()[
-                    :100
-                ]
+                for child in sorted(entry.iterdir(), key=lambda e: e.name)[:15]:
+                    sections.append(f"  {child.name}")
+            except PermissionError:
+                pass
+        else:
+            sections.append(entry.name)
+    sections.append("```\n")
+
+    # Sample source files (first 10, first 80 lines each)
+    source_exts = {".py", ".js", ".ts", ".go", ".rs"}
+    count = 0
+    source_section = ["## Source Files (sample)\n"]
+    for p in sorted(repo_path.rglob("*")):
+        if count >= 10:
+            break
+        if p.is_file() and p.suffix in source_exts and not any(s in str(p) for s in SKIP_DIRS):
+            try:
+                lines = p.read_text(encoding="utf-8", errors="replace").splitlines()[:80]
                 rel = str(p.relative_to(repo_path))
-                result["source_files_sample"][rel] = "\n".join(lines)
+                source_section.append(f"### {rel}\n```\n{chr(10).join(lines)}\n```\n")
                 count += 1
             except Exception:
                 pass
+    if count > 0:
+        sections.extend(source_section)
 
-    return result
-
-
-def _get_tree(path: Path, max_depth: int, prefix: str = "", depth: int = 0) -> str:
-    """Generate a simple directory tree string."""
-    if depth > max_depth:
-        return ""
-
-    skip_dirs = {
-        ".git", "__pycache__", "node_modules", ".venv", "venv",
-        ".tox", ".mypy_cache", ".pytest_cache", "dist", "build", ".eggs",
-    }
-
-    lines = []
-    try:
-        entries = sorted(path.iterdir(), key=lambda e: (not e.is_dir(), e.name))
-    except PermissionError:
-        return ""
-
-    dirs = [e for e in entries if e.is_dir() and e.name not in skip_dirs]
-    files = [e for e in entries if e.is_file()]
-
-    for f in files[:15]:  # cap files per dir
-        lines.append(f"{prefix}{f.name}")
-    if len(files) > 15:
-        lines.append(f"{prefix}... ({len(files) - 15} more files)")
-
-    for d in dirs[:10]:
-        lines.append(f"{prefix}{d.name}/")
-        lines.append(_get_tree(d, max_depth, prefix + "  ", depth + 1))
-
-    return "\n".join(lines)
+    return "\n".join(sections)
 
 
 # ---------------------------------------------------------------------------
-# LLM Analysis
+# Prompts
 # ---------------------------------------------------------------------------
 
-SCRIPT_DIR = Path(__file__).parent
+UPGRADE_PROMPT = """You are a dependency upgrade advisor. Analyze this project's dependencies and produce a **markdown report** (not JSON).
+
+For each outdated or risky dependency, include:
+- Package name, current version, recommended version
+- Why it matters (security, deprecation, new features)
+- Effort and risk level (low/medium/high)
+
+Organize findings by priority:
+1. **Do Now** — security vulnerabilities, deprecated/EOL packages
+2. **Plan Soon** — major versions behind, useful new features available
+3. **Monitor** — minor versions behind, low impact
+4. **Accept** — intentionally pinned or no meaningful upgrade
+
+End with a brief summary count. Be concise — skip packages that are already current."""
+
+STRATEGIC_PROMPT = """You are a strategic technical advisor. Analyze this project's codebase and suggest improvements.
+
+Focus on:
+- Anti-patterns and code quality issues (with specific file paths)
+- Architecture improvements aligned with the project's stated goals
+- New capabilities, libraries, or patterns worth adopting
+- Performance and security improvements
+
+Organize findings by priority:
+1. **Do Now** — high-impact, low-effort improvements
+2. **Plan Soon** — important but needs design work
+3. **Monitor** — interesting but not urgent
+4. **Accept** — known trade-offs that are fine for now
+
+Be specific — include file paths and concrete suggestions, not generic advice. Be concise."""
 
 
-def load_prompt(name: str) -> str:
-    """Load a prompt template from the prompts/ directory."""
-    return (SCRIPT_DIR / "prompts" / f"{name}.md").read_text(encoding="utf-8")
-
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
 
 def call_llm(client: OpenAI, model: str, system_prompt: str, user_content: str) -> str:
-    """Call the LLM and return the response text."""
-    # GPT-5+ uses max_completion_tokens; older models use max_tokens
+    """Call LLM and return markdown response."""
     is_gpt5_plus = any(tag in model for tag in ("gpt-5", "gpt-6", "o1", "o3"))
-    token_param = (
-        {"max_completion_tokens": 4096} if is_gpt5_plus else {"max_tokens": 4096}
-    )
+    token_param = {"max_completion_tokens": 4096} if is_gpt5_plus else {"max_tokens": 4096}
 
     response = client.chat.completions.create(
         model=model,
@@ -249,179 +193,53 @@ def call_llm(client: OpenAI, model: str, system_prompt: str, user_content: str) 
     return response.choices[0].message.content
 
 
-def run_upgrade_analysis(client: OpenAI, model: str, repo_data: dict) -> dict:
-    """Run the upgrade advisor analysis."""
-    system_prompt = load_prompt("upgrade_advisor")
-
-    user_content = "## Dependency Files\n\n"
-    for fname, content in repo_data["dependency_files"].items():
-        user_content += f"### {fname}\n```\n{content}\n```\n\n"
-
-    user_content += "## Project Context\n\n"
-    for fname, content in repo_data["context_files"].items():
-        user_content += f"### {fname}\n```\n{content[:3000]}\n```\n\n"
-
-    raw = call_llm(client, model, system_prompt, user_content)
-
-    # Extract JSON from response (handle markdown code blocks)
-    return _parse_json_response(raw)
-
-
-def run_strategic_analysis(client: OpenAI, model: str, repo_data: dict) -> dict:
-    """Run the strategic advisor analysis."""
-    system_prompt = load_prompt("strategic_advisor")
-
-    user_content = "## Directory Structure\n```\n"
-    user_content += repo_data["directory_structure"][:3000]
-    user_content += "\n```\n\n"
-
-    user_content += "## Project Context\n\n"
-    for fname, content in repo_data["context_files"].items():
-        user_content += f"### {fname}\n```\n{content[:3000]}\n```\n\n"
-
-    user_content += "## Dependencies\n\n"
-    for fname, content in repo_data["dependency_files"].items():
-        user_content += f"### {fname}\n```\n{content[:3000]}\n```\n\n"
-
-    user_content += "## Source Files (sample)\n\n"
-    for fname, content in list(repo_data["source_files_sample"].items())[:10]:
-        user_content += f"### {fname}\n```\n{content[:2000]}\n```\n\n"
-
-    raw = call_llm(client, model, system_prompt, user_content)
-    return _parse_json_response(raw)
-
-
-def _parse_json_response(raw: str) -> dict:
-    """Parse JSON from LLM response, handling markdown code blocks."""
-    # Try direct parse first
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError:
-        pass
-
-    # Try extracting from code block
-    if "```json" in raw:
-        start = raw.index("```json") + 7
-        end = raw.index("```", start)
-        return json.loads(raw[start:end].strip())
-    if "```" in raw:
-        start = raw.index("```") + 3
-        end = raw.index("```", start)
-        return json.loads(raw[start:end].strip())
-
-    # Last resort — find first { to last }
-    start = raw.index("{")
-    end = raw.rindex("}") + 1
-    return json.loads(raw[start:end])
-
-
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
-
 def main():
     parser = argparse.ArgumentParser(description="Weekly Quality Analysis")
-    parser.add_argument(
-        "--repo-path", required=True, help="Path to the repository to analyze"
-    )
-    parser.add_argument(
-        "--mode",
-        choices=["upgrade", "strategic", "both"],
-        default="both",
-        help="Analysis mode",
-    )
-    parser.add_argument(
-        "--model", default="gpt-5.2", help="Model to use (default: gpt-5.2)"
-    )
-    parser.add_argument(
-        "--output-dir",
-        default=None,
-        help="Directory to write results (default: repo-path)",
-    )
+    parser.add_argument("--repo-path", required=True)
+    parser.add_argument("--mode", choices=["upgrade", "strategic", "both"], default="both")
+    parser.add_argument("--model", default="gpt-5.2")
+    parser.add_argument("--output", default=None, help="Output file path (default: stdout)")
     args = parser.parse_args()
 
     repo_path = Path(args.repo_path).resolve()
-    output_dir = Path(args.output_dir) if args.output_dir else repo_path
-    output_dir.mkdir(parents=True, exist_ok=True)
-
     if not repo_path.exists():
-        print(f"Error: repo path does not exist: {repo_path}", file=sys.stderr)
+        print(f"Error: {repo_path} does not exist", file=sys.stderr)
         sys.exit(1)
 
-    print(f"Scanning repo: {repo_path}")
-    repo_data = scan_repo(repo_path)
+    print(f"Scanning: {repo_path}", file=sys.stderr)
+    repo_context = scan_repo(repo_path)
 
-    dep_count = len(repo_data["dependency_files"])
-    src_count = len(repo_data["source_files_sample"])
-    print(f"Found {dep_count} dependency files, {src_count} source files sampled")
-
-    if dep_count == 0:
-        print("Warning: no dependency files found", file=sys.stderr)
-
-    print("Connecting to Azure OpenAI...")
+    print("Connecting to Azure OpenAI...", file=sys.stderr)
     client = get_client()
 
-    results = {}
+    report_parts = [f"## Weekly Quality Report\n\n**Date**: {__import__('datetime').date.today()}\n**Model**: {args.model}\n"]
 
     if args.mode in ("upgrade", "both"):
-        print(f"Running upgrade analysis with {args.model}...")
+        print(f"Running upgrade analysis ({args.model})...", file=sys.stderr)
         try:
-            results["upgrade"] = run_upgrade_analysis(client, args.model, repo_data)
-            print(
-                f"  Found {results['upgrade']['summary']['total_findings']} upgrade findings"
-            )
+            result = call_llm(client, args.model, UPGRADE_PROMPT, repo_context)
+            report_parts.append(f"---\n\n### Upgrade Analysis\n\n{result}\n")
         except Exception as e:
-            print(f"  Upgrade analysis failed: {e}", file=sys.stderr)
-            results["upgrade"] = {"findings": [], "summary": {"total_findings": 0}, "error": str(e)}
+            report_parts.append(f"---\n\n### Upgrade Analysis\n\n> Error: {e}\n")
+            print(f"Upgrade analysis failed: {e}", file=sys.stderr)
 
     if args.mode in ("strategic", "both"):
-        print(f"Running strategic analysis with {args.model}...")
+        print(f"Running strategic analysis ({args.model})...", file=sys.stderr)
         try:
-            results["strategic"] = run_strategic_analysis(client, args.model, repo_data)
-            print(
-                f"  Found {results['strategic']['summary']['total_findings']} strategic findings"
-            )
+            result = call_llm(client, args.model, STRATEGIC_PROMPT, repo_context)
+            report_parts.append(f"---\n\n### Strategic Analysis\n\n{result}\n")
         except Exception as e:
-            print(f"  Strategic analysis failed: {e}", file=sys.stderr)
-            results["strategic"] = {"findings": [], "summary": {"total_findings": 0}, "error": str(e)}
+            report_parts.append(f"---\n\n### Strategic Analysis\n\n> Error: {e}\n")
+            print(f"Strategic analysis failed: {e}", file=sys.stderr)
 
-    # Write combined results
-    output_file = output_dir / "quality-report.json"
-    output_file.write_text(json.dumps(results, indent=2), encoding="utf-8")
-    print(f"Report written to: {output_file}")
+    report = "\n".join(report_parts)
 
-    # Determine if there are auto-mergeable changes
-    auto_merge_findings = []
-    for analysis_type, data in results.items():
-        for finding in data.get("findings", []):
-            if finding.get("auto_mergeable"):
-                auto_merge_findings.append({**finding, "_source": analysis_type})
-
-    # Write auto-merge candidates separately (used by the workflow)
-    auto_merge_file = output_dir / "auto-merge-candidates.json"
-    auto_merge_file.write_text(
-        json.dumps(auto_merge_findings, indent=2), encoding="utf-8"
-    )
-    print(f"Auto-merge candidates: {len(auto_merge_findings)}")
-
-    # Set GitHub Actions outputs
-    if os.environ.get("GITHUB_OUTPUT"):
-        with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-            total = sum(
-                d.get("summary", {}).get("total_findings", 0)
-                for d in results.values()
-            )
-            critical = sum(
-                d.get("summary", {}).get("critical_count", 0)
-                for d in results.values()
-            )
-            f.write(f"total_findings={total}\n")
-            f.write(f"critical_findings={critical}\n")
-            f.write(f"auto_merge_count={len(auto_merge_findings)}\n")
-            f.write(f"report_path={output_file}\n")
-
-    return 0
+    if args.output:
+        Path(args.output).write_text(report, encoding="utf-8")
+        print(f"Report written to: {args.output}", file=sys.stderr)
+    else:
+        print(report)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

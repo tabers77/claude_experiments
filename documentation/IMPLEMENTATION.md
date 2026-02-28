@@ -29,7 +29,7 @@ Consolidated from the original problem statement. Tracks what motivated this pro
 ### Remaining from original scope
 
 - **MCP coverage**: No skill teaches or experiments with MCP servers. Consider a learning module or extend `meta-experiment-feature`.
-- **Headless/CI mode**: No skill covers running Claude Code in CI pipelines. The weekly quality check workflow uses Azure OpenAI, not Claude Code headless mode.
+- **Headless/CI mode**: The weekly quality check now uses `anthropics/claude-code-action@v1` (Claude Code in CI). No dedicated learning skill for headless mode yet.
 - **Project templates**: Could create a skill that scaffolds Claude Code config (CLAUDE.md, rules, hooks) for new projects using `library/templates/`.
 
 ---
@@ -54,6 +54,13 @@ Consolidated from the original problem statement. Tracks what motivated this pro
 - [x] **Recent Changes mode**: Added Mode D to `learning-codebase-mastery` — quiz on recent git changes
 
 **Key insight from 1.1**: `memory` is an agent-only frontmatter field. Skills get persistent memory via `context: fork` + `agent: learning-coach`.
+
+### Session 2026-02-28
+
+- [x] Created CLAUDE.md for the repository
+- [x] Consolidated `PROBLEM_STATEMENT.md` and `SKILL_AUDIT.md` into `IMPLEMENTATION.md`
+- [x] Added Implementation Roadmap Sync rule to CLAUDE.md
+- [x] **Weekly quality check simplification**: Rewrote from 4-job pipeline (analyze → issue → PR → auto-merge) to 1-job pipeline (analyze → issue). Removed `apply_changes.py` and `prompts/` directory. The script now outputs markdown directly instead of JSON (no more fragile JSON parsing). Dropped PR creation and auto-merge tiers — findings go to a GitHub issue for manual review. Still uses Azure OpenAI via Key Vault.
 
 ---
 

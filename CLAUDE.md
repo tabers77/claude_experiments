@@ -44,7 +44,7 @@ The 5 learning skills use `context: fork` + `agent: learning-coach` to get persi
 - `test_project/` — Minimal FastAPI app used to validate skills work
 - `playbook/` — Source-of-truth guide ("How I Use Claude Code.md")
 - `documentation/` — All generated `.md` output files (audits, plans, reports)
-- `scripts/quality-action/` — GitHub Action implementation for weekly quality checks
+- `scripts/quality-action/` — Weekly quality check (Azure OpenAI analysis → GitHub issue)
 
 ## Rules for Contributing
 
