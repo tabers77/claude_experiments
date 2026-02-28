@@ -1,6 +1,12 @@
 # ============================================================
-# EXAMPLE: Copy this file to your repo at
-# .github/workflows/weekly-quality.yml
+# Copy this file to your repo at:
+#   .github/workflows/weekly-quality.yml
+#
+# Then add 4 secrets to your repo (Settings > Secrets > Actions):
+#   AZURE_CLIENT_ID       → Service principal client ID
+#   AZURE_TENANT_ID       → Your Azure tenant ID
+#   AZURE_CLIENT_SECRET   → Service principal secret
+#   KEY_VAULT_ENDPOINT    → https://your-keyvault.vault.azure.net/
 # ============================================================
 
 name: Weekly Quality Check
@@ -11,14 +17,18 @@ on:
   workflow_dispatch:
     inputs:
       analysis_mode:
-        description: "upgrade, strategic, or both"
+        description: "Analysis mode"
         type: choice
         options: ["upgrade", "strategic", "both"]
         default: "both"
 
+permissions:
+  contents: read
+  issues: write
+
 jobs:
   quality:
-    uses: YOUR_GITHUB_USER/claude_experiments/.github/workflows/weekly-quality-check.yml@master
+    uses: tabers77/claude_experiments/.github/workflows/weekly-quality-check.yml@master
     with:
       analysis_mode: ${{ github.event.inputs.analysis_mode || 'both' }}
       model: "gpt-5.2"
@@ -27,16 +37,3 @@ jobs:
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
       KEY_VAULT_ENDPOINT: ${{ secrets.KEY_VAULT_ENDPOINT }}
-
-
-# ============================================================
-# SETUP: Add these 4 secrets to your repo (Settings > Secrets):
-#
-#   AZURE_CLIENT_ID       → Your Azure service principal client ID
-#   AZURE_TENANT_ID       → Your Azure tenant ID
-#   AZURE_CLIENT_SECRET   → Your Azure service principal secret
-#   KEY_VAULT_ENDPOINT    → https://your-keyvault.vault.azure.net/
-#
-# The action authenticates to Key Vault, which provides the
-# Azure OpenAI API key at runtime.
-# ============================================================

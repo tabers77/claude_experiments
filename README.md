@@ -614,18 +614,22 @@ name: Weekly Quality Check
 
 on:
   schedule:
-    - cron: "0 9 * * 1"
+    - cron: "0 9 * * 1"  # Every Monday 9am UTC
   workflow_dispatch:
     inputs:
       analysis_mode:
-        description: "upgrade, strategic, or both"
+        description: "Analysis mode"
         type: choice
         options: ["upgrade", "strategic", "both"]
         default: "both"
 
+permissions:
+  contents: read
+  issues: write
+
 jobs:
   quality:
-    uses: YOUR_GITHUB_USER/claude_experiments/.github/workflows/weekly-quality-check.yml@master
+    uses: tabers77/claude_experiments/.github/workflows/weekly-quality-check.yml@master
     with:
       analysis_mode: ${{ github.event.inputs.analysis_mode || 'both' }}
       model: "gpt-5.2"
@@ -636,7 +640,7 @@ jobs:
       KEY_VAULT_ENDPOINT: ${{ secrets.KEY_VAULT_ENDPOINT }}
 ```
 
-Replace `YOUR_GITHUB_USER` with your GitHub username.
+The full template is also available at `scripts/quality-action/example-caller-workflow.yml`.
 
 **Step 3: Done.** The action will run every Monday, or trigger it manually from Actions → Weekly Quality Check → Run workflow.
 
