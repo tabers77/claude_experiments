@@ -64,6 +64,89 @@ Consolidated from the original problem statement. Tracks what motivated this pro
 
 ---
 
+## Priority 0: Strategic (from `/quality-strategic-advisor` 2026-02-28)
+
+Items sourced from `documentation/STRATEGIC_ROADMAP.md`. These address discoverability, distribution, and stated coverage gaps.
+
+### 0.1 Skill Auto-Activation via Hooks (skill-rules.json)
+
+**What**: A `UserPromptSubmit` hook that reads `skill-rules.json`, matches user prompts against trigger patterns, and injects skill-loading instructions into Claude's context — making skills activate without `/slash-commands`.
+
+**Why**: Research shows skill auto-activation sits at 20-50% without hooks, up to 90% with optimized triggers. Transforms the plugin from "toolkit you invoke" to "assistant that adapts."
+
+**How**:
+- Create `skill-rules.json` mapping context patterns → skills
+- Write a script that reads rules, matches against `$CLAUDE_USER_PROMPT`, outputs `additionalContext`
+- Add `UserPromptSubmit` hook to `plugin.json`
+
+**Effort**: Small | **Status**: Done (2026-02-28)
+
+**Implemented**:
+- `skill-rules.json` — 22 rules mapping trigger patterns to skills
+- `scripts/skill-activation-hook.py` — matches user prompts, outputs `additionalContext`
+- `UserPromptSubmit` hook in `plugin.json` — runs the script on every prompt
+
+---
+
+### 0.2 Publish to Official Plugin Marketplace
+
+**What**: Make installable via `/plugin install claude-library` through Anthropic's official directory.
+
+**Why**: 9,000+ plugins listed as of Feb 2026. Not being listed = invisible to most Claude Code users.
+
+**How**:
+- Review [marketplace docs](https://code.claude.com/docs/en/plugin-marketplaces) for submission requirements
+- Ensure `plugin.json` has required metadata
+- Submit PR to [anthropics/claude-plugins-official](https://github.com/anthropics/claude-plugins-official)
+- Submit to community directories (awesome-claude-skills, awesome-claude-plugins)
+
+**Effort**: Small | **Status**: Not started
+
+---
+
+### 0.3 Headless/CI Mode Skill
+
+**What**: Learning skill teaching Claude Code headless mode (`-p` flag) for CI/CD pipelines — automated code review, test generation, changelog creation, doc updates.
+
+**Why**: 60%+ of teams use headless mode. Biggest stated coverage gap. Plugin already has `scripts/quality-action/` as a real-world example.
+
+**Skill name**: `learning-ci-headless` | **Phase**: Learning
+**Effort**: Medium | **Status**: Not started
+
+---
+
+### 0.4 Agent Teams Orchestration Skill
+
+**What**: Skill teaching Agent Teams — multiple Claude Code instances coordinating on tasks. When to use, team composition, scope decomposition, cost awareness.
+
+**Why**: Hottest Claude Code feature of Feb 2026. Positions ahead of curve before it exits experimental.
+
+**Skill name**: `meta-agent-teams` | **Phase**: Library Maintenance
+**Effort**: Medium | **Status**: Not started
+
+---
+
+### 0.5 MCP Learning Module
+
+**What**: Learning skill covering MCP fundamentals — protocol, transports, common servers, building custom servers, MCP Apps.
+
+**Why**: 10,000+ MCP servers, largest content gap vs. ecosystem. Many awesome-claude-skills entries are MCP integrations.
+
+**Skill name**: `learning-mcp-servers` | **Phase**: Learning
+**Effort**: Medium | **Status**: Not started
+
+---
+
+### 0.6 Skill Description Optimization
+
+**What**: Rewrite `description` frontmatter in all 22 skills with "Use when..." triggers and explicit keywords for better auto-activation.
+
+**Why**: Amplifies 0.1 (skill-rules.json). Descriptions appear in marketplace search results (amplifies 0.2).
+
+**Effort**: Small-Medium | **Status**: Not started
+
+---
+
 ## Priority 1: Quick Wins (enhance existing components)
 
 ### 1.2 PreToolUse additionalContext for Smarter Hooks

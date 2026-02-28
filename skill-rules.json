@@ -1,0 +1,114 @@
+{
+  "rules": [
+    {
+      "skill": "architecture-arch",
+      "triggers": ["map the codebase", "architecture", "how is .* structured", "execution path", "codebase structure", "mental model"],
+      "description": "Map codebase structure before touching anything"
+    },
+    {
+      "skill": "meta-project-setup",
+      "triggers": ["set up claude", "project setup", "audit setup", "onboarding", "skill gaps", "what skills.*need"],
+      "description": "Audit project setup and discover skill gaps"
+    },
+    {
+      "skill": "quality-review",
+      "triggers": ["quality score", "health score", "code quality", "project health", "tech debt.*score"],
+      "description": "Score project quality across 8 categories"
+    },
+    {
+      "skill": "quality-strategic-advisor",
+      "triggers": ["strategic.*advice", "what.*build next", "new feature ideas", "domain research", "capability.*suggest"],
+      "description": "Research domain and suggest new capabilities"
+    },
+    {
+      "skill": "quality-upgrade-advisor",
+      "triggers": ["outdated.*depend", "upgrade.*depend", "stale.*depend", "dependency.*audit", "bump.*version"],
+      "description": "Audit dependencies and produce upgrade roadmap"
+    },
+    {
+      "skill": "quality-sync-docs",
+      "triggers": ["sync.*doc", "stale.*doc", "docs.*out of date", "fix.*references", "broken.*path.*doc"],
+      "description": "Find and fix stale documentation references"
+    },
+    {
+      "skill": "planning-impl-plan",
+      "triggers": ["plan.*implement", "design.*before.*cod", "implementation plan", "how should I implement", "plan.*approach"],
+      "description": "Design implementation approach before coding"
+    },
+    {
+      "skill": "planning-spec-from-text",
+      "triggers": ["vague.*requirement", "turn.*into.*spec", "testable.*spec", "clarify.*requirement", "business.*requirement.*spec"],
+      "description": "Turn vague requirements into testable specs"
+    },
+    {
+      "skill": "learning-pair-programming",
+      "triggers": ["pair program", "guide me.*implement", "help me.*build", "code together", "walk me through.*implement"],
+      "description": "Collaborative pair programming with Claude as guide"
+    },
+    {
+      "skill": "api-development-api-impl",
+      "triggers": ["add.*endpoint", "new.*api.*endpoint", "implement.*endpoint", "api.*pattern"],
+      "description": "Add API endpoints with consistent patterns"
+    },
+    {
+      "skill": "code-diagnosis",
+      "triggers": ["code smell", "anti.?pattern", "something.*off.*module", "diagnos", "scan.*for.*issue"],
+      "description": "Find bugs, anti-patterns, and refactoring opportunities"
+    },
+    {
+      "skill": "safe-changes-impact-check",
+      "triggers": ["blast radius", "impact.*check", "risky change", "what.*break", "scope.*change"],
+      "description": "Understand blast radius before risky changes"
+    },
+    {
+      "skill": "safe-changes-refactor-safe",
+      "triggers": ["refactor.*safe", "multi.?file refactor", "safe.*refactor", "invariant", "refactor.*without.*break"],
+      "description": "Refactor without breaking behavior"
+    },
+    {
+      "skill": "session-wrapup",
+      "triggers": ["wrap up", "end.*session", "save.*progress", "session.*done", "commit.*and.*push"],
+      "description": "Close out coding session cleanly"
+    },
+    {
+      "skill": "learning-algo-practice",
+      "triggers": ["algorithm.*practice", "interview.*prep", "dsa.*practice", "coding.*challenge", "leetcode"],
+      "description": "Algorithm and coding interview prep"
+    },
+    {
+      "skill": "learning-concept-recall",
+      "triggers": ["spaced repetition", "quiz.*concept", "recall.*practice", "review.*what.*learned", "retention"],
+      "description": "Spaced repetition for concepts"
+    },
+    {
+      "skill": "learning-debug-training",
+      "triggers": ["debug.*training", "find.*bug.*practice", "systematic.*debug", "buggy.*code.*practice"],
+      "description": "Systematic debugging training"
+    },
+    {
+      "skill": "learning-code-review-eye",
+      "triggers": ["review.*skill", "spot.*issue.*diff", "code review.*practice", "train.*review"],
+      "description": "Train code review skills on diffs"
+    },
+    {
+      "skill": "learning-codebase-mastery",
+      "triggers": ["deep dive", "learn.*codebase", "quiz.*on.*code", "what changed", "pre.?commit.*review", "catch up.*change"],
+      "description": "Deep codebase learning with 4 modes"
+    },
+    {
+      "skill": "meta-discover-claude-features",
+      "triggers": ["what.*new.*claude", "claude.*feature", "new.*claude.*code", "community.*pattern"],
+      "description": "Scout for new Claude Code features"
+    },
+    {
+      "skill": "meta-experiment-feature",
+      "triggers": ["experiment.*feature", "try.*new.*feature", "set up.*experiment"],
+      "description": "Set up experiments for Claude Code features"
+    },
+    {
+      "skill": "meta-skill-audit",
+      "triggers": ["skill.*overlap", "audit.*skill", "skill.*gap", "redundant.*skill"],
+      "description": "Audit skills for overlaps and gaps"
+    }
+  ]
+}

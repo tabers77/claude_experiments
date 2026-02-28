@@ -24,7 +24,7 @@ CI runs three jobs on push/PR: `validate-skills`, `test-project`, `validate-plug
 ## Architecture
 
 ### Plugin Loading
-- **Manifest:** `.claude-plugin/plugin.json` — defines hooks inline (PreToolUse/PostToolUse)
+- **Manifest:** `.claude-plugin/plugin.json` — defines hooks inline (UserPromptSubmit/PreToolUse/PostToolUse)
 - **Skills:** Auto-discovered from `skills/<name>/SKILL.md` (22 skills)
 - **Agents:** Auto-discovered from `agents/<name>.md` (2 agents)
 - **Local dev:** `bash setup-local.sh` creates symlink junctions so skills work without `--plugin-dir`
@@ -36,6 +36,7 @@ Each skill is a `skills/<name>/SKILL.md` with YAML frontmatter (`name`, `descrip
 The 5 learning skills use `context: fork` + `agent: learning-coach` to get persistent memory. The `learning-coach` agent has `memory: user` which stores state in `~/.claude/agent-memory/learning-coach/`. The `code-reviewer` agent has no persistent memory and uses model `sonnet`.
 
 ### Hooks
+- **UserPromptSubmit:** Auto-suggest relevant skills based on user prompt via `skill-rules.json` + `scripts/skill-activation-hook.py`
 - **PreToolUse:** Block edits to `protected/`, `migrations/`, `.env`; block `git push --force`, `reset --hard`, `clean -f`
 - **PostToolUse:** Log all edits to `.claude/edit_log.txt`; auto-lint `.py` files with `ruff`; alert on config/secret/auth file changes
 
@@ -45,6 +46,8 @@ The 5 learning skills use `context: fork` + `agent: learning-coach` to get persi
 - `playbook/` — Source-of-truth guide ("How I Use Claude Code.md")
 - `documentation/` — All generated `.md` output files (audits, plans, reports)
 - `scripts/quality-action/` — Weekly quality check (Azure OpenAI analysis → GitHub issue)
+- `scripts/skill-activation-hook.py` — UserPromptSubmit hook script for skill auto-suggestion
+- `skill-rules.json` — Trigger patterns mapping user prompts to skills
 
 ## Rules for Contributing
 

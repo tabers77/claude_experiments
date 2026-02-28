@@ -336,7 +336,9 @@ claude_experiments/
 │   └── learning-coach.md
 ├── hooks/                        # Hook reference copy
 │   └── hooks.json
+├── skill-rules.json               # Trigger patterns for skill auto-suggestion
 ├── scripts/                      # Automation scripts
+│   ├── skill-activation-hook.py  # UserPromptSubmit hook for auto-suggesting skills
 │   └── quality-action/           # Weekly quality check (GitHub Action)
 │       ├── run_analysis.py       # Scan repo → call Azure OpenAI → markdown report
 │       ├── requirements.txt      # Action dependencies
@@ -459,6 +461,21 @@ Only recommend upgrades that help with that goal.
 ## Hook Examples
 
 Hooks are inlined in `.claude-plugin/plugin.json`. Reference copies in `hooks/hooks.json`.
+
+### Auto-suggest skills based on user prompt
+
+A `UserPromptSubmit` hook matches your prompt against trigger patterns in `skill-rules.json` and suggests relevant skills automatically — no slash command needed. For example, typing "help me refactor safely" will suggest `/safe-changes-refactor-safe`.
+
+```json
+{
+  "hooks": [{
+    "type": "command",
+    "command": "python \"${CLAUDE_PLUGIN_ROOT}/scripts/skill-activation-hook.py\""
+  }]
+}
+```
+
+Customize triggers by editing `skill-rules.json` at the plugin root.
 
 ### Block edits to protected paths
 
