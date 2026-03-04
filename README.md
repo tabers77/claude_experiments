@@ -219,11 +219,11 @@ Skills are organized by **development phase** — find the phase you're in, pick
 
 ### 5. Wrapping Up
 
-*End of session — don't lose context.*
+*Before committing — sync docs, check tests, commit cleanly.*
 
 |  | Skill | When to use |
 |--|-------|-------------|
-| **Essential** | `/session-wrapup` | Record progress, sync docs, set next steps before switching context |
+| **Essential** | `/commit-ready` | Update docs, check test gaps, and commit before switching context |
 
 ### 6. Skill Building — standalone practice
 
@@ -282,7 +282,7 @@ REVIEWING & REFACTORING
   Sync docs after changes             /quality-sync-docs
 
 WRAPPING UP
-  End of session                      /session-wrapup             [essential]
+  Before committing                   /commit-ready               [essential]
 
 SKILL BUILDING (anytime)
   Practice algorithms & interviews    /learning-algo-practice
@@ -315,7 +315,7 @@ claude_experiments/
 │   ├── safe-changes-impact-check/
 │   ├── planning-spec-from-text/
 │   ├── planning-impl-plan/
-│   ├── session-wrapup/
+│   ├── commit-ready/
 │   ├── api-development-api-impl/
 │   ├── quality-review/
 │   ├── quality-strategic-advisor/
@@ -376,7 +376,7 @@ Each skill recommends next steps in its output, so you rarely need to plan chain
 | **Tackling tech debt** | `/quality-review` | `diagnosis` + `refactor-safe` |
 | **Planning next capabilities** | `/quality-strategic-advisor` | `impl-plan` for chosen suggestions |
 | **Upgrading dependencies** | `/quality-upgrade-advisor` | `impact-check` + `refactor-safe` |
-| **Wrapping up a session** | `/session-wrapup` | `code-review-eye` to quiz yourself |
+| **Wrapping up a session** | `/commit-ready` | `code-review-eye` to quiz yourself |
 | **Skill building** | `/learning-concept-recall` daily | Add other learning skills as needed |
 | **What's new in Claude Code?** | `/meta-discover-claude-features` | `meta-experiment-feature` to try what's relevant |
 | **Weekly maintenance** | `/quality-sync-docs` + `pytest` | `meta-skill-audit` if skills changed |

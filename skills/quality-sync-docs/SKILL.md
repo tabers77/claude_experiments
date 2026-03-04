@@ -16,7 +16,7 @@ description: Keep documentation in sync with the actual codebase. Discovers all 
 
 > **vs `/quality-review`**: That skill scores overall code quality across 8 categories. This skill specifically checks whether **documentation references match the filesystem** — broken paths, stale names, wrong counts.
 >
-> **vs `/session-wrapup`**: That skill records session progress and updates plan files. This skill verifies that ALL documentation files are consistent with the codebase — a deeper structural check.
+> **vs `/commit-ready`**: That skill syncs docs, checks test gaps, and commits as a pre-commit workflow. This skill verifies that ALL documentation files are consistent with the codebase — a deeper structural check.
 
 ---
 

@@ -66,9 +66,9 @@
       "description": "Refactor without breaking behavior"
     },
     {
-      "skill": "session-wrapup",
-      "triggers": ["wrap up", "end.*session", "save.*progress", "session.*done", "commit.*and.*push"],
-      "description": "Close out coding session cleanly"
+      "skill": "commit-ready",
+      "triggers": ["commit ready", "ready to commit", "wrap up", "end.*session", "before commit", "update docs.*commit", "commit.*and.*push"],
+      "description": "Update docs, check test gaps, and commit"
     },
     {
       "skill": "learning-algo-practice",

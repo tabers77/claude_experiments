@@ -79,6 +79,6 @@ If a new priority item is added or an existing one is split/merged/completed, up
 | Planning | `planning-impl-plan`, `planning-spec-from-text` |
 | Building | `learning-pair-programming`, `api-development-api-impl` |
 | Reviewing & Refactoring | `code-diagnosis`, `safe-changes-impact-check`, `safe-changes-refactor-safe`, `quality-sync-docs` |
-| Wrapping Up | `session-wrapup` |
+| Wrapping Up | `commit-ready` |
 | Learning | `learning-algo-practice`, `learning-concept-recall`, `learning-debug-training`, `learning-code-review-eye` |
 | Library Maintenance | `meta-discover-claude-features`, `meta-experiment-feature`, `meta-skill-audit` |
