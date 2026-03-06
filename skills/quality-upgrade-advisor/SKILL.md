@@ -1,6 +1,6 @@
 ---
 name: quality-upgrade-advisor
-description: Audit your project's tech stack against its ecosystem — find stale dependencies, deprecated patterns, and new features that align with your vision. Produces documentation/UPGRADE_ROADMAP.md.
+description: Audit your project's tech stack against its ecosystem — find stale dependencies, deprecated patterns, and new features that align with your vision. Produces documentation/UPGRADE_ROADMAP.md. Use when you want to check for outdated dependencies, find upgrade opportunities, or audit your tech stack.
 ---
 
 # Skill: quality-upgrade-advisor

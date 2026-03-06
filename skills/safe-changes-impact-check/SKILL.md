@@ -1,6 +1,6 @@
 ---
 name: safe-changes-impact-check
-description: Understand blast radius before risky changes. Use for orchestration, DB schema, auth/permissions, or any change with unclear scope.
+description: Understand blast radius before risky changes. Use when changing orchestration, DB schema, auth/permissions, infrastructure, or any change where you're unsure what might break.
 ---
 
 # Skill: impact_check

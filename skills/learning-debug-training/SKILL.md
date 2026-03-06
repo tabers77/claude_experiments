@@ -1,6 +1,6 @@
 ---
 name: learning-debug-training
-description: Systematic debugging training for data scientists. Presents buggy code (Python, SQL, pandas, ML pipelines) and teaches you to find bugs methodically, not by guessing.
+description: Systematic debugging training for data scientists. Presents buggy code (Python, SQL, pandas, ML pipelines) and teaches you to find bugs methodically, not by guessing. Use when you want to practice debugging, learn systematic bug-finding, or improve your troubleshooting skills.
 context: fork
 agent: learning-coach
 ---

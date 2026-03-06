@@ -1,6 +1,6 @@
 ---
 name: quality-sync-docs
-description: Keep documentation in sync with the actual codebase. Discovers all .md files, builds truth from the filesystem, finds stale references and broken paths, then fixes them. Works in any project.
+description: Keep documentation in sync with the actual codebase. Discovers all .md files, builds truth from the filesystem, finds stale references and broken paths, then fixes them. Works in any project. Use when docs are stale, references are broken, or you need to sync documentation after changes.
 ---
 
 # Skill: quality-sync-docs

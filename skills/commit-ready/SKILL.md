@@ -1,6 +1,6 @@
 ---
 name: commit-ready
-description: Update docs, check test gaps, and commit. Git-driven — detects what changed, discovers and updates affected documentation, analyzes test coverage gaps, then commits cleanly.
+description: Update docs, check test gaps, and commit. Git-driven — detects what changed, discovers and updates affected documentation, analyzes test coverage gaps, then commits cleanly. Use when you're ready to commit, wrapping up a session, or before pushing.
 ---
 
 # Skill: commit-ready

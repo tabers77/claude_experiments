@@ -1,6 +1,6 @@
 ---
 name: api-development-api-impl
-description: Implement inference endpoints consistently. Use when adding new API endpoints with consistent patterns for models, errors, logging, and config.
+description: Implement inference endpoints consistently. Use when adding new API endpoints, building REST APIs, or implementing inference routes with consistent patterns for models, errors, logging, and config.
 ---
 
 # Skill: api_impl

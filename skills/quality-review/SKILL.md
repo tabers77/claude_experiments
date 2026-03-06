@@ -1,6 +1,6 @@
 ---
 name: quality-review
-description: Evaluate repository quality and prioritize improvements. Phase 1 scores quality across 8 categories with evidence. Phase 2 prioritizes findings into a Do Now / Plan Soon / Monitor / Accept matrix.
+description: Evaluate repository quality and prioritize improvements. Phase 1 scores quality across 8 categories with evidence. Phase 2 prioritizes findings into a Do Now / Plan Soon / Monitor / Accept matrix. Use when you want a quality audit, code health check, or repo assessment.
 ---
 
 # Skill: quality_review

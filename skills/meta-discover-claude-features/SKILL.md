@@ -1,6 +1,6 @@
 ---
 name: meta-discover-claude-features
-description: Scout for new Claude Code features and community patterns, then suggest how to adopt them in this plugin. Checks official docs and community repos for what's new and what's relevant.
+description: Scout for new Claude Code features and community patterns, then suggest how to adopt them in this plugin. Checks official docs and community repos for what's new and what's relevant. Use when you want to check for new features, see what's changed in Claude Code, or find community patterns to adopt.
 ---
 
 # Skill: discover_claude_features

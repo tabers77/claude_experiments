@@ -1,6 +1,6 @@
 ---
 name: learning-concept-recall
-description: Spaced repetition for data science and engineering concepts. Quizzes you on what you've learned, adapts to your retention patterns, and reinforces weak areas. Tracks mastery over time.
+description: Spaced repetition for data science and engineering concepts. Quizzes you on what you've learned, adapts to your retention patterns, and reinforces weak areas. Tracks mastery over time. Use when you want to review concepts, test your knowledge, or do a quick quiz session.
 context: fork
 agent: learning-coach
 ---

@@ -1,6 +1,6 @@
 ---
 name: safe-changes-refactor-safe
-description: Refactor without breaking behavior. Use for multi-file refactors, core logic changes, or when you need explicit invariants and verification.
+description: Refactor without breaking behavior. Use when refactoring across multiple files, changing core logic, renaming modules, or when you need explicit invariants and verification to ensure nothing breaks.
 ---
 
 # Skill: refactor_safe

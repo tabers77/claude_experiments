@@ -1,6 +1,6 @@
 ---
 name: planning-impl-plan
-description: Design first, code second. Use before any non-trivial implementation to prevent wrong approaches and get human judgment before coding.
+description: Design first, code second. Use before any non-trivial implementation, when planning a new feature, or when you need to think through the approach before writing code.
 ---
 
 # Skill: impl_plan

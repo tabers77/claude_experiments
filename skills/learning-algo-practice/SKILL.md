@@ -1,6 +1,6 @@
 ---
 name: learning-algo-practice
-description: Algorithm and coding interview prep for data scientists. Covers DSA, SQL challenges, pandas/numpy problems, statistics, and ML implementation. Claude presents problems, you solve, Claude corrects.
+description: Algorithm and coding interview prep for data scientists. Covers DSA, SQL challenges, pandas/numpy problems, statistics, and ML implementation. Claude presents problems, you solve, Claude corrects. Use when you want to practice algorithms, prep for interviews, or drill coding problems.
 context: fork
 agent: learning-coach
 ---

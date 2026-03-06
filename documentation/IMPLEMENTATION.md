@@ -67,37 +67,52 @@ Consolidated from the original problem statement. Tracks what motivated this pro
 - [x] Migrated `STRATEGIC_ROADMAP.md` next steps into `IMPLEMENTATION.md` and deleted the file
 - [x] **1.2 PreToolUse additionalContext**: Created `scripts/sensitive-file-hook.py` — injects context-aware guidance before editing sensitive files (auth, config, migration, secrets, security patterns). Replaced old PostToolUse alert.
 - [x] **1.3 SessionStart hook**: Created `scripts/session-start-hook.py` — validates plugin and shows skill count on new sessions. Added `SessionStart` hook to `plugin.json`.
+- [x] **0.6 Skill Description Optimization**: Updated 18 of 22 skill descriptions with "Use when..." trigger phrases and explicit keywords for auto-activation.
 
 ---
 
-## Priority 0: Strategic (from `/quality-strategic-advisor` 2026-02-28)
+## Roadmap Status
 
-Items addressing discoverability, distribution, and stated coverage gaps. Ordered by theme:
+| # | Item | Effort | Status |
+|---|------|--------|--------|
+| **Priority 0 — Strategic** | | | |
+| 0.1 | Skill Auto-Activation via Hooks (skill-rules.json) | Small | Done (2026-02-28) |
+| 0.2 | Publish to Official Plugin Marketplace | Small | Not started |
+| 0.3 | Headless/CI Mode Skill (`learning-ci-headless`) | Medium | Not started |
+| 0.4 | Agent Teams Orchestration Skill (`meta-agent-teams`) | Medium | Not started |
+| 0.5 | MCP Learning Module (`learning-mcp-servers`) | Medium | Not started |
+| 0.6 | Skill Description Optimization (all 22 skills) | Small-Medium | Done (2026-03-06) |
+| **Priority 1 — Quick Wins** | | | |
+| 1.2 | PreToolUse additionalContext for Smarter Hooks | Small | Done (2026-03-06) |
+| 1.3 | SessionStart Hook for Plugin Initialization | Small | Done (2026-03-06) |
+| **Priority 2 — New Skills** | | | |
+| 2.1 | Security Review Skill (`safe-changes-security-review`) | Medium | Not started |
+| 2.2 | Performance Analysis Skill (`code-performance`) | Medium | Not started |
+| 2.3 | Test Strategy Skill (`planning-test-strategy`) | Medium | Not started |
+| 2.4 | LSP Server Configuration | Small | Not started |
+| 2.5 | Deployment Checklist Skill (`session-deploy`) | Medium | Not started |
+| 2.6 | Database/Migration Safety | Small-Medium | Not started |
 
-**Theme 1 — Discoverability & Distribution**: 0.1 → 0.6 → 0.2 (+ community submissions)
-**Theme 2 — Fill Coverage Gaps**: 0.3 → 0.4 → 0.5
+Recommended sequence:
+- **Theme 1 — Discoverability & Distribution**: 0.1 → 0.6 → 0.2 (+ community submissions)
+- **Theme 2 — Fill Coverage Gaps**: 0.3 → 0.4 → 0.5
 
-### 0.1 Skill Auto-Activation via Hooks (skill-rules.json)
+---
 
-**What**: A `UserPromptSubmit` hook that reads `skill-rules.json`, matches user prompts against trigger patterns, and injects skill-loading instructions into Claude's context — making skills activate without `/slash-commands`.
+## Priority 0: Strategic
 
-**Why**: Research shows skill auto-activation sits at 20-50% without hooks, up to 90% with optimized triggers. Transforms the plugin from "toolkit you invoke" to "assistant that adapts."
+### 0.1 Skill Auto-Activation via Hooks (skill-rules.json) — Done
 
-**How**:
-- Create `skill-rules.json` mapping context patterns → skills
-- Write a script that reads rules, matches against `$CLAUDE_USER_PROMPT`, outputs `additionalContext`
-- Add `UserPromptSubmit` hook to `plugin.json`
+A `UserPromptSubmit` hook that reads `skill-rules.json`, matches user prompts against trigger patterns, and injects skill-loading instructions into Claude's context — making skills activate without `/slash-commands`.
 
-**Effort**: Small | **Status**: Done (2026-02-28)
-
-**Implemented**:
+**Implemented** (2026-02-28):
 - `skill-rules.json` — 22 rules mapping trigger patterns to skills
 - `scripts/skill-activation-hook.py` — matches user prompts, outputs `additionalContext`
 - `UserPromptSubmit` hook in `plugin.json` — runs the script on every prompt
 
 ---
 
-### 0.2 Publish to Official Plugin Marketplace
+### 0.2 Publish to Official Plugin Marketplace — Not started
 
 **What**: Make installable via `/plugin install claude-library` through Anthropic's official directory.
 
@@ -109,68 +124,59 @@ Items addressing discoverability, distribution, and stated coverage gaps. Ordere
 - Submit PR to [anthropics/claude-plugins-official](https://github.com/anthropics/claude-plugins-official)
 - Submit to community directories (awesome-claude-skills, awesome-claude-plugins)
 
-**Effort**: Small | **Status**: Not started
-
 **Community submissions** (do alongside 0.2):
 - [ ] Submit to [awesome-claude-skills](https://github.com/BehiSecc/awesome-claude-skills)
 - [ ] Submit to [awesome-claude-plugins](https://github.com/Chat2AnyLLM/awesome-claude-plugins)
 
 ---
 
-### 0.3 Headless/CI Mode Skill
+### 0.3 Headless/CI Mode Skill — Not started
 
 **What**: Learning skill teaching Claude Code headless mode (`-p` flag) for CI/CD pipelines — automated code review, test generation, changelog creation, doc updates.
 
 **Why**: 60%+ of teams use headless mode. Biggest stated coverage gap. Plugin already has `scripts/quality-action/` as a real-world example.
 
-**Skill name**: `learning-ci-headless` | **Phase**: Learning
-**Effort**: Medium | **Status**: Not started
+**Skill name**: `learning-ci-headless` | **Phase**: Learning | **Effort**: Medium
 
 ---
 
-### 0.4 Agent Teams Orchestration Skill
+### 0.4 Agent Teams Orchestration Skill — Not started
 
 **What**: Skill teaching Agent Teams — multiple Claude Code instances coordinating on tasks. When to use, team composition, scope decomposition, cost awareness.
 
 **Why**: Hottest Claude Code feature of Feb 2026. Positions ahead of curve before it exits experimental.
 
-**Skill name**: `meta-agent-teams` | **Phase**: Library Maintenance
-**Effort**: Medium | **Status**: Not started
+**Skill name**: `meta-agent-teams` | **Phase**: Library Maintenance | **Effort**: Medium
 
 ---
 
-### 0.5 MCP Learning Module
+### 0.5 MCP Learning Module — Not started
 
 **What**: Learning skill covering MCP fundamentals — protocol, transports, common servers, building custom servers, MCP Apps.
 
 **Why**: 10,000+ MCP servers, largest content gap vs. ecosystem. Many awesome-claude-skills entries are MCP integrations.
 
-**Skill name**: `learning-mcp-servers` | **Phase**: Learning
-**Effort**: Medium | **Status**: Not started
+**Skill name**: `learning-mcp-servers` | **Phase**: Learning | **Effort**: Medium
 
 ---
 
-### 0.6 Skill Description Optimization
+### 0.6 Skill Description Optimization — Done
 
-**What**: Rewrite `description` frontmatter in all 22 skills with "Use when..." triggers and explicit keywords for better auto-activation.
+Rewrote `description` frontmatter in all 22 skills with "Use when..." triggers and explicit keywords for better auto-activation. Amplifies 0.1 (skill-rules.json) and improves marketplace search results (0.2).
 
-**Why**: Amplifies 0.1 (skill-rules.json). Descriptions appear in marketplace search results (amplifies 0.2).
-
-**Effort**: Small-Medium | **Status**: Not started
+**Implemented** (2026-03-06):
+- 18 skills updated with new or expanded "Use when..." trigger phrases
+- 4 skills already had adequate triggers (code-diagnosis, learning-codebase-mastery, meta-experiment-feature, planning-spec-from-text)
 
 ---
 
 ## Priority 1: Quick Wins (enhance existing components)
 
-### 1.2 PreToolUse additionalContext for Smarter Hooks
+### 1.2 PreToolUse additionalContext for Smarter Hooks — Done
 
-**What**: `PreToolUse` hooks can return `additionalContext` that gets injected into the model's context — not just block/alert.
+`PreToolUse` hooks return `additionalContext` injected into the model's context *before* the edit executes — making Claude behave like a cautious colleague.
 
-**Why**: Previous sensitive file hook just said "ALERT: Sensitive file modified" after the fact. With `additionalContext`, guidance is injected *before* the edit executes — making Claude behave like a cautious colleague.
-
-**Effort**: Small | **Status**: Done (2026-03-06)
-
-**Implemented**:
+**Implemented** (2026-03-06):
 - `scripts/sensitive-file-hook.py` — reads tool input from stdin JSON, matches file path against 5 pattern categories (auth, config, migration, secrets, security), returns `additionalContext` guidance
 - Added as second PreToolUse handler for `Edit|Write` in `plugin.json`
 - Removed the old PostToolUse "ALERT: Sensitive file modified" echo (replaced by this richer pre-execution guidance)
@@ -178,15 +184,11 @@ Items addressing discoverability, distribution, and stated coverage gaps. Ordere
 
 ---
 
-### 1.3 SessionStart Hook for Plugin Initialization
+### 1.3 SessionStart Hook for Plugin Initialization — Done
 
-**What**: `SessionStart` hook fires on session startup. Shows plugin health and skill count as a "welcome mat."
+`SessionStart` hook fires on new sessions. Shows plugin health and skill count as a "welcome mat."
 
-**Why**: When someone loads this plugin, they immediately see it's active and how many skills are available. Lightweight validation catches broken skills early.
-
-**Effort**: Small | **Status**: Done (2026-03-06)
-
-**Implemented**:
+**Implemented** (2026-03-06):
 - `scripts/session-start-hook.py` — counts skills, runs lightweight validation (frontmatter, naming), returns `additionalContext` with summary
 - Added `SessionStart` hook with `startup` matcher in `plugin.json` (only on new sessions, not resume/compact)
 - Outputs: skill count + any validation issues found
@@ -196,12 +198,9 @@ Items addressing discoverability, distribution, and stated coverage gaps. Ordere
 
 ## Priority 2: New Skills (fill audit gaps)
 
-### 2.1 Security Review Skill
+### 2.1 Security Review Skill — Not started
 
-**Gap**: Security review (Medium priority)
-
-**Skill name**: `safe-changes-security-review`
-**Phase**: Reviewing & Refactoring
+**Skill name**: `safe-changes-security-review` | **Phase**: Reviewing & Refactoring | **Effort**: Medium
 
 **What it should do**:
 - Targeted security analysis (not a full repo audit — that's `quality-review`'s job)
@@ -214,16 +213,11 @@ Items addressing discoverability, distribution, and stated coverage gaps. Ordere
 - vs `code-reviewer` agent: reviews recent diffs broadly. This does deep security-focused scans.
 - vs `library/rules/security.md`: rules are passive. This actively analyzes code.
 
-**Effort**: Medium
-
 ---
 
-### 2.2 Performance Analysis Skill
+### 2.2 Performance Analysis Skill — Not started
 
-**Gap**: Performance analysis (Medium priority)
-
-**Skill name**: `code-performance`
-**Phase**: Reviewing & Refactoring
+**Skill name**: `code-performance` | **Phase**: Reviewing & Refactoring | **Effort**: Medium
 
 **What it should do**:
 - Targeted performance analysis of specific modules/functions
@@ -233,16 +227,11 @@ Items addressing discoverability, distribution, and stated coverage gaps. Ordere
 
 **Differentiation**: vs `code-diagnosis` — correctness issues vs performance issues.
 
-**Effort**: Medium
-
 ---
 
-### 2.3 Test Strategy Skill
+### 2.3 Test Strategy Skill — Not started
 
-**Gap**: Testing strategy (Medium priority)
-
-**Skill name**: `planning-test-strategy`
-**Phase**: Planning & Design
+**Skill name**: `planning-test-strategy` | **Phase**: Planning & Design | **Effort**: Medium
 
 **What it should do**:
 - Design what to test, at what level (unit/integration/e2e), what to mock, what edge cases matter
@@ -251,45 +240,36 @@ Items addressing discoverability, distribution, and stated coverage gaps. Ordere
 
 **Differentiation**: vs `library/rules/testing.md` (conventions) and vs `code-reviewer` (reviews existing tests).
 
-**Effort**: Medium
-
 ---
 
-### 2.4 LSP Server Configuration
+### 2.4 LSP Server Configuration — Not started
+
+**Effort**: Small (config), but needs cross-project testing
 
 **What**: Configure `.lsp.json` for Python (pyright/pylsp) and TypeScript (tsserver) to give Claude real-time code intelligence.
 
 **Why**: Improves accuracy of `code-diagnosis`, `architecture-arch`, `code-reviewer`, and any skill that reads code. Silently does nothing if language servers aren't installed.
 
-**Effort**: Small (config), but needs cross-project testing
-
 ---
 
-### 2.5 Deployment Checklist Skill
+### 2.5 Deployment Checklist Skill — Not started
 
-**Gap**: Deployment/release (Low-Medium priority)
-
-**Skill name**: `session-deploy`
-**Phase**: Wrapping Up
+**Skill name**: `session-deploy` | **Phase**: Wrapping Up | **Effort**: Medium
 
 **What it should do**: Pre-deploy checklist (tests pass, no secrets, env vars set, migrations applied, changelog updated). Generic — adapts to whatever the project uses.
 
 **Lower priority** — deployment workflows vary heavily across projects.
 
-**Effort**: Medium
-
 ---
 
-### 2.6 Database/Migration Safety
+### 2.6 Database/Migration Safety — Not started
 
-**Gap**: DB-specific guidance (Low-Medium priority from audit)
+**Effort**: Small-Medium
 
 **Option A**: Extend `safe-changes-impact-check` with DB-specific checklists when it detects schema changes (migration safety, rollback plans, data backfill strategies).
 **Option B**: Create `safe-changes-migration` skill.
 
 **Recommendation**: Start with Option A (extend existing skill). Only create a separate skill if the scope grows too large.
-
-**Effort**: Small-Medium
 
 ---
 

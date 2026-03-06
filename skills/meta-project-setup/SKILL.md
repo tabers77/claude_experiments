@@ -1,6 +1,6 @@
 ---
 name: meta-project-setup
-description: Analyze any project, audit its Claude Code setup, recommend existing library artifacts, and detect gaps where new skills should be created. Generates documentation/CLAUDE_SETUP.md with full analysis.
+description: Analyze any project, audit its Claude Code setup, recommend existing library artifacts, and detect gaps where new skills should be created. Generates documentation/CLAUDE_SETUP.md with full analysis. Use when setting up Claude Code in a new project, onboarding to a repo, or auditing an existing setup.
 ---
 
 # Skill: project_setup

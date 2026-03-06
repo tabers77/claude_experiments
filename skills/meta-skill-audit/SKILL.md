@@ -1,6 +1,6 @@
 ---
 name: meta-skill-audit
-description: Audit all skills, agents, hooks, and rules for overlaps and gaps. Detects redundant components and missing coverage. Generates a documentation/SKILL_AUDIT.md with merge suggestions.
+description: Audit all skills, agents, hooks, and rules for overlaps and gaps. Detects redundant components and missing coverage. Generates a documentation/SKILL_AUDIT.md with merge suggestions. Use when you want to check for skill overlaps, find gaps in coverage, or clean up redundant components.
 ---
 
 # Skill: skill_audit

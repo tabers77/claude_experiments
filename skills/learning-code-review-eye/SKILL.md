@@ -1,6 +1,6 @@
 ---
 name: learning-code-review-eye
-description: Train your code review skills for data science. Claude shows you code diffs, you spot issues before Claude reveals them. Tracks which categories of issues you consistently miss.
+description: Train your code review skills for data science. Claude shows you code diffs, you spot issues before Claude reveals them. Tracks which categories of issues you consistently miss. Use when you want to practice code review, improve your review eye, or learn to spot bugs in diffs.
 context: fork
 agent: learning-coach
 ---

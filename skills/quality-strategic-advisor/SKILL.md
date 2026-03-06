@@ -1,6 +1,6 @@
 ---
 name: quality-strategic-advisor
-description: Research a project's domain and suggest new features, methods, libraries, and architectural patterns that align with its goals. Goes beyond dependency versions — focuses on what to build next and how to make the project more capable.
+description: Research a project's domain and suggest new features, methods, libraries, and architectural patterns that align with its goals. Goes beyond dependency versions — focuses on what to build next and how to make the project more capable. Use when you want strategic advice, feature ideas, or to explore what's possible for a project.
 ---
 
 # Skill: quality-strategic-advisor

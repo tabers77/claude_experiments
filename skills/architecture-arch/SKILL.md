@@ -1,6 +1,6 @@
 ---
 name: architecture-arch
-description: Build a mental model before touching code. Use when joining large repos, legacy systems, or before refactoring.
+description: Build a mental model before touching code. Use when joining large repos, legacy systems, before refactoring, or when you need to understand how a codebase is structured.
 ---
 
 # Skill: arch

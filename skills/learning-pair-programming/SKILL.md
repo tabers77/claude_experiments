@@ -1,6 +1,6 @@
 ---
 name: learning-pair-programming
-description: Collaborative pair programming for real tasks. Claude acts as a senior colleague who plans the approach, then guides you through implementing it yourself — nudging when you go off track and pushing back on suboptimal ideas.
+description: Collaborative pair programming for real tasks. Claude acts as a senior colleague who plans the approach, then guides you through implementing it yourself — nudging when you go off track and pushing back on suboptimal ideas. Use when you want to pair program, get guided through an implementation, or learn by doing with coaching.
 context: fork
 agent: learning-coach
 ---
