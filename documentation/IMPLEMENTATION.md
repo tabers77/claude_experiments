@@ -1,11 +1,11 @@
 # Implementation Plan
 
-> Last updated: 2026-02-28
-> Source: `/meta-discover-claude-features` audit + `/meta-skill-audit` gap analysis + `PROBLEM_STATEMENT.md` consolidation
+> Last updated: 2026-03-06
+> Source: `/meta-discover-claude-features` audit + `/meta-skill-audit` gap analysis + `/quality-strategic-advisor` roadmap
 
 ## Current State
 
-The plugin has **22 skills**, **2 agents** (code-reviewer, learning-coach), **4 hooks**, **4 rules**. Skills are organized by development phase (Setup → Plan → Build → Review → Wrap up → Learn).
+The plugin has **22 skills**, **2 agents** (code-reviewer, learning-coach), **6 hook handlers** across 4 events (SessionStart, UserPromptSubmit, PreToolUse, PostToolUse), **4 rules**. Skills are organized by development phase (Setup → Plan → Build → Review → Wrap up → Learn).
 
 **Discovery sources**: [Claude Code CHANGELOG.md](https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md), [official plugin docs](https://code.claude.com/docs/en/plugins), [undeadlist/claude-code-agents](https://github.com/undeadlist/claude-code-agents) (community agents + workflows).
 
@@ -62,11 +62,20 @@ Consolidated from the original problem statement. Tracks what motivated this pro
 - [x] Added Implementation Roadmap Sync rule to CLAUDE.md
 - [x] **Weekly quality check simplification**: Rewrote from 4-job pipeline (analyze → issue → PR → auto-merge) to 1-job pipeline (analyze → issue). Removed `apply_changes.py` and `prompts/` directory. The script now outputs markdown directly instead of JSON (no more fragile JSON parsing). Dropped PR creation and auto-merge tiers — findings go to a GitHub issue for manual review. Still uses Azure OpenAI via Key Vault.
 
+### Session 2026-03-06
+
+- [x] Migrated `STRATEGIC_ROADMAP.md` next steps into `IMPLEMENTATION.md` and deleted the file
+- [x] **1.2 PreToolUse additionalContext**: Created `scripts/sensitive-file-hook.py` — injects context-aware guidance before editing sensitive files (auth, config, migration, secrets, security patterns). Replaced old PostToolUse alert.
+- [x] **1.3 SessionStart hook**: Created `scripts/session-start-hook.py` — validates plugin and shows skill count on new sessions. Added `SessionStart` hook to `plugin.json`.
+
 ---
 
 ## Priority 0: Strategic (from `/quality-strategic-advisor` 2026-02-28)
 
-Items sourced from `documentation/STRATEGIC_ROADMAP.md`. These address discoverability, distribution, and stated coverage gaps.
+Items addressing discoverability, distribution, and stated coverage gaps. Ordered by theme:
+
+**Theme 1 — Discoverability & Distribution**: 0.1 → 0.6 → 0.2 (+ community submissions)
+**Theme 2 — Fill Coverage Gaps**: 0.3 → 0.4 → 0.5
 
 ### 0.1 Skill Auto-Activation via Hooks (skill-rules.json)
 
@@ -101,6 +110,10 @@ Items sourced from `documentation/STRATEGIC_ROADMAP.md`. These address discovera
 - Submit to community directories (awesome-claude-skills, awesome-claude-plugins)
 
 **Effort**: Small | **Status**: Not started
+
+**Community submissions** (do alongside 0.2):
+- [ ] Submit to [awesome-claude-skills](https://github.com/BehiSecc/awesome-claude-skills)
+- [ ] Submit to [awesome-claude-plugins](https://github.com/Chat2AnyLLM/awesome-claude-plugins)
 
 ---
 
@@ -151,38 +164,33 @@ Items sourced from `documentation/STRATEGIC_ROADMAP.md`. These address discovera
 
 ### 1.2 PreToolUse additionalContext for Smarter Hooks
 
-**What**: `PreToolUse` hooks (v2.1.9) can return `additionalContext` that gets injected into the model's context — not just block/alert.
+**What**: `PreToolUse` hooks can return `additionalContext` that gets injected into the model's context — not just block/alert.
 
-**Why**: Current sensitive file hook just says "ALERT: Sensitive file modified." With `additionalContext`, it can inject guidance like "This file handles authentication — verify security implications, check for exposed secrets" — making Claude behave like a cautious colleague.
+**Why**: Previous sensitive file hook just said "ALERT: Sensitive file modified" after the fact. With `additionalContext`, guidance is injected *before* the edit executes — making Claude behave like a cautious colleague.
 
-**How**:
-- In `.claude-plugin/plugin.json`, move the sensitive file detection from `PostToolUse` to `PreToolUse`
-- Instead of `echo "ALERT: ..."`, return JSON with `additionalContext` field containing guidance
-- Example patterns:
-  - Files matching `auth|permission` → "This file controls access — verify no auth bypass introduced"
-  - Files matching `config|secret` → "This may contain secrets — verify nothing sensitive is exposed"
-  - Files matching `migration` → "Database migration — verify rollback safety"
-- Keep the existing `PostToolUse` ruff linting hook as-is (it's about formatting, not guidance)
+**Effort**: Small | **Status**: Done (2026-03-06)
 
-**Effort**: Small
-
-**Reference**: Check [Claude Code hooks docs](https://code.claude.com/docs/en/hooks) for `additionalContext` return format.
+**Implemented**:
+- `scripts/sensitive-file-hook.py` — reads tool input from stdin JSON, matches file path against 5 pattern categories (auth, config, migration, secrets, security), returns `additionalContext` guidance
+- Added as second PreToolUse handler for `Edit|Write` in `plugin.json`
+- Removed the old PostToolUse "ALERT: Sensitive file modified" echo (replaced by this richer pre-execution guidance)
+- PostToolUse ruff linting hook kept as-is (formatting, not guidance)
 
 ---
 
-### 1.3 Setup Hook for Plugin Initialization
+### 1.3 SessionStart Hook for Plugin Initialization
 
-**What**: `Setup` hook event (v2.1.10) triggers via `--init`, `--init-only`, or `--maintenance` CLI flags.
+**What**: `SessionStart` hook fires on session startup. Shows plugin health and skill count as a "welcome mat."
 
-**Why**: When someone loads this plugin for the first time or runs maintenance, we can auto-validate the plugin and show a quick summary — the "welcome mat."
+**Why**: When someone loads this plugin, they immediately see it's active and how many skills are available. Lightweight validation catches broken skills early.
 
-**How**:
-- Add `Setup` event to `.claude-plugin/plugin.json` hooks section
-- Hook command: run `python tests/test_skills.py` (already validates skill count, frontmatter, naming)
-- Optionally: print a summary of available skills by phase to stdout
-- Consider: on `--maintenance`, also run sync-references validation logic
+**Effort**: Small | **Status**: Done (2026-03-06)
 
-**Effort**: Small
+**Implemented**:
+- `scripts/session-start-hook.py` — counts skills, runs lightweight validation (frontmatter, naming), returns `additionalContext` with summary
+- Added `SessionStart` hook with `startup` matcher in `plugin.json` (only on new sessions, not resume/compact)
+- Outputs: skill count + any validation issues found
+- 10-second timeout to keep startup fast
 
 ---
 
@@ -291,13 +299,13 @@ Features that are interesting but not mature enough or not urgent.
 
 | Feature | Source | Trigger to re-evaluate |
 |---------|--------|----------------------|
-| **Agent Teams** (multi-agent collaboration) | Official v2.1.32 | When it exits `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` research preview |
 | **Hooks in frontmatter** (inline hooks in skill/agent YAML) | Official v2.1.0 | When we do a major plugin restructure |
-| **Plugin Marketplaces** (one-click install distribution) | Official docs | When plugin is stable enough for public distribution |
-| **MCP Apps** (interactive UI from MCP tools) | MCP Jan 2026 | When more clients support MCP Apps rendering |
+| **MCP Apps** (interactive UI from MCP tools) | MCP Jan 2026 | When a specific skill would benefit from interactive output (e.g., quality-review dashboard) |
 | **Sub-agent Restriction** (`Task(agent_type)` in tools frontmatter) | Official v2.1.33 | When we add more agents that need isolation |
-| **MCP learning module** | Project goal | When MCP becomes more prevalent in target projects |
-| **Headless/CI mode skill** | Project goal | When Claude Code headless mode is stable for CI pipelines |
+| **CCPI Package Manager pattern** | [plugins-plus-skills](https://github.com/jeremylongshore/claude-code-plugins-plus-skills) | Only if plugin grows beyond 40+ skills and users request à la carte install |
+| **AI agent delegation** (Jules, Deep Research, Manus) | awesome-claude-skills | When a workflow clearly benefits from multi-AI orchestration |
+| **Self-improving skill pattern** (Claudeception) | [Claudeception](https://github.com/blader/Claudeception), task-observer | When learning-coach agent memory has enough data to mine patterns from |
+| **Conditional skill loading by file type** | [skill-rules.json pattern](https://github.com/diet103/claude-code-infrastructure-showcase) | After 0.6 (description optimization) — natural extension of auto-activation |
 | **Project template scaffolding** | Project goal | When `library/templates/` has enough templates to justify a skill |
 
 ---

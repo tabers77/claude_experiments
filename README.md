@@ -339,6 +339,8 @@ claude_experiments/
 ├── skill-rules.json               # Trigger patterns for skill auto-suggestion
 ├── scripts/                      # Automation scripts
 │   ├── skill-activation-hook.py  # UserPromptSubmit hook for auto-suggesting skills
+│   ├── sensitive-file-hook.py    # PreToolUse hook for sensitive file guidance
+│   ├── session-start-hook.py     # SessionStart hook for plugin validation
 │   └── quality-action/           # Weekly quality check (GitHub Action)
 │       ├── run_analysis.py       # Scan repo → call Azure OpenAI → markdown report
 │       ├── requirements.txt      # Action dependencies
@@ -436,7 +438,7 @@ This is an LLM evaluation framework. We want to know:
 - What similar tools do that we don't?
 ```
 
-**Output**: Project understanding card, prioritized recommendations (Implement Next / Plan Later / Watch / Skip), implementation sketches, strategic sequence, `documentation/STRATEGIC_ROADMAP.md`.
+**Output**: Project understanding card, prioritized recommendations (Implement Next / Plan Later / Watch / Skip), implementation sketches, strategic sequence. Findings should be migrated to `documentation/IMPLEMENTATION.md`.
 
 **vs `/quality-upgrade-advisor`**: That skill checks if your existing dependencies are up to date. This skill finds new libraries, techniques, and features you're not using yet.
 
@@ -485,6 +487,35 @@ Customize triggers by editing `skill-rules.json` at the plugin root.
   "hooks": [{
     "type": "command",
     "command": "if echo \"$CLAUDE_FILE_PATH\" | grep -qE '^(protected/|migrations/|.env)'; then echo 'BLOCKED' && exit 2; fi"
+  }]
+}
+```
+
+### Sensitive file guidance (PreToolUse additionalContext)
+
+Injects context-aware guidance *before* Claude edits sensitive files (auth, config, migration, secrets, security). Uses `additionalContext` to make Claude behave like a cautious colleague.
+
+```json
+{
+  "matcher": "Edit|Write",
+  "hooks": [{
+    "type": "command",
+    "command": "python \"${CLAUDE_PLUGIN_ROOT}/scripts/sensitive-file-hook.py\""
+  }]
+}
+```
+
+### Plugin validation on session start
+
+Shows skill count and catches broken skills when a new session starts.
+
+```json
+{
+  "matcher": "startup",
+  "hooks": [{
+    "type": "command",
+    "command": "python \"${CLAUDE_PLUGIN_ROOT}/scripts/session-start-hook.py\"",
+    "timeout": 10
   }]
 }
 ```

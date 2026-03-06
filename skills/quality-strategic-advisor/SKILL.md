@@ -49,7 +49,7 @@ This is the most important section. Read this first to know if this is the right
 - **Assess maturity honestly** — distinguish between production-ready libraries, promising beta tools, and academic papers with no maintained implementation
 - **Be specific and actionable** — "consider adding observability" is useless. "Integrate LangFuse (https://langfuse.com/) via their Python SDK to trace evaluation runs in production" is actionable
 - **Respect the project's philosophy** — if the project values zero dependencies, don't suggest adding 15 new ones. If it values simplicity, don't suggest over-engineered patterns
-- Output goes to `documentation/STRATEGIC_ROADMAP.md`
+- Output findings should be migrated to `documentation/IMPLEMENTATION.md` (Priority 0 section)
 
 ---
 
@@ -216,7 +216,7 @@ Use WebSearch and WebFetch to research the project's domain. This is the core va
 
 16) **Output the full report to console** (see Output Format below)
 
-17) **Save to `documentation/STRATEGIC_ROADMAP.md`**
+17) **Migrate findings to `documentation/IMPLEMENTATION.md`** (add to Priority 0 section, update watch list as needed)
 
 ---
 
