@@ -1,6 +1,6 @@
 # Implementation Plan
 
-> Last updated: 2026-03-06
+> Last updated: 2026-03-10
 > Source: `/meta-discover-claude-features` audit + `/meta-skill-audit` gap analysis + `/quality-strategic-advisor` roadmap
 
 ## Current State
@@ -62,6 +62,11 @@ Consolidated from the original problem statement. Tracks what motivated this pro
 - [x] Added Implementation Roadmap Sync rule to CLAUDE.md
 - [x] **Weekly quality check simplification**: Rewrote from 4-job pipeline (analyze → issue → PR → auto-merge) to 1-job pipeline (analyze → issue). Removed `apply_changes.py` and `prompts/` directory. The script now outputs markdown directly instead of JSON (no more fragile JSON parsing). Dropped PR creation and auto-merge tiers — findings go to a GitHub issue for manual review. Still uses Azure OpenAI via Key Vault.
 
+### Session 2026-03-10
+
+- [x] **0.2 Marketplace Prep**: Enriched `plugin.json` with `homepage`, `repository`, `license`, `keywords`, `author.url`; improved description for search discoverability; added MIT LICENSE file
+- [x] Researched submission channels: official form, `anthropics/claude-plugins-official`, community directories
+
 ### Session 2026-03-06
 
 - [x] Migrated `STRATEGIC_ROADMAP.md` next steps into `IMPLEMENTATION.md` and deleted the file
@@ -77,7 +82,7 @@ Consolidated from the original problem statement. Tracks what motivated this pro
 |---|------|--------|--------|
 | **Priority 0 — Strategic** | | | |
 | 0.1 | Skill Auto-Activation via Hooks (skill-rules.json) | Small | Done (2026-02-28) |
-| 0.2 | Publish to Official Plugin Marketplace | Small | Not started |
+| 0.2 | Publish to Official Plugin Marketplace | Small | Ready to submit |
 | 0.3 | Headless/CI Mode Skill (`learning-ci-headless`) | Medium | Not started |
 | 0.4 | Agent Teams Orchestration Skill (`meta-agent-teams`) | Medium | Not started |
 | 0.5 | MCP Learning Module (`learning-mcp-servers`) | Medium | Not started |
@@ -112,21 +117,22 @@ A `UserPromptSubmit` hook that reads `skill-rules.json`, matches user prompts ag
 
 ---
 
-### 0.2 Publish to Official Plugin Marketplace — Not started
+### 0.2 Publish to Official Plugin Marketplace — Ready to submit
 
 **What**: Make installable via `/plugin install claude-library` through Anthropic's official directory.
 
 **Why**: 9,000+ plugins listed as of Feb 2026. Not being listed = invisible to most Claude Code users.
 
-**How**:
-- Review [marketplace docs](https://code.claude.com/docs/en/plugin-marketplaces) for submission requirements
-- Ensure `plugin.json` has required metadata
-- Submit PR to [anthropics/claude-plugins-official](https://github.com/anthropics/claude-plugins-official)
-- Submit to community directories (awesome-claude-skills, awesome-claude-plugins)
+**Prep completed** (2026-03-10):
+- [x] Enriched `plugin.json` with marketplace metadata (`homepage`, `repository`, `license`, `keywords`, `author.url`)
+- [x] Improved `description` to be search-friendly (skill count, key capabilities)
+- [x] Added MIT `LICENSE` file at repo root
+- [x] Validated plugin manifest and all 23 skills pass checks
 
-**Community submissions** (do alongside 0.2):
-- [ ] Submit to [awesome-claude-skills](https://github.com/BehiSecc/awesome-claude-skills)
-- [ ] Submit to [awesome-claude-plugins](https://github.com/Chat2AnyLLM/awesome-claude-plugins)
+**Submission channels** (manual steps remaining):
+- [ ] Submit via [claude.ai/settings/plugins/submit](https://claude.ai/settings/plugins/submit) or [clau.de/plugin-directory-submission](https://clau.de/plugin-directory-submission)
+- [ ] Submit to [anthropics/claude-plugins-official](https://github.com/anthropics/claude-plugins-official) `external_plugins/` directory
+- [ ] Submit to community directories ([claudecodecommands.directory/submit](https://claudecodecommands.directory/submit), claudemarketplaces.com, buildwithclaude.com)
 
 ---
 
