@@ -173,6 +173,7 @@ Skills are organized by **development phase** — find the phase you're in, pick
 |  | Skill | When to use |
 |--|-------|-------------|
 | **Essential** | `/meta-project-setup` | First thing on any new project — audit setup, get recommendations, **discover which new skills to build** |
+| **Essential** | `/meta-claude-md-gen` | Generate a context-rich CLAUDE.md through interactive interview — reading lists, guardrails, conventions |
 | **Essential** | `/architecture-arch` | Map the codebase structure before touching anything |
 | *If needed* | `/quality-review` | Want a health score with evidence and priority matrix |
 | *If needed* | `/quality-strategic-advisor` | Research your domain, get ideas for new features and capabilities |
@@ -243,6 +244,7 @@ Skills are organized by **development phase** — find the phase you're in, pick
 
 | Skill | What it does |
 |-------|-------------|
+| `/meta-claude-md-gen` | Generate context-rich CLAUDE.md through interactive interview |
 | `/meta-discover-claude-features` | Scout official docs + community for new Claude Code features to adopt |
 | `/meta-experiment-feature` | Set up experiments for a specific feature you already know about |
 | `/meta-skill-audit` | Audit library for overlaps and gaps |
@@ -258,6 +260,7 @@ I'm in this phase...                  Use this
 ────────────────────────────────────────────────────────────────
 PROJECT SETUP & ONBOARDING
   Set up Claude + find skill gaps      /meta-project-setup        [essential]
+  Generate context-rich CLAUDE.md     /meta-claude-md-gen         [essential]
   Map the codebase                    /architecture-arch          [essential]
   Assess project health               /quality-review
   Get strategic feature suggestions    /quality-strategic-advisor
@@ -326,6 +329,7 @@ claude_experiments/
 │   ├── learning-debug-training/
 │   ├── learning-code-review-eye/
 │   ├── learning-pair-programming/
+│   ├── meta-claude-md-gen/
 │   ├── meta-discover-claude-features/
 │   ├── meta-experiment-feature/
 │   ├── meta-project-setup/
@@ -367,7 +371,7 @@ Each skill recommends next steps in its output, so you rarely need to plan chain
 
 | Scenario | Start here | Go deeper (optional) |
 |----------|-----------|---------------------|
-| **Onboarding to a new project** | `/meta-project-setup` | `arch` + `quality-review` (also tells you what new skills to build) |
+| **Onboarding to a new project** | `/meta-project-setup` | `claude-md-gen` + `arch` + `quality-review` |
 | **Planning a new feature** | `/planning-impl-plan` | `spec-from-text` if requirements are vague |
 | **Catching up on changes** | `/learning-codebase-mastery what changed` | `code-diagnosis` if something looks off |
 | **Building with guidance** | `/learning-pair-programming` | `code-reviewer` when done |
@@ -402,6 +406,22 @@ Analyzes any project across 7 dimensions, recommends which existing plugin skill
 **Output**: Project fingerprint, recommended artifacts, **library gaps table** (what's missing, suggested skill name, priority), tailored workflows, staged rollout plan, `documentation/CLAUDE_SETUP.md`.
 
 **vs `/meta-skill-audit`**: That skill audits the *plugin itself* for overlaps and redundancies. This skill audits a *target project* to find what the plugin is missing for that project's needs.
+
+### `/meta-claude-md-gen` — Interactive CLAUDE.md Generator
+
+Interviews you about your project to build a CLAUDE.md that emphasizes **what to read first**, **what not to touch**, and **domain conventions** — the things that actually save Claude (and you) time every session.
+
+```
+# Full interactive interview
+/meta-claude-md-gen
+
+# Improve an existing CLAUDE.md
+/meta-claude-md-gen improve my current CLAUDE.md
+```
+
+**Output**: A context-rich CLAUDE.md with tiered reading lists ("always read" vs "read if relevant"), guardrails, exact commands, and domain conventions. Scores the result against a quality checklist before writing.
+
+**vs `/meta-project-setup`**: That skill audits your Claude Code setup and recommends plugin artifacts. This skill focuses *only* on generating the best possible CLAUDE.md through user interview — it doesn't recommend skills, hooks, or rules.
 
 ### `/quality-review` — Quality Assessment + Prioritization
 

@@ -25,7 +25,7 @@ CI runs three jobs on push/PR: `validate-skills`, `test-project`, `validate-plug
 
 ### Plugin Loading
 - **Manifest:** `.claude-plugin/plugin.json` — defines hooks inline (SessionStart/UserPromptSubmit/PreToolUse/PostToolUse)
-- **Skills:** Auto-discovered from `skills/<name>/SKILL.md` (22 skills)
+- **Skills:** Auto-discovered from `skills/<name>/SKILL.md` (23 skills)
 - **Agents:** Auto-discovered from `agents/<name>.md` (2 agents)
 - **Local dev:** `bash setup-local.sh` creates symlink junctions so skills work without `--plugin-dir`
 
@@ -61,7 +61,7 @@ The 5 learning skills use `context: fork` + `agent: learning-coach` to get persi
 5. **Keep docs in sync after every change** — when adding/removing/modifying skills, update:
    - This file (`CLAUDE.md`) — skills table, directory tree
    - `README.md` — skills table, directory tree, workflow guide
-   - `tests/test_skills.py` — expected skill count (currently >= 22)
+   - `tests/test_skills.py` — expected skill count (currently >= 23)
 
 ### Implementation Roadmap Sync
 
@@ -74,11 +74,11 @@ When updating roadmap status, priorities, or completed items:
 
 If a new priority item is added or an existing one is split/merged/completed, update both files in the same edit session.
 
-## Available Skills (22)
+## Available Skills (23)
 
 | Phase | Skills |
 |-------|--------|
-| Setup & Onboarding | `meta-project-setup`, `architecture-arch`, `quality-review`, `quality-strategic-advisor`, `quality-upgrade-advisor`, `learning-codebase-mastery` |
+| Setup & Onboarding | `meta-project-setup`, `meta-claude-md-gen`, `architecture-arch`, `quality-review`, `quality-strategic-advisor`, `quality-upgrade-advisor`, `learning-codebase-mastery` |
 | Planning | `planning-impl-plan`, `planning-spec-from-text` |
 | Building | `learning-pair-programming`, `api-development-api-impl` |
 | Reviewing & Refactoring | `code-diagnosis`, `safe-changes-impact-check`, `safe-changes-refactor-safe`, `quality-sync-docs` |

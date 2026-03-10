@@ -228,8 +228,8 @@ The file MUST include:
 
 ### Step 9: (Optional) Generate Additional Files
 
-If the user requests, also generate:
-- `CLAUDE.md` for the target project (using appropriate template)
+If the user requests additional files:
+- **`CLAUDE.md`**: Delegate to `/meta-claude-md-gen` — it runs an interactive interview to produce a context-rich CLAUDE.md with reading lists, guardrails, and domain conventions. Do NOT generate CLAUDE.md from templates yourself.
 - `.claude/rules/` files (copy recommended rules)
 
 ---

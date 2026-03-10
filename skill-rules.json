@@ -109,6 +109,11 @@
       "skill": "meta-skill-audit",
       "triggers": ["skill.*overlap", "audit.*skill", "skill.*gap", "redundant.*skill"],
       "description": "Audit skills for overlaps and gaps"
+    },
+    {
+      "skill": "meta-claude-md-gen",
+      "triggers": ["generate.*claude.?md", "create.*claude.?md", "init.*claude", "claude.?md.*generic", "improve.*claude.?md", "better.*claude.?md", "context.*claude.?md"],
+      "description": "Generate a context-rich CLAUDE.md through interactive interview"
     }
   ]
 }
