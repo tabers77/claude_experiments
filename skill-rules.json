@@ -7,8 +7,8 @@
     },
     {
       "skill": "meta-project-setup",
-      "triggers": ["set up claude", "project setup", "audit setup", "onboarding", "skill gaps", "what skills.*need"],
-      "description": "Audit project setup and discover skill gaps"
+      "triggers": ["set up claude", "project setup", "audit setup", "onboarding", "skill gaps", "what skills.*need", "generate.*setup", "generate.*rules", "layered setup", "complete setup", "full setup", "auto.?improve", "upgrade.*setup", "improve.*setup", "best practice.*setup"],
+      "description": "Audit project setup, generate layered config, or auto-improve existing setup"
     },
     {
       "skill": "quality-review",

@@ -1,11 +1,11 @@
 ---
 name: meta-project-setup
-description: Analyze any project, audit its Claude Code setup, recommend existing library artifacts, and detect gaps where new skills should be created. Generates documentation/CLAUDE_SETUP.md with full analysis. Use when setting up Claude Code in a new project, onboarding to a repo, or auditing an existing setup.
+description: Analyze any project, audit its Claude Code setup, recommend library artifacts, detect gaps, and generate the complete layered configuration (CLAUDE.md, rules, hooks, child files). Includes auto-improve mode that researches latest best practices and suggests setup upgrades. Use when setting up Claude Code in a new project, onboarding to a repo, auditing an existing setup, generating a full layered config, or upgrading an existing setup.
 ---
 
 # Skill: project_setup
 
-**Purpose**: Analyze any project, recommend existing library artifacts, and detect gaps where new skills/agents/hooks should be created.
+**Purpose**: Analyze any project, recommend existing library artifacts, detect gaps where new skills/agents/hooks should be created, generate the complete layered Claude Code configuration, and auto-improve existing setups with latest best practices.
 
 **Use when**:
 - Starting work on a new project with this plugin active
@@ -13,23 +13,37 @@ description: Analyze any project, audit its Claude Code setup, recommend existin
 - Want to discover what new skills the library is missing for this project
 - Need a tailored CLAUDE.md and rules generated for a project
 - Onboarding to a project and want optimal Claude Code configuration
+- Want to generate the full layered Claude Code setup (rules, hooks, child CLAUDE.md)
+- Want to upgrade an existing setup with latest best practices
 
 **Tip**: You can pass natural language arguments to focus on specific steps. For example:
 ```
 /meta-project-setup only detect gaps for this project
 /meta-project-setup just audit the existing Claude setup
+/meta-project-setup generate the full layered setup
+/meta-project-setup auto-improve this project's Claude config
 ```
 
 ---
 
 ## Process
 
-### Step 1: Accept Target
+### Step 1: Accept Target & Detect Mode
 
 Determine the target project:
 - If invoked with a path argument, use that path
 - If no argument, use the current working directory
 - Confirm the target with the user before proceeding
+
+**Mode detection** — after accepting the target, determine which mode to run:
+
+| Condition | Mode | Steps |
+|-----------|------|-------|
+| User says "generate", "create", "set up", "full setup", "layered setup" | **Generate mode** | Steps 1–10 (full setup with generation) |
+| User says "improve", "upgrade", "auto-improve" | **Auto-improve mode** | Step 11 (audit + research + suggest upgrades) |
+| No existing setup detected | **Generate mode** (offer) | Offer to run Steps 1–10 |
+| Existing setup detected, no keyword | **Auto-improve mode** (offer) | Offer to run Step 11 |
+| Default (no keyword, no existing setup context) | **Audit mode** | Steps 1–9 (current behavior: audit + recommend only) |
 
 ### Step 2: Fingerprint the Project
 
@@ -232,6 +246,150 @@ If the user requests additional files:
 - **`CLAUDE.md`**: Delegate to `/meta-claude-md-gen` — it runs an interactive interview to produce a context-rich CLAUDE.md with reading lists, guardrails, and domain conventions. Do NOT generate CLAUDE.md from templates yourself.
 - `.claude/rules/` files (copy recommended rules)
 
+### Step 10: Generate Layered Setup (Generate Mode)
+
+This step runs when the user explicitly asks to "generate", "create", or "set up" files, or when the skill detects no existing setup and offers to create one.
+
+#### 10a) Present the generation plan
+
+Show the user what files will be created based on the fingerprint from Step 2:
+
+| Layer | Files | Condition |
+|-------|-------|-----------|
+| CLAUDE.md | Root CLAUDE.md (via `/meta-claude-md-gen`) | Always |
+| Rules | `.claude/rules/style.md` | Always |
+| Rules | `.claude/rules/testing.md` | Has tests |
+| Rules | `.claude/rules/api.md` | Has API routes |
+| Rules | `.claude/rules/security.md` | Has auth/sensitive areas |
+| Rules | `.claude/rules/database.md` | Has DB/migrations |
+| Rules | `.claude/rules/monorepo.md` | Is monorepo |
+| Hooks | `.claude/settings.json` (PostToolUse: lint) | Has quality tools installed |
+| Hooks | `.claude/settings.json` (PreToolUse: protect) | Has sensitive areas |
+| Child files | `services/*/CLAUDE.md` | Is monorepo |
+| Local config | `CLAUDE.local.md` template | Always |
+| Gitignore | `.gitignore` update | Always |
+
+#### 10b) Wait for user confirmation before generating anything
+
+#### 10c) Generate rules
+
+Each rule file gets:
+- Path-scoping frontmatter (e.g., `paths: ["src/api/**"]`) where applicable
+- Content tailored to the detected language/framework from the fingerprint
+- Only rules relevant to what the fingerprint found
+
+Example rule file structure:
+```markdown
+---
+description: [Rule purpose]
+paths: ["relevant/path/**"]
+---
+
+# [Rule Title]
+
+[Concise, actionable rules specific to this project's stack]
+```
+
+#### 10d) Generate hooks (`.claude/settings.json`)
+
+Only generate hooks for tools confirmed installed during fingerprinting:
+- **PostToolUse**: lint command matching detected tooling (ruff for Python, eslint for JS/TS, etc.)
+- **PreToolUse**: block edits to detected protected paths (migrations/, .env, etc.)
+- **PreToolUse**: inject guidance for sensitive file patterns (auth, config, secrets)
+
+**Important**: If `.claude/settings.json` already exists, **merge** new hooks into it — do NOT overwrite existing configuration.
+
+#### 10e) Generate child CLAUDE.md (monorepo only)
+
+For monorepo projects, create minimal CLAUDE.md files per service directory containing:
+- Service purpose (derived from README or package.json description)
+- Service-specific run/test commands
+- Cross-references to related services
+
+#### 10f) Generate local config
+
+- Create a `CLAUDE.local.md` template with sections for private notes, local env quirks, personal preferences
+- Update `.gitignore` to include `CLAUDE.local.md` and `.claude/settings.local.json`
+
+#### 10g) Delegate CLAUDE.md generation
+
+Invoke `/meta-claude-md-gen` to generate the root CLAUDE.md through its interactive interview process. This is the same delegation as Step 9 but now explicitly part of the layered generation flow.
+
+#### 10h) Output summary
+
+List all files created with brief descriptions:
+
+```
+## Generated Files
+
+| File | Purpose |
+|------|---------|
+| `.claude/rules/style.md` | Code style conventions for [language] |
+| `.claude/rules/testing.md` | Test conventions for [framework] |
+| `.claude/settings.json` | Hooks: lint with [tool], protect [paths] |
+| `CLAUDE.local.md` | Template for private local notes |
+| `.gitignore` | Updated with Claude local config entries |
+```
+
+### Step 11: Auto-Improve Mode
+
+This step runs when the user explicitly asks to "improve", "upgrade", or "auto-improve", or when the setup already exists and the user re-runs the skill.
+
+#### 11a) Audit current setup
+
+Re-run the Step 2G audit checklist and score each item with specific issues:
+
+| Check | Status | Issue |
+|-------|--------|-------|
+| CLAUDE.md concise (<100 lines) | Pass/Fail | "Currently 180 lines — extract rules to .claude/rules/" |
+| CLAUDE.md uses @imports | Pass/Fail | "No @imports — add for deep context docs" |
+| Rules are modular | Pass/Fail | "All rules in CLAUDE.md — split to .claude/rules/" |
+| Rules are path-scoped | Pass/Fail | "Rules apply globally — add paths: frontmatter" |
+| Hooks enforce quality gates | Pass/Fail | "No lint hooks — add ruff PostToolUse" |
+| Hooks protect sensitive paths | Pass/Fail | "migrations/ unprotected — add PreToolUse block" |
+| Child CLAUDE.md (if monorepo) | Pass/Fail/N/A | |
+| Local config exists | Pass/Fail | "No CLAUDE.local.md template" |
+| .gitignore covers Claude files | Pass/Fail | |
+
+#### 11b) Research latest best practices
+
+Research current Claude Code best practices (built-in, no dependency on other skills):
+- Fetch official Claude Code documentation pages for new config options, hook events, rule features
+- Web search for recent Claude Code setup patterns and community best practices
+- Extract only findings relevant to project configuration (not skill authoring, not learning)
+
+#### 11c) Generate improvement suggestions
+
+For each audit gap and each research finding, create a suggestion:
+
+```
+### Suggestion N: [title]
+**Current**: [what exists now]
+**Recommended**: [what should change]
+**Priority**: High/Medium/Low
+**Files affected**: [list]
+```
+
+#### 11d) Present suggestions grouped by priority
+
+Present High → Medium → Low. User approves or rejects each suggestion individually.
+
+#### 11e) Apply approved changes
+
+For each approved suggestion:
+- Show the diff before writing to existing files
+- Create new files directly
+- Merge into existing `.claude/settings.json` if it exists
+
+#### 11f) Generate report
+
+Save `documentation/CLAUDE_SETUP_IMPROVEMENTS.md` containing:
+- Date and sources checked
+- Audit results (before/after scores)
+- Changes applied
+- Suggestions deferred
+- "Run `/meta-project-setup auto-improve` again to check for new best practices"
+
 ---
 
 ## Visual Workflow Diagram
@@ -429,12 +587,21 @@ The generated file should follow this structure:
 ## Example Usage
 
 ```
-# Analyze current project and generate documentation/CLAUDE_SETUP.md
+# Analyze current project and generate documentation/CLAUDE_SETUP.md (audit mode)
 /meta-project-setup
 
 # Analyze a specific path
 /meta-project-setup /path/to/my-project
 
-# Analyze and also generate CLAUDE.md + rules
-/meta-project-setup generate configs for this project
+# Generate the full layered setup (rules, hooks, local config, CLAUDE.md)
+/meta-project-setup generate the full layered setup
+
+# Generate complete Claude Code configuration for this project
+/meta-project-setup create the complete setup
+
+# Auto-improve an existing setup with latest best practices
+/meta-project-setup auto-improve this project's Claude config
+
+# Upgrade existing setup
+/meta-project-setup upgrade my Claude setup
 ```

@@ -172,7 +172,7 @@ Skills are organized by **development phase** — find the phase you're in, pick
 
 |  | Skill | When to use |
 |--|-------|-------------|
-| **Essential** | `/meta-project-setup` | First thing on any new project — audit setup, get recommendations, **discover which new skills to build** |
+| **Essential** | `/meta-project-setup` | First thing on any new project — audit setup, get recommendations, **generate full layered config**, or **auto-improve** existing setup |
 | **Essential** | `/meta-claude-md-gen` | Generate a context-rich CLAUDE.md through interactive interview — reading lists, guardrails, conventions |
 | **Essential** | `/architecture-arch` | Map the codebase structure before touching anything |
 | *If needed* | `/quality-review` | Want a health score with evidence and priority matrix |
@@ -259,7 +259,7 @@ Skills are organized by **development phase** — find the phase you're in, pick
 I'm in this phase...                  Use this
 ────────────────────────────────────────────────────────────────
 PROJECT SETUP & ONBOARDING
-  Set up Claude + find skill gaps      /meta-project-setup        [essential]
+  Audit, generate, or improve setup    /meta-project-setup        [essential]
   Generate context-rich CLAUDE.md     /meta-claude-md-gen         [essential]
   Map the codebase                    /architecture-arch          [essential]
   Assess project health               /quality-review
@@ -391,19 +391,26 @@ Each skill recommends next steps in its output, so you rarely need to plan chain
 
 ## Skill Highlights
 
-### `/meta-project-setup` — Setup Audit + Skill Gap Discovery
+### `/meta-project-setup` — Setup Audit + Generation + Auto-Improve
 
-Analyzes any project across 7 dimensions, recommends which existing plugin skills fit, and — critically — **detects what skills are missing from the library for your project**. If your project uses a technology that no existing skill covers (DB migrations, async workers, GraphQL, ML pipelines, complex auth, etc.), this skill flags it and suggests exactly what to build: artifact type, name, description, and priority.
+Three modes in one skill:
+
+- **Audit mode** (default): Analyzes any project across 7 dimensions, recommends which existing plugin skills fit, and **detects what skills are missing from the library**. Generates `documentation/CLAUDE_SETUP.md`.
+- **Generate mode** (`generate`, `create`, `set up`): Runs the full audit, then **creates the complete layered config** — path-scoped rules in `.claude/rules/`, hooks in `.claude/settings.json`, child CLAUDE.md for monorepos, `CLAUDE.local.md` template, and delegates to `/meta-claude-md-gen` for the root CLAUDE.md.
+- **Auto-improve mode** (`improve`, `upgrade`, `auto-improve`): Audits an existing setup against a best-practice checklist, **researches latest Claude Code patterns**, and suggests prioritized improvements with diffs before applying.
 
 ```
-# Full analysis — audit setup, recommend skills, discover gaps
+# Audit mode — fingerprint, recommend, discover gaps
 /meta-project-setup
 
-# Focus only on gap detection
-/meta-project-setup only detect gaps for this project
+# Generate mode — create the full layered setup
+/meta-project-setup generate the full layered setup
+
+# Auto-improve mode — upgrade existing config with latest best practices
+/meta-project-setup auto-improve this project's Claude config
 ```
 
-**Output**: Project fingerprint, recommended artifacts, **library gaps table** (what's missing, suggested skill name, priority), tailored workflows, staged rollout plan, `documentation/CLAUDE_SETUP.md`.
+**Output**: Project fingerprint, recommended artifacts, **library gaps table**, tailored workflows, staged rollout plan, `documentation/CLAUDE_SETUP.md`. Generate mode also creates all config files. Auto-improve mode generates `documentation/CLAUDE_SETUP_IMPROVEMENTS.md`.
 
 **vs `/meta-skill-audit`**: That skill audits the *plugin itself* for overlaps and redundancies. This skill audits a *target project* to find what the plugin is missing for that project's needs.
 
