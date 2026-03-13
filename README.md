@@ -395,7 +395,7 @@ Each skill recommends next steps in its output, so you rarely need to plan chain
 
 Three modes in one skill:
 
-- **Audit mode** (default): Analyzes any project across 7 dimensions, recommends which existing plugin skills fit, and **detects what skills are missing from the library**. Generates `documentation/CLAUDE_SETUP.md`.
+- **Audit mode** (default): Analyzes any project across 8 dimensions, recommends which existing plugin skills fit, and **detects what skills are missing from the library**. Generates `documentation/CLAUDE_SETUP.md`.
 - **Generate mode** (`generate`, `create`, `set up`): Runs the full audit, then **creates the complete layered config** — path-scoped rules in `.claude/rules/`, hooks in `.claude/settings.json`, child CLAUDE.md for monorepos, `CLAUDE.local.md` template, and delegates to `/meta-claude-md-gen` for the root CLAUDE.md.
 - **Auto-improve mode** (`improve`, `upgrade`, `auto-improve`): Audits an existing setup against a best-practice checklist, **researches latest Claude Code patterns**, and suggests prioritized improvements with diffs before applying.
 

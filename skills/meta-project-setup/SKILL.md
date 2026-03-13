@@ -124,24 +124,47 @@ Scan the project for documentation that Claude should know about:
 - Include READMEs in subdirectories, CONTRIBUTING.md, ARCHITECTURE.md, CHANGELOG.md
 - Exclude generated/vendored docs (node_modules, .git, build artifacts)
 
-**Present the discovered files to the user and ask:**
-> "Which of these docs should Claude **always** have in context (`@path/to/file` import in CLAUDE.md) vs. discover on demand?"
+**Documentation Load Heuristic** — before asking the user to classify, auto-flag docs that should NOT be always-loaded:
 
-Classify each doc the user selects into:
+| Flag condition | Default classification | Reason |
+|---------------|----------------------|--------|
+| Over ~500 lines or ~40k chars | On demand | Too heavy for startup context — causes compaction |
+| Content type: appendices, catalogs, changelogs, findings, Q&A logs, investigation dumps | On demand | Reference material, not operating context |
+| Folders with many files (e.g., `findings/`, `decisions/`) | On demand (the folder) | Import an index, not every file |
+
+**Present the flagged list to the user and ask:**
+> "Here are the docs I found. I've flagged ones that look too large or reference-heavy for always-loading. Which classification fits each?"
+
+**Key distinction**: "important to the project" does NOT mean "always-loaded." Many critical docs should be on-demand behind a small index.
+
+Classify each doc into 4 buckets:
 
 | Classification | Mechanism | When to use |
 |---------------|-----------|-------------|
-| **Always loaded** | `@path/to/file` import in CLAUDE.md | Architecture, conventions, API contracts — relevant every session |
-| **On demand** | Claude reads when needed | Large reference docs, changelogs, verbose specs |
+| **Always loaded** | `@path/to/file` import in CLAUDE.md | Small (<500 lines), foundational, relevant most sessions — README, short conventions, working agreements |
+| **Index/entrypoint** | Create a short (~20 line) routing doc, `@import` only that | Important docs too large for always-load — the index points to them, Claude reads the actual doc on demand |
+| **On demand** | Claude reads when needed, listed in CLAUDE.md without `@` | Large reference docs, changelogs, verbose specs, catalogs, findings |
 | **Ignore** | Not referenced | Generated docs, outdated files, irrelevant to Claude |
+
+**Index pattern** — when large docs are classified as "Index/entrypoint", recommend creating:
+```
+documentation/index.md  →  @import this in CLAUDE.md (~20 lines)
+  └─ points to implementation.md, data_catalog.md, etc. (read on demand)
+```
+
+The mental model:
+- `CLAUDE.md` = compact operating context (`@README`, `@index`)
+- `index.md` = routing map to deeper docs
+- Large docs = on-demand lookup (never `@imported` directly)
 
 **Recommended Documentation Structure** — based on what exists and what's missing, suggest:
 
 | Action | Files | Reason |
 |--------|-------|--------|
 | **Keep** | [well-organized existing docs] | Already useful as-is |
-| **Create** | [missing docs the project needs] | e.g., missing architecture doc, missing runbooks |
-| **Split** | [overly large files] | e.g., monolithic README → separate architecture + contributing docs |
+| **Create** | [missing docs the project needs] | e.g., missing architecture doc, missing index doc |
+| **Create index** | [important but large docs] | e.g., `documentation/index.md` routing to implementation.md, data_catalog.md |
+| **Split** | [overly large files] | e.g., 143k implementation.md → active-status.md + completed-archive.md |
 | **Merge** | [fragmented small docs] | e.g., scattered notes → consolidated decisions/ |
 | **Archive** | [outdated docs] | e.g., old migration guides, superseded specs |
 
@@ -395,6 +418,9 @@ Re-run the Step 2G audit checklist and score each item with specific issues:
 | CLAUDE.md concise (<200 lines) | Pass/Fail | "Currently 250 lines — extract rules to .claude/rules/ and use @imports" |
 | CLAUDE.md uses @imports | Pass/Fail | "No @imports — add for deep context docs" |
 | Important docs @imported in CLAUDE.md | Pass/Fail | "Docs exist (docs/, ADRs, etc.) but none are @imported — run Step 2H triage" |
+| @imported docs are small and high-signal | Pass/Fail | "@imported docs exceed ~40k chars — use index docs instead of direct imports" |
+| Large reference docs routed via index | Pass/Fail | "Large docs imported directly — create documentation/index.md as routing layer" |
+| Single source of truth files sized appropriately | Pass/Fail | "implementation.md is 143k chars — split active status from completed archive" |
 | Rules are modular | Pass/Fail | "All rules in CLAUDE.md — split to .claude/rules/" |
 | Rules are path-scoped | Pass/Fail | "Rules apply globally — add paths: frontmatter" |
 | Hooks enforce quality gates | Pass/Fail | "No lint hooks — add ruff PostToolUse" |
