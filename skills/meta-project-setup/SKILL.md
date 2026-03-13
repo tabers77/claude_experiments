@@ -84,7 +84,8 @@ Scan the target project across 7 dimensions:
 Perform a full best-practice audit of the project's Claude Code configuration:
 
 - Check for: `CLAUDE.md`, `.claude/`, `.claude/rules/`, `.claude/skills/`, `.claude/settings.json`, `.claude/settings.local.json`, `CLAUDE.local.md`
-- Check for MCP server configuration
+- Check for MCP server configuration: `.claude/mcp.json` or `mcpServers` in settings
+- Auto memory state: `~/.claude/CLAUDE.md` present? Auto memory enabled or curated vs default?
 - Assess: what's already configured vs what's missing
 
 **Best-Practice Checklist** (check each item):
@@ -104,6 +105,9 @@ Perform a full best-practice audit of the project's Claude Code configuration:
 | **Hooks** | Logging hooks for audit trail (if needed) | |
 | **Safety** | .gitignore includes CLAUDE.local.md | |
 | **Safety** | No secrets in CLAUDE.md | |
+| **Memory** | Auto memory enabled and curated (not default dump) | |
+| **Memory** | MCP servers configured for project-specific tools (if applicable) | |
+| **Session** | Session management patterns documented (--continue, --resume) | |
 
 **Anti-Pattern Detection** — flag if found:
 - Secrets or API keys in CLAUDE.md (should be in CLAUDE.local.md)
@@ -111,6 +115,7 @@ Perform a full best-practice audit of the project's Claude Code configuration:
 - Skills without clear purpose or duplicate skills
 - Missing .gitignore for local config files
 - Hooks referencing tools that aren't installed
+- Uncurated auto memory growing unbounded (no periodic cleanup)
 
 ### Step 3: Match Fingerprint to Library Artifacts
 
@@ -138,6 +143,8 @@ Use the fingerprint to recommend artifacts from this plugin. Apply these rules:
 | Any project | `code-reviewer` agent | Automated review after changes |
 | Any project | `rules/style.md` | Code style conventions |
 | Has tests | `rules/testing.md` | Test conventions |
+| Complex codebase with recurring specialist domains | Specialist subagents with `memory: user` | Persistent domain memory avoids re-learning across sessions |
+| Has external knowledge bases, wikis, or databases | MCP server config (`.claude/mcp.json`) | Connect Claude to project-specific tools and data sources |
 
 ### Step 4: Detect Library Gaps
 
@@ -189,6 +196,7 @@ Group recommendations into 3 workflows with project-specific examples:
 1. Run `/architecture-arch` on [specific entrypoint found]
 2. Run `/learning-codebase-mastery` on [critical module found]
 3. Review with `/quality-review`
+4. Document a startup command for quick re-entry (`claude --continue`) or non-interactive CI (`claude -p`)
 
 #### Development Workflow
 "Day-to-day coding"
@@ -196,6 +204,8 @@ Group recommendations into 3 workflows with project-specific examples:
 2. Use `/api-development-api-impl` for [specific route pattern found]
 3. Check with `/safe-changes-impact-check` before [sensitive areas found]
 4. Review with `code-reviewer` agent after changes
+5. Use `--continue` to resume interrupted work; `--resume` for named sessions on long tasks
+6. End with `/commit-ready` to capture session knowledge into docs and commit
 
 #### Quality Workflow
 "Before merging / releasing"
@@ -215,16 +225,20 @@ Recommend a phased adoption:
 - Copy recommended rules to `.claude/rules/`
 - Add CLAUDE.md with project basics
 - Start using `/architecture-arch` and `/quality-review`
+- Enable and curate auto memory — review via `/memory`
 
 **Week 1** (daily workflow):
 - Enable hooks for quality gates
 - Use `/planning-impl-plan` before features
 - Use `code-reviewer` agent after changes
+- Adopt session naming for long tasks: `claude --resume "feature-name"`
+- Use `/commit-ready` at session end to capture learnings
 
 **Week 2+** (full integration):
 - Add protection hooks for sensitive areas
 - Use `/safe-changes-impact-check` before risky changes
 - Re-run `/meta-project-setup` periodically to check setup health
+- Set up `claude -p` automation for routine maintenance (lint, dep updates, test runs)
 
 ### Step 8: Generate `documentation/CLAUDE_SETUP.md`
 
@@ -292,6 +306,8 @@ paths: ["relevant/path/**"]
 
 #### 10d) Generate hooks (`.claude/settings.json`)
 
+Hooks are either **advisory** (inject context, exit 0) or **deterministic** (block/allow, exit 2). Choose deliberately — lint hooks are advisory, protection hooks are deterministic. Frame each generated hook with a comment indicating its guarantee level.
+
 Only generate hooks for tools confirmed installed during fingerprinting:
 - **PostToolUse**: lint command matching detected tooling (ruff for Python, eslint for JS/TS, etc.)
 - **PreToolUse**: block edits to detected protected paths (migrations/, .env, etc.)
@@ -305,10 +321,13 @@ For monorepo projects, create minimal CLAUDE.md files per service directory cont
 - Service purpose (derived from README or package.json description)
 - Service-specific run/test commands
 - Cross-references to related services
+- If the monorepo has services with irrelevant cross-service CLAUDE.md, recommend `claudeMdExcludes` in `.claude/settings.json` to prevent context pollution
 
 #### 10f) Generate local config
 
 - Create a `CLAUDE.local.md` template with sections for private notes, local env quirks, personal preferences
+- Include an auto memory curation section in `CLAUDE.local.md` (what to keep, what to prune)
+- If project uses external tools/databases, generate a `.claude/mcp.json` stub with commented examples
 - Update `.gitignore` to include `CLAUDE.local.md` and `.claude/settings.local.json`
 
 #### 10g) Delegate CLAUDE.md generation
@@ -350,6 +369,14 @@ Re-run the Step 2G audit checklist and score each item with specific issues:
 | Child CLAUDE.md (if monorepo) | Pass/Fail/N/A | |
 | Local config exists | Pass/Fail | "No CLAUDE.local.md template" |
 | .gitignore covers Claude files | Pass/Fail | |
+| Auto memory enabled and curated | Pass/Fail | "Auto memory disabled — enable for cross-session context" |
+| Session management documented | Pass/Fail | "No --continue/--resume patterns — add to workflows" |
+| claudeMdExcludes for monorepo | Pass/Fail/N/A | "No excludes — add to prevent cross-service context noise" |
+| Hooks labeled advisory vs deterministic | Pass/Fail | "Hooks lack guarantee framing — add comments" |
+| Specialist subagents for complex domains | Pass/Fail | "No persistent subagents — consider for [domain]" |
+| Closing workflow captures knowledge | Pass/Fail | "No end-of-task pattern — add /commit-ready" |
+| MCP servers configured (if needed) | Pass/Fail/N/A | "External tools exist but no MCP config" |
+| Non-interactive automation (claude -p) | Pass/Fail | "No automation patterns — add for routine tasks" |
 
 #### 11b) Research latest best practices
 
