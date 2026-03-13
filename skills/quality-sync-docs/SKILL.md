@@ -1,11 +1,11 @@
 ---
 name: quality-sync-docs
-description: Keep documentation in sync with the actual codebase. Discovers all .md files, builds truth from the filesystem, finds stale references and broken paths, then fixes them. Works in any project. Use when docs are stale, references are broken, or you need to sync documentation after changes.
+description: Keep documentation in sync with the actual codebase. Discovers all .md files, builds truth from the filesystem, finds stale references and broken paths, detects content overlap across files, and can merge duplicated docs without losing information. Works in any project. Use when docs are stale, references are broken, you need to sync documentation after changes, or documentation files have grown overlapping and need consolidation.
 ---
 
 # Skill: quality-sync-docs
 
-**Purpose**: Keep documentation accurate — find and fix references to files, modules, functions, paths, and counts that have gone stale as the codebase evolved.
+**Purpose**: Keep documentation accurate and lean — find stale references, detect content overlap across files, and merge duplicated docs without losing information.
 
 **Use when**:
 - After renaming, moving, adding, or removing files or modules
@@ -13,6 +13,8 @@ description: Keep documentation in sync with the actual codebase. Discovers all 
 - Before committing — quick sanity check that docs still match reality
 - Periodically as a health check (especially before releases)
 - After onboarding setup — verify the README and CLAUDE.md match the actual project
+- When documentation files have grown organically and you suspect overlap or duplication
+- When you want to consolidate multiple docs into fewer, cleaner files
 
 > **vs `/quality-review`**: That skill scores overall code quality across 8 categories. This skill specifically checks whether **documentation references match the filesystem** — broken paths, stale names, wrong counts.
 >
@@ -81,6 +83,13 @@ For each selected documentation file, extract all references:
 | **Numeric counts** | "12 modules", "supports 5 frameworks" | Count changed |
 | **Directory trees** | ASCII tree listings in README | Structure changed |
 | **Config references** | `pyproject.toml [tool.ruff]` section | Config restructured |
+| **Content fingerprints** | Section headings, topic keywords, key phrases | Same content in multiple files |
+
+#### Content fingerprinting for overlap detection:
+For each documentation file, also extract:
+- **Section headings** (H1–H4) and their hierarchy
+- **Topic keywords** — key nouns/phrases that identify what the section covers (e.g., "API endpoints", "test commands", "architecture", "deployment")
+- **Distinctive phrases** — unique sentences or instructions that would indicate duplication if found in another file
 
 For each reference, record:
 - **File**: Which doc contains it
@@ -116,6 +125,27 @@ For each extracted reference, check if it's still valid:
 - Do the paths in command examples (`pytest tests/unit/`, `cd src/api/`) exist?
 - Are the tool names available? (optional — just check paths)
 
+#### Check 7: Content overlap across files
+Compare the content fingerprints extracted in Step 2 across all documentation files:
+
+**How to detect overlap:**
+1. **Heading match** — two files have sections with the same or very similar headings covering the same topic (e.g., "## Architecture" in both README.md and docs/architecture.md)
+2. **Topic overlap** — two files describe the same concept, workflow, or instructions using different words but covering the same ground
+3. **Copy-paste duplication** — near-identical paragraphs, tables, or lists appearing in multiple files
+
+**For each overlap found, classify:**
+
+| Severity | Description | Example |
+|----------|-------------|---------|
+| **Duplicate** | Same information, nearly identical wording | Same install instructions in README and CONTRIBUTING |
+| **Overlapping** | Same topic, different detail levels or wording | Architecture overview in README + detailed version in docs/ |
+| **Contradictory** | Same topic, conflicting information | README says "run pytest", CLAUDE.md says "run python -m pytest" |
+
+**For each overlap, determine:**
+- Which file has the **most complete** version
+- Which file has **unique details** not present in the other
+- Which file is the **natural home** for this content (based on file purpose)
+
 ### Step 4: Report Findings
 
 Output a structured report:
@@ -145,6 +175,18 @@ Output a structured report:
 - LINE ~15: BROKEN LINK — `[see architecture](docs/arch.md)` target does not exist
 - LINE ~42: STALE FUNCTION — `process_data()` not found in `src/pipeline.py`. Was it renamed to `process_batch()`?
 
+### Content Overlaps
+
+#### Overlap 1: "Architecture" — DUPLICATE
+- **Files**: README.md (lines 20–45) ↔ docs/architecture.md (lines 1–30)
+- **Assessment**: docs/architecture.md has more detail. README has a summary paragraph not in docs/.
+- **Recommendation**: Keep full version in docs/architecture.md, add the unique README summary paragraph there, replace README section with a one-liner + link to docs/architecture.md
+
+#### Overlap 2: "Run commands" — CONTRADICTORY
+- **Files**: CLAUDE.md (line 12) ↔ README.md (line 55)
+- **Assessment**: CLAUDE.md says `pytest`, README says `python -m pytest`. Both work but inconsistent.
+- **Recommendation**: Pick one, update both. CLAUDE.md is the canonical source for Claude — keep it there, reference from README.
+
 ### Clean Files
 - documentation/UPGRADE_ROADMAP.md — no issues found
 
@@ -152,6 +194,7 @@ Output a structured report:
 - **Files checked**: [N]
 - **References verified**: [N]
 - **Issues found**: [N]
+- **Content overlaps**: [N]
 - **Files clean**: [N]
 ```
 
@@ -176,6 +219,25 @@ If the user approves fixes (or said "auto-fix"):
 - If a rename is detected (via fuzzy match or git log): update the reference
 - If ambiguous: flag for the user with suggestions
 
+#### For content overlaps (merge):
+For each overlap the user approves for merging:
+
+1. **Identify the target file** — the natural home for the content (present recommendation, let user confirm)
+2. **Build the merged content** — combine both versions, keeping:
+   - The most complete/detailed version as the base
+   - Any unique information from the other file(s) that isn't in the base
+   - The most accurate version when there are contradictions (flag contradictions for user decision)
+3. **Show the merged result** — present the proposed merged section to the user before writing
+4. **Update the target file** — write the merged content
+5. **Update the source file** — replace the duplicated section with a brief reference + link to the target (e.g., "See [Architecture](docs/architecture.md) for details")
+6. **Never silently drop content** — if any sentence, bullet, or detail exists in only one source, it MUST appear in the merged result. When in doubt, include it and let the user trim later
+
+**Merge safety rules:**
+- Always show a before/after diff for both files before writing
+- If the overlap involves more than 2 files, merge them one pair at a time
+- If a file would become empty after extracting all its content, suggest deleting it (with user confirmation)
+- Track all changes so the Step 6 verification can confirm nothing was lost
+
 ### Step 6: Verify
 
 After applying fixes:
@@ -199,8 +261,12 @@ After applying fixes:
 [By file, with line numbers and fix suggestions]
 [Or: "No issues found — all documentation is in sync"]
 
+### Content Overlaps
+[Overlap pairs with severity, recommendation, and merge status]
+[Or: "No content overlaps detected"]
+
 ### Fixes Applied
-[List of changes made]
+[List of changes made, including merges]
 [Or: "No fixes needed"]
 
 ### Verification
@@ -230,4 +296,13 @@ After applying fixes:
 
 # Focus on a specific doc
 /quality-sync-docs check documentation/IMPLEMENTATION.md for stale references
+
+# Find overlapping content across docs and merge
+/quality-sync-docs find overlapping docs and consolidate them
+
+# Check for overlap only (no reference checking)
+/quality-sync-docs check for content overlap across all docs
+
+# Merge specific files
+/quality-sync-docs merge README.md and docs/setup.md — they cover the same setup instructions
 ```
