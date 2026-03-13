@@ -33,7 +33,7 @@ description: Analyze any project, audit its Claude Code setup, recommend library
 Determine the target project:
 - If invoked with a path argument, use that path
 - If no argument, use the current working directory
-- Confirm the target with the user before proceeding
+- Only confirm the target with the user if the path is ambiguous, multiple repos are detected, or the skill is about to write files outside the current repo. Otherwise, state the inferred target and proceed.
 
 **Mode detection** — after accepting the target, determine which mode to run:
 
@@ -47,7 +47,7 @@ Determine the target project:
 
 ### Step 2: Fingerprint the Project
 
-Scan the target project across 7 dimensions:
+Scan the target project across 8 dimensions:
 
 #### A) Language & Framework
 - Search for: `package.json`, `pyproject.toml`, `requirements.txt`, `Cargo.toml`, `go.mod`, `pom.xml`, `Gemfile`, `*.csproj`
@@ -83,8 +83,8 @@ Scan the target project across 7 dimensions:
 #### G) Existing Claude Setup (Audit)
 Perform a full best-practice audit of the project's Claude Code configuration:
 
-- Check for: `CLAUDE.md`, `.claude/`, `.claude/rules/`, `.claude/skills/`, `.claude/settings.json`, `.claude/settings.local.json`, `CLAUDE.local.md`
-- Check for MCP server configuration: `.claude/mcp.json` or `mcpServers` in settings
+- Check for: `CLAUDE.md` (can also be at `.claude/CLAUDE.md`), `.claude/`, `.claude/rules/`, `.claude/skills/`, `.claude/settings.json`, `.claude/settings.local.json`, `CLAUDE.local.md`
+- Check for MCP server configuration: `.mcp.json` or `mcpServers` in settings
 - Auto memory state: `~/.claude/CLAUDE.md` present? Auto memory enabled or curated vs default?
 - Assess: what's already configured vs what's missing
 
@@ -105,7 +105,7 @@ Perform a full best-practice audit of the project's Claude Code configuration:
 | **Hooks** | Logging hooks for audit trail (if needed) | |
 | **Safety** | .gitignore includes CLAUDE.local.md | |
 | **Safety** | No secrets in CLAUDE.md | |
-| **Memory** | Auto memory enabled and curated (not default dump) | |
+| **Memory** | Auto memory enabled and curated (recommended for projects with recurring corrections or local learnings) | |
 | **Memory** | MCP servers configured for project-specific tools (if applicable) | |
 | **Session** | Session management patterns documented (--continue, --resume) | |
 
@@ -116,6 +116,36 @@ Perform a full best-practice audit of the project's Claude Code configuration:
 - Missing .gitignore for local config files
 - Hooks referencing tools that aren't installed
 - Uncurated auto memory growing unbounded (no periodic cleanup)
+
+#### H) Documentation & Knowledge Files
+
+Scan the project for documentation that Claude should know about:
+- Search for: `docs/`, `documentation/`, `*.md` in root and key directories, `adr/`, `decisions/`, `wiki/`, `api-spec/`, `openapi.yaml`, `swagger.json`
+- Include READMEs in subdirectories, CONTRIBUTING.md, ARCHITECTURE.md, CHANGELOG.md
+- Exclude generated/vendored docs (node_modules, .git, build artifacts)
+
+**Present the discovered files to the user and ask:**
+> "Which of these docs should Claude **always** have in context (`@path/to/file` import in CLAUDE.md) vs. discover on demand?"
+
+Classify each doc the user selects into:
+
+| Classification | Mechanism | When to use |
+|---------------|-----------|-------------|
+| **Always loaded** | `@path/to/file` import in CLAUDE.md | Architecture, conventions, API contracts — relevant every session |
+| **On demand** | Claude reads when needed | Large reference docs, changelogs, verbose specs |
+| **Ignore** | Not referenced | Generated docs, outdated files, irrelevant to Claude |
+
+**Recommended Documentation Structure** — based on what exists and what's missing, suggest:
+
+| Action | Files | Reason |
+|--------|-------|--------|
+| **Keep** | [well-organized existing docs] | Already useful as-is |
+| **Create** | [missing docs the project needs] | e.g., missing architecture doc, missing runbooks |
+| **Split** | [overly large files] | e.g., monolithic README → separate architecture + contributing docs |
+| **Merge** | [fragmented small docs] | e.g., scattered notes → consolidated decisions/ |
+| **Archive** | [outdated docs] | e.g., old migration guides, superseded specs |
+
+This triage feeds into Step 10g (CLAUDE.md generation) and Step 11a (audit).
 
 ### Step 3: Match Fingerprint to Library Artifacts
 
@@ -144,7 +174,7 @@ Use the fingerprint to recommend artifacts from this plugin. Apply these rules:
 | Any project | `rules/style.md` | Code style conventions |
 | Has tests | `rules/testing.md` | Test conventions |
 | Complex codebase with recurring specialist domains | Specialist subagents with `memory: user` | Persistent domain memory avoids re-learning across sessions |
-| Has external knowledge bases, wikis, or databases | MCP server config (`.claude/mcp.json`) | Connect Claude to project-specific tools and data sources |
+| Has external knowledge bases, wikis, or databases | MCP server config (`.mcp.json`) | Connect Claude to project-specific tools and data sources |
 
 ### Step 4: Detect Library Gaps
 
@@ -246,7 +276,7 @@ After presenting recommendations, **always generate a `documentation/CLAUDE_SETU
 
 The file MUST include:
 
-1. **Project fingerprint table** — the 7-dimension scan results
+1. **Project fingerprint table** — the 8-dimension scan results
 2. **Setup audit** — best-practice checklist results, anti-patterns detected, features in use vs missing
 3. **Recommended artifacts** — skills, agents, rules, hooks with reasons
 4. **Library gaps** — project needs not covered by any existing skill, with suggestions for new components to create
@@ -321,18 +351,20 @@ For monorepo projects, create minimal CLAUDE.md files per service directory cont
 - Service purpose (derived from README or package.json description)
 - Service-specific run/test commands
 - Cross-references to related services
-- If the monorepo has services with irrelevant cross-service CLAUDE.md, recommend `claudeMdExcludes` in `.claude/settings.json` to prevent context pollution
+- If the monorepo has services with irrelevant cross-service CLAUDE.md, recommend `claudeMdExcludes` in `.claude/settings.local.json` by default (use `.claude/settings.json` only if the team explicitly wants repo-wide exclusions)
 
 #### 10f) Generate local config
 
 - Create a `CLAUDE.local.md` template with sections for private notes, local env quirks, personal preferences
 - Include an auto memory curation section in `CLAUDE.local.md` (what to keep, what to prune)
-- If project uses external tools/databases, generate a `.claude/mcp.json` stub with commented examples
+- If project uses external tools/databases, generate a `.mcp.json` stub with commented examples
 - Update `.gitignore` to include `CLAUDE.local.md` and `.claude/settings.local.json`
 
 #### 10g) Delegate CLAUDE.md generation
 
 Invoke `/meta-claude-md-gen` to generate the root CLAUDE.md through its interactive interview process. This is the same delegation as Step 9 but now explicitly part of the layered generation flow.
+
+**Pass the doc triage from Step 2H** — for each file the user classified as "always loaded", include it as an `@path/to/file` import in the generated CLAUDE.md (e.g., `@docs/architecture.md`). This ensures important project documentation is deterministically loaded every session rather than left to auto memory.
 
 #### 10h) Output summary
 
@@ -360,8 +392,9 @@ Re-run the Step 2G audit checklist and score each item with specific issues:
 
 | Check | Status | Issue |
 |-------|--------|-------|
-| CLAUDE.md concise (<100 lines) | Pass/Fail | "Currently 180 lines — extract rules to .claude/rules/" |
+| CLAUDE.md concise (<200 lines) | Pass/Fail | "Currently 250 lines — extract rules to .claude/rules/ and use @imports" |
 | CLAUDE.md uses @imports | Pass/Fail | "No @imports — add for deep context docs" |
+| Important docs @imported in CLAUDE.md | Pass/Fail | "Docs exist (docs/, ADRs, etc.) but none are @imported — run Step 2H triage" |
 | Rules are modular | Pass/Fail | "All rules in CLAUDE.md — split to .claude/rules/" |
 | Rules are path-scoped | Pass/Fail | "Rules apply globally — add paths: frontmatter" |
 | Hooks enforce quality gates | Pass/Fail | "No lint hooks — add ruff PostToolUse" |
@@ -369,9 +402,9 @@ Re-run the Step 2G audit checklist and score each item with specific issues:
 | Child CLAUDE.md (if monorepo) | Pass/Fail/N/A | |
 | Local config exists | Pass/Fail | "No CLAUDE.local.md template" |
 | .gitignore covers Claude files | Pass/Fail | |
-| Auto memory enabled and curated | Pass/Fail | "Auto memory disabled — enable for cross-session context" |
+| Auto memory enabled and curated | Pass/Fail/N/A | "Auto memory disabled — consider enabling for projects with recurring corrections or local learnings" |
 | Session management documented | Pass/Fail | "No --continue/--resume patterns — add to workflows" |
-| claudeMdExcludes for monorepo | Pass/Fail/N/A | "No excludes — add to prevent cross-service context noise" |
+| claudeMdExcludes for monorepo | Pass/Fail/N/A | "No excludes — add to .claude/settings.local.json to prevent cross-service context noise" |
 | Hooks labeled advisory vs deterministic | Pass/Fail | "Hooks lack guarantee framing — add comments" |
 | Specialist subagents for complex domains | Pass/Fail | "No persistent subagents — consider for [domain]" |
 | Closing workflow captures knowledge | Pass/Fail | "No end-of-task pattern — add /commit-ready" |
@@ -488,6 +521,7 @@ Use this as a template and customize based on the project:
 | CI/CD | [e.g., GitHub Actions - build, test, deploy] |
 | Quality Tools | [e.g., ruff, mypy] |
 | Sensitive Areas | [e.g., src/auth/, migrations/] |
+| Documentation | [e.g., docs/architecture/, ADRs present, missing runbooks, root README good] |
 | Existing Claude Setup | [e.g., None / Partial / Complete] |
 
 ### Recommended Plugin Artifacts
@@ -557,7 +591,7 @@ Use this as a template and customize based on the project:
 - [ ] [specific action]
 ```
 
-After displaying the console output, generate the `documentation/CLAUDE_SETUP.md` file containing all of the above PLUS the Mermaid workflow diagram.
+After displaying the console output, generate the `documentation/CLAUDE_SETUP.md` file containing all of the above PLUS the ASCII workflow diagram.
 
 ---
 
@@ -584,7 +618,7 @@ The generated file should follow this structure:
 
 ## How to Use — Visual Workflow
 
-[Mermaid diagram customized for this project]
+[ASCII flowchart customized for this project]
 
 ## Workflows
 
