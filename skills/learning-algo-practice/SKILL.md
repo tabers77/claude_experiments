@@ -112,6 +112,8 @@ def solution():
 
 After creating the file, tell the user: "Open `algo_practice_problem.py` (or `.sql`) in your editor, write your solution, and tell me when you're done."
 
+**File lifecycle**: The temp file is created once and **reused for all problems in the session**. For subsequent problems, overwrite the same file with the new problem statement. Only **delete** the file when the user explicitly ends the session (e.g., "finished", "stop", "quit", "I'm done practicing"). Do NOT delete and recreate — always reuse.
+
 ### 3) Let the User Solve
 
 **Critical rules**:
@@ -136,7 +138,7 @@ When the user signals they are done:
    - **For SQL**: Is the query correct? Could it be simpler? Performance implications?
    - **For pandas**: Are there vectorized alternatives? Memory considerations?
    - **For stats**: Is the reasoning correct? Are assumptions stated?
-3. **Delete** the temp file after the review is complete — always clean up
+3. **Do NOT delete the file** — it will be reused for the next problem. Only delete when the user ends the session
 
 ### 5) Teach the Pattern
 
@@ -182,7 +184,9 @@ Difficulty: [Easy/Medium/Hard]
 Created `algo_practice_problem.[py|sql]` — open it in your editor, write your solution, and tell me when you're done.
 ```
 
-**When reviewing**: Read the file, delete it, then print:
+**When presenting the next problem**: Overwrite the same file with the new problem and print the same format above.
+
+**When reviewing**: Read the file, then print:
 ```
 ### Review
 - Correctness: [pass/fail with explanation]
@@ -198,6 +202,8 @@ Created `algo_practice_problem.[py|sql]` — open it in your editor, write your 
 ### Reinforce: Try This Next
 [similar problem statement — do NOT solve it]
 ```
+
+**When the user ends the session** (e.g., "finished", "stop", "quit", "I'm done"): Delete the temp file, then show the session summary and save progress.
 
 ---
 
