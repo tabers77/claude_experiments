@@ -54,17 +54,70 @@ Ask the user:
 
 ### 2) Present Problem
 
-Give a clear problem statement:
+Create a temporary file in the **repository root** with the problem statement and a placeholder for the user's solution:
+
+- **File name**: `algo_practice_problem.py` for DSA, Pandas, ML, and Stats tracks; `algo_practice_problem.sql` for the SQL track
+- **File contents**: Problem statement as comments at the top (context, input/output examples, constraints), followed by a clearly marked section where the user writes their solution
 - Context relevant to data science when possible (e.g., "find the top 3 products by revenue per region" instead of generic "sort arrays")
-- Input/output examples
-- Constraints (time/space expectations for DSA, dataset size for pandas/SQL)
-- Do NOT show the solution or approach
+- Do NOT include the solution or approach hints in the file
+
+**Example file structure (Python)**:
+```python
+# ============================================
+# Problem #1 — DSA: Two Sum
+# Difficulty: Medium
+# ============================================
+#
+# Given an array of integers and a target sum,
+# return indices of the two numbers that add up to the target.
+#
+# Example:
+#   Input: nums = [2, 7, 11, 15], target = 9
+#   Output: [0, 1]
+#
+# Constraints:
+#   - O(n) time expected
+#   - Each input has exactly one solution
+#
+# ============================================
+# Write your solution below
+# ============================================
+
+def solution():
+    pass
+```
+
+**Example file structure (SQL)**:
+```sql
+-- ============================================
+-- Problem #1 — SQL: Top Revenue by Region
+-- Difficulty: Medium
+-- ============================================
+--
+-- Given tables `orders` and `regions`, find the
+-- top 3 products by revenue per region.
+--
+-- Expected columns: region_name, product_name, total_revenue, rank
+--
+-- Constraints:
+--   - Use window functions
+--   - Handle ties
+--
+-- ============================================
+-- Write your solution below
+-- ============================================
+
+
+```
+
+After creating the file, tell the user: "Open `algo_practice_problem.py` (or `.sql`) in your editor, write your solution, and tell me when you're done."
 
 ### 3) Let the User Solve
 
 **Critical rules**:
 - Do NOT write the solution for the user
 - Do NOT reveal the approach unless asked for a hint
+- Wait for the user to say they are done (e.g., "done", "ready", "review", "check")
 - If the user says "hint", give a PROGRESSIVE hint:
   - Hint 1: Which technique/pattern applies here? (e.g., "Think about sliding window")
   - Hint 2: What data structure would help? (e.g., "A hashmap could track frequencies")
@@ -73,14 +126,17 @@ Give a clear problem statement:
 
 ### 4) Review the User's Solution
 
-After the user submits their solution:
+When the user signals they are done:
 
-1. **Correctness**: Does it handle all cases? Test with edge cases
-2. **Efficiency**: Time and space complexity analysis
-3. **Style**: Is the code clean, readable, idiomatic?
-4. **For SQL**: Is the query correct? Could it be simpler? Performance implications?
-5. **For pandas**: Are there vectorized alternatives? Memory considerations?
-6. **For stats**: Is the reasoning correct? Are assumptions stated?
+1. **Read** the temp file (`algo_practice_problem.py` or `.sql`) from the repository root
+2. **Review** their solution:
+   - **Correctness**: Does it handle all cases? Test with edge cases
+   - **Efficiency**: Time and space complexity analysis
+   - **Style**: Is the code clean, readable, idiomatic?
+   - **For SQL**: Is the query correct? Could it be simpler? Performance implications?
+   - **For pandas**: Are there vectorized alternatives? Memory considerations?
+   - **For stats**: Is the reasoning correct? Are assumptions stated?
+3. **Delete** the temp file after the review is complete — always clean up
 
 ### 5) Teach the Pattern
 
@@ -118,20 +174,16 @@ After each problem, update a mental scorecard:
 
 ## Output Format
 
+**When presenting a problem**: Create the temp file and print:
 ```
 ## Problem [#N] — [Track]: [Topic]
 Difficulty: [Easy/Medium/Hard]
 
-### Problem
-[clear problem statement with examples]
+Created `algo_practice_problem.[py|sql]` — open it in your editor, write your solution, and tell me when you're done.
+```
 
-### Constraints
-[time/space or dataset assumptions]
-
----
-[USER SOLVES]
----
-
+**When reviewing**: Read the file, delete it, then print:
+```
 ### Review
 - Correctness: [pass/fail with explanation]
 - Efficiency: O(n) time / O(1) space [or equivalent]
