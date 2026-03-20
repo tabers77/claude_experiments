@@ -245,6 +245,7 @@ Skills are organized by **development phase** — find the phase you're in, pick
 | Skill | What it does |
 |-------|-------------|
 | `/meta-claude-md-gen` | Generate context-rich CLAUDE.md through interactive interview |
+| `/meta-agent-teams` | Decompose tasks into multi-agent orchestration plans |
 | `/meta-discover-claude-features` | Scout official docs + community for new Claude Code features to adopt |
 | `/meta-experiment-feature` | Set up experiments for a specific feature you already know about |
 | `/meta-skill-audit` | Audit library for overlaps and gaps |
@@ -295,6 +296,7 @@ SKILL BUILDING (anytime)
   Pair program on real tasks          /learning-pair-programming
 
 LIBRARY MAINTENANCE
+  Plan multi-agent orchestration      /meta-agent-teams
   What's new in Claude Code?          /meta-discover-claude-features
   Try a specific new feature          /meta-experiment-feature
   Check for skill overlaps            /meta-skill-audit
@@ -329,6 +331,7 @@ claude_experiments/
 │   ├── learning-debug-training/
 │   ├── learning-code-review-eye/
 │   ├── learning-pair-programming/
+│   ├── meta-agent-teams/
 │   ├── meta-claude-md-gen/
 │   ├── meta-discover-claude-features/
 │   ├── meta-experiment-feature/
@@ -384,6 +387,7 @@ Each skill recommends next steps in its output, so you rarely need to plan chain
 | **Upgrading dependencies** | `/quality-upgrade-advisor` | `impact-check` + `refactor-safe` |
 | **Wrapping up a session** | `/commit-ready` | `code-review-eye` to quiz yourself |
 | **Skill building** | `/learning-concept-recall` daily | Add other learning skills as needed |
+| **Planning multi-agent work** | `/meta-agent-teams` | Use the generated plan to launch agents |
 | **What's new in Claude Code?** | `/meta-discover-claude-features` | `meta-experiment-feature` to try what's relevant |
 | **Weekly maintenance** | `/quality-sync-docs` + `pytest` | `meta-skill-audit` if skills changed |
 

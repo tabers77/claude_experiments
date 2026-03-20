@@ -114,6 +114,11 @@
       "skill": "meta-claude-md-gen",
       "triggers": ["generate.*claude.?md", "create.*claude.?md", "init.*claude", "claude.?md.*generic", "improve.*claude.?md", "better.*claude.?md", "context.*claude.?md"],
       "description": "Generate a context-rich CLAUDE.md through interactive interview"
+    },
+    {
+      "skill": "meta-agent-teams",
+      "triggers": ["agent.*team", "multi.*agent", "parallel.*agent", "split.*task.*agent", "decompose.*task", "orchestrat.*agent"],
+      "description": "Decompose tasks into multi-agent orchestration plans"
     }
   ]
 }

@@ -25,7 +25,7 @@ CI runs three jobs on push/PR: `validate-skills`, `test-project`, `validate-plug
 
 ### Plugin Loading
 - **Manifest:** `.claude-plugin/plugin.json` — defines hooks inline (SessionStart/UserPromptSubmit/PreToolUse/PostToolUse)
-- **Skills:** Auto-discovered from `skills/<name>/SKILL.md` (23 skills)
+- **Skills:** Auto-discovered from `skills/<name>/SKILL.md` (24 skills)
 - **Agents:** Auto-discovered from `agents/<name>.md` (2 agents)
 - **Local dev:** `bash setup-local.sh` creates symlink junctions so skills work without `--plugin-dir`
 
@@ -61,7 +61,7 @@ The 5 learning skills use `context: fork` + `agent: learning-coach` to get persi
 5. **Keep docs in sync after every change** — when adding/removing/modifying skills, update:
    - This file (`CLAUDE.md`) — skills table, directory tree
    - `README.md` — skills table, directory tree, workflow guide
-   - `tests/test_skills.py` — expected skill count (currently >= 23)
+   - `tests/test_skills.py` — expected skill count (currently >= 24)
 
 ### Implementation Roadmap Sync
 
@@ -74,7 +74,7 @@ When updating roadmap status, priorities, or completed items:
 
 If a new priority item is added or an existing one is split/merged/completed, update both files in the same edit session.
 
-## Available Skills (23)
+## Available Skills (24)
 
 | Phase | Skills |
 |-------|--------|
@@ -84,4 +84,4 @@ If a new priority item is added or an existing one is split/merged/completed, up
 | Reviewing & Refactoring | `code-diagnosis`, `safe-changes-impact-check`, `safe-changes-refactor-safe`, `quality-sync-docs` |
 | Wrapping Up | `commit-ready` |
 | Learning | `learning-algo-practice`, `learning-concept-recall`, `learning-debug-training`, `learning-code-review-eye` |
-| Library Maintenance | `meta-discover-claude-features`, `meta-experiment-feature`, `meta-skill-audit` |
+| Library Maintenance | `meta-agent-teams`, `meta-discover-claude-features`, `meta-experiment-feature`, `meta-skill-audit` |
