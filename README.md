@@ -245,7 +245,7 @@ Skills are organized by **development phase** — find the phase you're in, pick
 | Skill | What it does |
 |-------|-------------|
 | `/meta-claude-md-gen` | Generate context-rich CLAUDE.md through interactive interview |
-| `/meta-agent-teams` | Decompose tasks into multi-agent orchestration plans |
+| `/meta-agent-teams` | Decompose tasks into multi-agent orchestration plans. Ask yourself: *"Can I split this into 3+ tasks where each agent edits different files?"* If yes, this skill will save you time. If no, stick with a single agent. |
 | `/meta-discover-claude-features` | Scout official docs + community for new Claude Code features to adopt |
 | `/meta-experiment-feature` | Set up experiments for a specific feature you already know about |
 | `/meta-skill-audit` | Audit library for overlaps and gaps |
