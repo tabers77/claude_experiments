@@ -25,7 +25,7 @@ CI runs three jobs on push/PR: `validate-skills`, `test-project`, `validate-plug
 
 ### Plugin Loading
 - **Manifest:** `.claude-plugin/plugin.json` — defines hooks inline (SessionStart/UserPromptSubmit/PreToolUse/PostToolUse)
-- **Skills:** Auto-discovered from `skills/<name>/SKILL.md` (24 skills)
+- **Skills:** Auto-discovered from `skills/<name>/SKILL.md` (25 skills)
 - **Agents:** Auto-discovered from `agents/<name>.md` (2 agents)
 - **Local dev:** `bash setup-local.sh` creates symlink junctions so skills work without `--plugin-dir`
 
@@ -61,7 +61,7 @@ The 5 learning skills use `context: fork` + `agent: learning-coach` to get persi
 5. **Keep docs in sync after every change** — when adding/removing/modifying skills, update:
    - This file (`CLAUDE.md`) — skills table, directory tree
    - `README.md` — skills table, directory tree, workflow guide
-   - `tests/test_skills.py` — expected skill count (currently >= 24)
+   - `tests/test_skills.py` — expected skill count (currently >= 25)
 
 ### Implementation Roadmap Sync
 
@@ -74,14 +74,46 @@ When updating roadmap status, priorities, or completed items:
 
 If a new priority item is added or an existing one is split/merged/completed, update both files in the same edit session.
 
-## Available Skills (24)
+## Available Skills (25)
 
 | Phase | Skills |
 |-------|--------|
 | Setup & Onboarding | `meta-project-setup`, `meta-claude-md-gen`, `architecture-arch`, `quality-review`, `quality-strategic-advisor`, `quality-upgrade-advisor`, `learning-codebase-mastery` |
 | Planning | `planning-impl-plan`, `planning-spec-from-text` |
 | Building | `learning-pair-programming`, `api-development-api-impl` |
-| Reviewing & Refactoring | `code-diagnosis`, `safe-changes-impact-check`, `safe-changes-refactor-safe`, `quality-sync-docs` |
+| Reviewing & Refactoring | `code-diagnosis`, `quality-bug-sweep`, `safe-changes-impact-check`, `safe-changes-refactor-safe`, `quality-sync-docs` |
 | Wrapping Up | `commit-ready` |
 | Learning | `learning-algo-practice`, `learning-concept-recall`, `learning-debug-training`, `learning-code-review-eye` |
 | Library Maintenance | `meta-agent-teams`, `meta-discover-claude-features`, `meta-experiment-feature`, `meta-skill-audit` |
+
+## Skill Decision Guide
+
+### For documentation work
+
+| Goal | Skill |
+|------|-------|
+| Fix stale refs, broken paths, merge overlapping docs | `/quality-sync-docs` |
+| Update docs affected by code changes + commit | `/commit-ready` |
+| Generate CLAUDE.md from scratch | `/meta-claude-md-gen` |
+
+### For test work
+
+| Goal | Skill |
+|------|-------|
+| Find test gaps for uncommitted changes + write tests | `/commit-ready` |
+| Understand what tests would break from a proposed change | `/safe-changes-impact-check` |
+| Score overall test quality as part of health check | `/quality-review` |
+
+### For bug finding
+
+| Goal | Skill |
+|------|-------|
+| Check changed files for bugs before committing | `/commit-ready` (Step 3.5) |
+| Scan a specific file/module for bugs | `/code-diagnosis` |
+| Scan entire project for bugs with severity | `/quality-bug-sweep` |
+| Review recent git changes for issues | `code-reviewer` agent |
+| Broad quality score with prioritized improvements | `/quality-review` |
+
+### For all three combined (full health check)
+
+Use `/meta-agent-teams` to plan parallel execution of docs + tests + bugs agents.

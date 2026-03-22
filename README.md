@@ -214,6 +214,7 @@ Skills are organized by **development phase** — find the phase you're in, pick
 |--|-------|-------------|
 | **Essential** | `code-reviewer` agent | After writing or modifying code — review your changes |
 | *If needed* | `/code-diagnosis` | Something smells off in a specific module or file |
+| *If needed* | `/quality-bug-sweep` | Full-project bug scan with severity classification — before releases or periodic health checks |
 | *If needed* | `/safe-changes-impact-check` | About to make a risky change — check the blast radius |
 | *If needed* | `/safe-changes-refactor-safe` | Multi-file refactor — need explicit invariants and checkpoints |
 | *If needed* | `/quality-sync-docs` | After refactoring — fix stale paths, counts, and references in all docs |
@@ -224,7 +225,7 @@ Skills are organized by **development phase** — find the phase you're in, pick
 
 |  | Skill | When to use |
 |--|-------|-------------|
-| **Essential** | `/commit-ready` | Update docs, check test gaps, and commit before switching context |
+| **Essential** | `/commit-ready` | Update docs, check for bugs in changed code, check test gaps, and commit before switching context |
 
 ### 6. Skill Building — standalone practice
 
@@ -281,12 +282,13 @@ BUILDING & IMPLEMENTING
 REVIEWING & REFACTORING
   Review code I just wrote            code-reviewer agent         [essential]
   Scan specific code for issues       /code-diagnosis
+  Full-project bug scan w/ severity   /quality-bug-sweep
   Check blast radius                  /safe-changes-impact-check
   Refactor safely                     /safe-changes-refactor-safe
   Sync docs after changes             /quality-sync-docs
 
 WRAPPING UP
-  Before committing                   /commit-ready               [essential]
+  Before committing (docs+bugs+tests) /commit-ready               [essential]
 
 SKILL BUILDING (anytime)
   Practice algorithms & interviews    /learning-algo-practice
@@ -322,6 +324,7 @@ claude_experiments/
 │   ├── planning-impl-plan/
 │   ├── commit-ready/
 │   ├── api-development-api-impl/
+│   ├── quality-bug-sweep/
 │   ├── quality-review/
 │   ├── quality-strategic-advisor/
 │   ├── quality-upgrade-advisor/
@@ -380,6 +383,7 @@ Each skill recommends next steps in its output, so you rarely need to plan chain
 | **Building with guidance** | `/learning-pair-programming` | `code-reviewer` when done |
 | **Adding an API endpoint** | `/api-development-api-impl` | `impl-plan` + `code-reviewer` |
 | **Investigating suspicious code** | `/code-diagnosis` | `impact-check` + `refactor-safe` |
+| **Full-project bug sweep** | `/quality-bug-sweep` | `code-diagnosis` for deep dives on flagged modules |
 | **Making a risky change** | `/safe-changes-impact-check` | `impl-plan` + `refactor-safe` |
 | **Refactoring existing code** | `/safe-changes-impact-check` | `refactor-safe` + `quality-sync-docs` + `code-reviewer` |
 | **Tackling tech debt** | `/quality-review` | `diagnosis` + `refactor-safe` |
@@ -390,6 +394,50 @@ Each skill recommends next steps in its output, so you rarely need to plan chain
 | **Planning multi-agent work** | `/meta-agent-teams` | Use the generated plan to launch agents |
 | **What's new in Claude Code?** | `/meta-discover-claude-features` | `meta-experiment-feature` to try what's relevant |
 | **Weekly maintenance** | `/quality-sync-docs` + `pytest` | `meta-skill-audit` if skills changed |
+
+---
+
+## Skill Decision Guide
+
+Not sure which skill to use? Find your concern below.
+
+### For documentation work
+
+| Goal | Skill |
+|------|-------|
+| Fix stale refs, broken paths, merge overlapping docs | `/quality-sync-docs` |
+| Update docs affected by code changes + commit | `/commit-ready` |
+| Generate CLAUDE.md from scratch | `/meta-claude-md-gen` |
+
+### For test work
+
+| Goal | Skill |
+|------|-------|
+| Find test gaps for uncommitted changes + write tests | `/commit-ready` |
+| Understand what tests would break from a proposed change | `/safe-changes-impact-check` |
+| Score overall test quality as part of health check | `/quality-review` |
+
+### For bug finding
+
+| Goal | Skill |
+|------|-------|
+| Check changed files for bugs before committing | `/commit-ready` (Step 3.5) |
+| Scan a specific file/module for bugs | `/code-diagnosis` |
+| Scan entire project for bugs with severity | `/quality-bug-sweep` |
+| Review recent git changes for issues | `code-reviewer` agent |
+| Broad quality score with prioritized improvements | `/quality-review` |
+
+### For all three combined (full health check)
+
+Use `/meta-agent-teams` to plan parallel execution of docs + tests + bugs agents.
+
+### Recommended Workflow
+
+| Frequency | What to run | What it covers |
+|-----------|-------------|----------------|
+| **Daily** (end of session) | `/commit-ready` | Docs + bugs in changed code + test gaps + commit — one skill |
+| **Periodic** (before release, after big refactors) | `/quality-bug-sweep` | Full-project bug scan with severity classification |
+| **Combined** (large projects, full health check) | `/meta-agent-teams` | Plan parallel agents for docs + tests + bugs simultaneously |
 
 ---
 

@@ -1,11 +1,11 @@
 ---
 name: commit-ready
-description: Update docs, check test gaps, and commit. Git-driven — detects what changed, discovers and updates affected documentation, analyzes test coverage gaps, then commits cleanly. Use when you're ready to commit, wrapping up a session, or before pushing.
+description: Update docs, check for bugs, check test gaps, and commit. Git-driven — detects what changed, discovers and updates affected documentation, scans changed code for bugs and anti-patterns, analyzes test coverage gaps, then commits cleanly. Use when you're ready to commit, wrapping up a session, or before pushing.
 ---
 
 # Skill: commit-ready
 
-**Purpose**: Ensure documentation is current and test gaps are addressed before every commit.
+**Purpose**: Ensure documentation is current, changed code is bug-free, and test gaps are addressed before every commit.
 
 **Use when**:
 - You're ready to commit and want docs + tests checked first
@@ -68,6 +68,30 @@ If a plan/implementation file exists, append a session entry:
 
 **Skip files where nothing is outdated.**
 
+### Step 3.5: Bug Check on Changed Code
+
+Scan the git diff for issues in the changed code:
+
+1. **Read each changed file** and focus on the modified/added lines
+2. **Check for**:
+   - Logic errors (wrong conditions, off-by-one, missing edge cases)
+   - Security issues (injection vectors, missing validation, hardcoded secrets)
+   - Error handling gaps (swallowed exceptions, missing null checks)
+   - Anti-patterns introduced by the changes (god functions, deep nesting)
+   - Performance concerns (N+1 queries, blocking calls in async)
+
+3. **Classify findings**:
+   - **Bug** — will cause incorrect behavior → must fix before commit
+   - **Warning** — risky pattern that could cause problems → flag for user decision
+   - **Note** — minor improvement opportunity → mention but don't block
+
+4. **Report**:
+   - If Bugs found → present them and say: "These should be fixed before committing. Want me to fix them?"
+   - If only Warnings/Notes → present them and say: "These are optional. Proceed with commit?"
+   - If clean → "No issues found in changed code" and move on
+
+**Scope**: Only scan files in the git diff. This is NOT a full project scan — use `/quality-bug-sweep` for that.
+
 ### Step 4: Test Gap Analysis
 
 Analyze the git diff to identify untested code:
@@ -104,6 +128,11 @@ Analyze the git diff to identify untested code:
 ### Documentation Updated
 - [file]: [what changed]
 - [file]: no changes needed
+
+### Bug Check
+- [N] bugs / [N] warnings / [N] notes found
+- [N] fixed before commit
+- Or: "No issues in changed code"
 
 ### Test Analysis
 - [N] gaps found, [N] tests written

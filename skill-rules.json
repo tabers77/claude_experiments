@@ -119,6 +119,11 @@
       "skill": "meta-agent-teams",
       "triggers": ["agent.*team", "multi.*agent", "parallel.*agent", "split.*task.*agent", "decompose.*task", "orchestrat.*agent"],
       "description": "Decompose tasks into multi-agent orchestration plans"
+    },
+    {
+      "skill": "quality-bug-sweep",
+      "triggers": ["find.*bug", "bug.*sweep", "scan.*project.*bug", "vulnerability.*scan", "severity.*bug", "comprehensive.*scan", "full.*project.*scan", "bug.*report"],
+      "description": "Scan entire project for bugs with severity classification"
     }
   ]
 }

@@ -145,4 +145,7 @@ After approval, provide the exact workflow to launch agents:
 
 # Plan teams for cross-cutting change
 /meta-agent-teams Add logging to all services: API layer, data pipeline, background workers
+
+# Plan a full project health check (docs + tests + bugs in parallel)
+/meta-agent-teams Project health check: Agent 1 syncs docs (quality-sync-docs workflow), Agent 2 validates test coverage (commit-ready test gap analysis), Agent 3 does full bug sweep (quality-bug-sweep workflow)
 ```
