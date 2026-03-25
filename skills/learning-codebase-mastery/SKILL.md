@@ -1,6 +1,6 @@
 ---
 name: learning-codebase-mastery
-description: Deep understanding through active learning. Four modes — Deep Dive (structured analysis), Tutor (quiz yourself on code), Recent Changes (quiz on what changed in git), and Pre-Commit (quiz on your uncommitted changes before committing). Use when onboarding, preparing to implement, catching up on changes, or verifying you understand what you're about to commit.
+description: Deep understanding through active learning. Five modes — Deep Dive (structured analysis), Tutor (quiz yourself on code), Recent Changes (quiz on what changed in git), Pre-Commit (quiz on your uncommitted changes before committing), and Daily Practice (fill-in-the-code exercises from today's session). Use when onboarding, preparing to implement, catching up on changes, verifying you understand what you're about to commit, or reinforcing what you built today.
 ---
 
 # Skill: codebase_mastery
@@ -63,6 +63,19 @@ description: Deep understanding through active learning. Four modes — Deep Div
 > **vs Mode C (Recent Changes)**: Mode C quizzes on **already committed** code (git log). Mode D quizzes on **uncommitted** changes (git diff) — what you're about to commit right now.
 >
 > **vs `/learning-code-review-eye`**: That trains you to **find bugs** in code. Mode D tests your **comprehension** — do you understand what your change does, not whether it has bugs.
+
+### E) Daily Practice Mode
+**Goal**: Reinforce what you built during a coding session by filling in code yourself — learn by doing, not just reading.
+- Trigger: include "daily practice", "practice today", "session review", "what did I build" in request
+- Claude reads today's commits, creates a temporary practice file with code skeletons and blanks from the actual implementations
+- You fill in the code, then ask for evaluation, hints, or corrections
+- When you say "done" or "finish", the practice file is deleted and a final score is shown
+
+**Use this when**: You finished a coding session (with Claude or solo) and want to make sure you can reproduce what was built — not just recognize it, but write it yourself.
+
+> **vs Mode C (Recent Changes)**: Mode C asks quiz questions about commits. Mode E makes you **write the actual code** — fill in blanks, complete functions, reproduce logic. Deeper retention through active recall.
+>
+> **vs Mode D (Pre-Commit)**: Mode D checks comprehension of uncommitted changes before committing. Mode E is for **after the session** — reviewing everything that was committed today.
 
 ---
 
@@ -259,6 +272,90 @@ description: Deep understanding through active learning. Four modes — Deep Div
 
 ---
 
+## Daily Practice Process
+
+1) **Gather today's changes**:
+   - Run `git log --since="midnight" --oneline` to find all commits made today
+   - If no commits today, ask the user: "No commits found today. Want to practice on a different range?" (yesterday, this week, last N commits)
+   - Optionally filter by author or directory if the user specifies
+   - Read diffs for each commit to understand what was implemented
+
+2) **Identify key implementations**:
+   - Focus on the **most educational** changes: new functions, core logic, non-trivial modifications
+   - Skip trivial changes (import reordering, whitespace, auto-generated files, config tweaks)
+   - Group related changes into 3-5 exercises (aim for a ~10-minute session)
+
+3) **Create the practice file**:
+   - Determine the appropriate file extension from the project's primary language
+   - Write a temporary file named `practice_session.<ext>` in the repo root containing:
+     - Header comment with date, commits covered, and instructions
+     - For each exercise: a context comment explaining what the code does, then a **code skeleton** with key logic replaced by `# TODO` placeholders and a hint
+   - The skeleton should preserve the function signature, imports, and structure — only blank out the **core logic** the user needs to recall
+   - Tell the user: "Open `practice_session.<ext>` and fill in the TODOs. Ask me for evaluation, hints, or corrections when ready."
+
+   **Practice file format**:
+   ```
+   # ===== Daily Practice: Session Review =====
+   # Date: [today's date]
+   # Commits covered: [short hash range]
+   # Instructions: Fill in the TODO sections. When ready, ask for:
+   #   - "evaluate" — check your answers
+   #   - "hint" — get a progressive hint for a specific exercise
+   #   - "corrections" — see the actual implementation with explanation
+   #   - "done" or "finish" — end the session and clean up
+
+   # --- Exercise 1: [brief description from commit] ---
+   # Context: [what this code does and why it was needed]
+   def function_name(params):
+       # TODO: Implement the core logic
+       # Hint: [high-level description of what this should do]
+       pass
+
+   # --- Exercise 2: [brief description from commit] ---
+   # ...
+   ```
+
+4) **Interactive loop** — respond to user requests:
+
+   - **"evaluate"** or **"check"**: Read the practice file, compare each exercise against the actual diff. For each:
+     - Correct: brief confirmation
+     - Partially correct: what's right, what's missing
+     - Wrong: what the user wrote vs what was actually implemented, and why the actual approach was chosen
+     - Give an overall score: X/N exercises correct
+
+   - **"hint"** (optionally with exercise number): Give progressive hints — start vague, get specific on repeated asks:
+     - Hint 1: General approach ("This function needs to iterate over X and accumulate Y")
+     - Hint 2: Key details ("Use a dictionary to track seen values, check membership before adding")
+     - Hint 3: Nearly the answer ("The return value should be the filtered list, not the dictionary")
+
+   - **"corrections"** or **"show me"**: Show the actual implementation for all exercises (or a specific one), with a brief explanation of **why** each approach was chosen — not just what the code is, but the reasoning
+
+   - **"done"**, **"finish"**, or **"I'm done"**: Proceed to step 5
+
+5) **Wrap up and clean up**:
+   - Show a final summary:
+     ```
+     ## Daily Practice Summary
+
+     ### Date: [date]
+     ### Commits practiced: [list]
+     ### Exercises: [N]
+     ### Score: [X]/[N] ([%])
+
+     ### What you nailed
+     - [exercise/concept]
+
+     ### What to revisit
+     - [exercise/concept] — [what was tricky]
+
+     ### Key patterns from today's session
+     - [1-2 patterns or techniques worth remembering]
+     ```
+   - **Delete the practice file** (`practice_session.<ext>`) — this is a temporary learning tool, not a deliverable
+   - Save progress to learning-coach memory: date, topics practiced, score, weak areas
+
+---
+
 ## Output Format (Deep Dive)
 
 ```
@@ -325,4 +422,13 @@ description: Deep understanding through active learning. Four modes — Deep Div
 
 # Pre-commit — focused on specific files
 /learning-codebase-mastery review my changes in src/pipeline/
+
+# Daily practice — review what you built today
+/learning-codebase-mastery daily practice
+
+# Daily practice — practice on a different repo's changes
+/learning-codebase-mastery practice today in src/api/
+
+# Daily practice — practice on yesterday's work
+/learning-codebase-mastery session review yesterday
 ```
