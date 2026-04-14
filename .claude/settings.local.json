@@ -10,7 +10,11 @@
       "WebFetch(domain:github.com)",
       "Bash(python:*)",
       "Bash(git:*)",
-      "Bash(gh api:*)"
+      "Bash(gh api:*)",
+      "Bash(curl:*)",
+      "Bash(find /c/Users/delacruzribadenc/Documents/Repos/my_own_projects/claude_experiments -name mcp.json -o -name *mcp* -type f)",
+      "WebFetch(domain:api.github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ]
   }
 }

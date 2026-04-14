@@ -204,8 +204,17 @@ Skills are organized by **development phase** — find the phase you're in, pick
 
 |  | Skill | When to use |
 |--|-------|-------------|
-| *If needed* | `/learning-pair-programming` | Want to implement it yourself with Claude guiding you step by step |
+| *If needed* | `/learning-pair-programming` | Want to build a feature together — Claude and you split the work adaptively |
 | *If needed* | `/api-development-api-impl` | Adding API endpoints with consistent patterns |
+
+> **`/learning-pair-programming` collaboration modes** — choose how to split the work:
+> | Mode | Who codes | When to use |
+> |------|-----------|-------------|
+> | **Adaptive** (default) | Claude decides per step | Best of both — maximizes learning AND throughput |
+> | **"I'll drive"** | User writes, Claude reviews | Learning a new pattern, want full hands-on |
+> | **"You drive"** | Claude writes, user reviews | Boilerplate, scaffolding, familiar patterns |
+>
+> Switch modes mid-session by saying "I'll take this one", "you handle this", or "let's go adaptive".
 
 ### 4. Reviewing & Refactoring
 
@@ -240,7 +249,7 @@ Skills are organized by **development phase** — find the phase you're in, pick
 | `/learning-concept-recall` | Spaced repetition — quiz yourself on what you've studied |
 | `/learning-debug-training` | Systematic debugging training — find bugs methodically |
 | `/learning-code-review-eye` | Train your code review instincts on diffs |
-| `/learning-pair-programming` | Pair program on real tasks with Claude as senior colleague |
+| `/learning-pair-programming` | Pair program on real tasks — adaptive driver split (you drive core logic, Claude drives boilerplate) |
 
 ### 7. Library Maintenance — this plugin only
 
@@ -278,7 +287,7 @@ PLANNING & DESIGN
   Clarify vague requirements          /planning-spec-from-text
 
 BUILDING & IMPLEMENTING
-  Implement with guidance             /learning-pair-programming
+  Implement together (adaptive split)  /learning-pair-programming
   Add an API endpoint                 /api-development-api-impl
 
 REVIEWING & REFACTORING
@@ -297,7 +306,7 @@ SKILL BUILDING (anytime)
   Retain concepts (spaced repetition) /learning-concept-recall
   Train debugging skills              /learning-debug-training
   Sharpen code review instincts       /learning-code-review-eye
-  Pair program on real tasks          /learning-pair-programming
+  Pair program (adaptive driver split) /learning-pair-programming
 
 LIBRARY MAINTENANCE
   Plan multi-agent orchestration      /meta-agent-teams
