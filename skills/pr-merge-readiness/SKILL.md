@@ -92,6 +92,56 @@ DEFAULT_TEST_COMMANDS:
 
 ---
 
+## Mid-run suggestion capture
+
+The user can propose improvements to **this skill itself** at any point during a run, not only at the audit. The skill recognizes specific trigger prefixes; any user message that opens with one is captured verbatim into `improvement_suggestions[]` in `run_history.json`, then the run continues exactly where it was.
+
+**Recognized trigger prefixes** (case-insensitive, on any line):
+
+```
+suggestion: <text>
+improvement: <text>
+for the skill: <text>
+[suggestion] <text>
+[skill-improvement] <text>
+```
+
+**Optional `[tag]` after the prefix**, used later for grouping:
+
+```
+suggestion: [4-test-routing] run targeted unit tests on changed modules
+improvement: [6-secret-detection] add Stora Enso internal token regex
+```
+
+**Capture protocol** (the skill follows this exactly):
+
+1. **Detect the prefix** at the start of the user's message (any of the five forms above; `[tag]` between the prefix and the text is optional). Anything that does NOT start with one of these prefixes is treated as normal conversation — *not* a suggestion. Mid-run overrides ("don't run the live test for this branch") still go through the existing Phase 7 user-resolution flow, not this capture path.
+2. **Record verbatim** into `improvement_suggestions[]`:
+   ```json
+   {
+     "ts": "<iso8601-now>",
+     "target": "<run input>",
+     "phase": "<current phase number when the user spoke up>",
+     "tag": "<optional, parsed from [brackets]>",
+     "text": "<everything after the prefix and optional tag>",
+     "applied_at": null,
+     "applied_via": null
+   }
+   ```
+3. **Acknowledge** in one line:
+   ```
+   ✓ suggestion captured (phase 4, tag=4-test-routing): "run targeted unit tests on changed modules"
+   ```
+4. **Resume** the current phase from where it was. The capture does NOT alter the current run — it only records the suggestion for future review at the audit and threshold-based aggregation later.
+
+**What this is NOT**:
+
+- **NOT a phase override.** "Don't run the live test" without a trigger prefix → Phase 7 resolution flow. With `suggestion:` prefix → captured as a long-term improvement idea but the current run still does whatever its phase logic says.
+- **NOT auto-applied.** Captured suggestions live in `run_history.json` for later review. Tier 1 (current): the user manually applies whichever resonate. Future tiers may add tag-based aggregation and threshold-driven proposals; auto-apply is deliberately deferred.
+- **NOT a substitute for FAIL counters.** FAIL counters track *what went wrong* (mechanically detected). Suggestions track *what could be better* (user-perceived). They live in different fields and have different lifecycles.
+
+---
+
 ## Phase 1 — Parse input + identify target
 
 1. **Detect mode**:
@@ -275,7 +325,26 @@ The audit runs **before** the print. Print cannot fire until the user explicitly
    - **dictate corrections** (which the skill applies verbatim and re-displays the audit), OR
    - **mark a row FAIL with a tag** (which the skill records).
 
-4. **Approval gate**: the print phase cannot fire until the user explicitly types `merge approved` (case-insensitive). Silence, "looks good", "ok", "proceed", or partial responses are NOT approval. After approval, the skill prints the structured verdict (GREEN — proceed to merge | RED — blocked, with reasons) and ends. The user runs the actual `git merge` / `gh pr merge` manually.
+4. **Approval gate**: the print phase cannot fire until the user explicitly types `merge approved` (case-insensitive). Silence, "looks good", "ok", "proceed", or partial responses are NOT approval.
+
+5. **Suggestion review (final-call)** — *runs only after approval token is received, before Phase 9 fires*. Surface every entry captured during this run via the Mid-run suggestion capture protocol, then offer the user a final chance to add more:
+
+   ```
+   Suggestions captured during this run (N total):
+     1. [phase 4, tag=4-test-routing] "run targeted unit tests on changed modules"
+     2. [phase 6, no tag]              "add Stora Enso internal token regex"
+     3. [phase 7, tag=7-batch-resolve] "let user resolve multiple items as a batch"
+
+   Any final suggestions to add? Use the same trigger-prefix syntax (or type `done` to skip):
+     - suggestion: <text>
+     - improvement: <text>
+     - for the skill: <text>
+     - [suggestion] <text>
+   ```
+
+   Append any final entries to `improvement_suggestions[]` with the same shape as mid-run captures; the `phase` field for these final-call entries is `"audit"`. If the user types `done` (or equivalent literal token), proceed to Phase 9. If the user adds more, capture each, then re-prompt until `done`. Silence is NOT advancement — wait for `done`.
+
+After the suggestion review (whether anything was added or not), the skill prints the structured verdict (GREEN — proceed to merge | RED — blocked, with reasons) and ends. The user runs the actual `git merge` / `gh pr merge` manually.
 
 ## Phase 9 — Update the run-history ledger
 
@@ -296,9 +365,17 @@ Persist the audit so failure patterns become evidence over time.
      - **Procedural phase** → threshold = **2** (one is noise; two is drift).
      - **Cosmetic phase** → threshold = **5** (low cost; wait for a clear pattern).
 
-4. **Write the file** with the `Write` tool. The verdict-print already happened in Phase 8 — leave the ledger update unstaged for the user to commit alongside any manual cleanup.
+4. **Persist captured suggestions**. Any entries added to `improvement_suggestions[]` during this run (mid-run captures + Phase 8 step 5 final-call entries) are written to the ledger as part of the same `Write` call. The array is append-only — never overwrite or drop existing entries.
 
-5. **Threshold check** — for any counter where `count >= threshold`:
+5. **Write the file** with the `Write` tool. The verdict-print already happened in Phase 8 — leave the ledger update unstaged for the user to commit alongside any manual cleanup.
+
+6. **Print run-end summary** including suggestions:
+   ```
+   Run summary: outcome=<closed|paused|aborted>, FAIL tags=<count>, suggestions=<this-run-count> (total log: <all-time-count>)
+   Review suggestions at: skills/pr-merge-readiness/run_history.json → improvement_suggestions[]
+   ```
+
+7. **Threshold check** — for any counter where `count >= threshold`:
    - Print a **fix proposal** block: the failure pattern, the recommended SKILL.md edit (specific file + line + before/after diff drawn from `remediation_hint`), the tag.
    - **Apply automatically** (Mode B): make the SKILL.md edit. The user reviews the change in their normal commit-review loop.
    - After applying: reset the counter to 0; set `applied_at` to the current timestamp; optionally fill `applied_via` with a one-line description of the structural change made.

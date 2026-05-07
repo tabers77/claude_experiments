@@ -162,6 +162,24 @@ Confirm? [y/n]
 
 If `n`, allow the user to edit phase names/tiers/flags before proceeding. Loop until `y`.
 
+### Step 5.5 — Interview: mid-run suggestion capture
+
+```
+Should this skill include the Mid-run suggestion capture block? (y/n, default y)
+  When enabled, users can propose improvements to the skill at any point during
+  a run via trigger prefixes (`suggestion:`, `improvement:`, `for the skill:`,
+  `[suggestion]`, `[skill-improvement]`). Each is captured verbatim into
+  improvement_suggestions[] in run_history.json. The audit phase also gets a
+  final-call review step.
+
+  Default y. Opt-out only for skills where it doesn't fit:
+    - Pure interview/Q&A skills with no execution loop.
+    - Single-domain-phase skills (no in-run context to capture).
+    - One-shot generators where the artifact is the entire output.
+```
+
+Carry `suggestion_capture_enabled: <true|false>` forward to Steps 7, 8a, 8b, 9.
+
 ### Step 6 — Interview: optional domain FAIL rules
 
 ```
@@ -211,8 +229,14 @@ Phase structure:
   Phase <N-1> — Pre-action self-audit (CHECKPOINT, blocking)
     Approval token: `<token>`
     FAIL detection rules: 3 universal + <count> domain
+    Suggestion review (final-call): <enabled|disabled>
   Phase <N> — Update the run-history ledger
-    Writes to: skills/<name>/run_history.json
+    Writes to: <target_dir>/<name>/run_history.json
+    Persists improvement_suggestions[]: <enabled|disabled>
+
+Mid-run suggestion capture: <enabled|disabled>
+  When enabled, the SKILL.md gets a "Mid-run suggestion capture" block after the
+  Inputs section, and run_history.json includes an improvement_suggestions[] array.
 
 Audit row shapes (one per domain phase, applied in audit phase):
   Phase 1: <evidence shape — verbatim quote slot if input-consuming>
@@ -246,6 +270,12 @@ When `generate` is received:
    - `{{INPUT_FALLBACK_BEHAVIOR}}` → from Step 4
    - `{{N_MINUS_1}}` → audit phase number (= total domain phases + 1)
    - `{{N}}` → ledger phase number (= total domain phases + 2)
+
+1.5. **Inline the Mid-run suggestion capture block** if `suggestion_capture_enabled` is true (Step 5.5). Insert the body of `library/templates/self-learning-skill/suggestion-capture.md` — the section that starts with `## Mid-run suggestion capture` and ends just before the next `---` horizontal rule — between the `## Inputs` section and the first domain phase (i.e., right before the `---` divider that precedes Phase 1). Apply substitutions:
+   - `{{SKILL_NAME}}` → from Step 2
+   - `{{SKILL_PATH}}` → `<target_dir>/<name>` resolved to a relative path from the project root
+
+   Skip this step entirely if `suggestion_capture_enabled` is false.
 
 2. **Replace the domain phases section.** The template has placeholder blocks for `Phase 1` and `Phase 2` plus a comment "...add as many domain phases as needed...". Replace this entire section with one block per domain phase from Step 5:
 
@@ -282,7 +312,10 @@ When `generate` is received:
 #### 8b — Build run_history.json
 
 1. Use the **"Initial state"** JSON snippet from `run_history_schema_v1.md` verbatim as the base.
-2. If Step 6 added domain FAIL rules, append each to the `fail_counters` object with:
+2. **Apply suggestion-capture toggle** (from Step 5.5):
+   - If `suggestion_capture_enabled` is `true`: keep the `"improvement_suggestions": []` line as it appears in the canonical Initial state.
+   - If `suggestion_capture_enabled` is `false`: drop the `"improvement_suggestions": []` line entirely AND remove the trailing comma from the previous line so the JSON stays valid.
+3. If Step 6 added domain FAIL rules, append each to the `fail_counters` object with:
    ```json
    "<tag>": {
      "count": 0,
@@ -294,7 +327,7 @@ When `generate` is received:
      "applied_at": null
    }
    ```
-3. Validate that the resulting JSON parses (mentally walk it for matching braces/quotes).
+4. Validate that the resulting JSON parses (mentally walk it for matching braces/quotes).
 
 #### 8c — Write both files
 
@@ -317,8 +350,12 @@ Run these mechanical checks. Fail loudly on any miss — DO NOT silently proceed
 4. **Approval gate uses the literal token**: confirm the audit phase contains the exact approval token from Step 3 wrapped in backticks.
 5. **Ledger phase is the last phase**: no `## Phase` heading appears after the ledger block.
 6. **Phase numbering is contiguous**: 1, 2, ..., N with no gaps. Sub-phases (1.5, 5.5) are allowed but flag for review.
+7. **Suggestion-capture consistency**: confirm SKILL.md and run_history.json agree.
+   - If `suggestion_capture_enabled` is true: SKILL.md MUST contain `## Mid-run suggestion capture` heading AND `run_history.json` MUST contain `"improvement_suggestions": []`.
+   - If false: SKILL.md MUST NOT contain that heading AND `run_history.json` MUST NOT contain that key.
+   Mismatch → fail loudly and report which side disagrees.
 
-If all six pass, print:
+If all seven pass, print:
 
 ```
 ✓ Generation validated. Skill ready to invoke.

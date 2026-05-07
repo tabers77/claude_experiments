@@ -48,6 +48,25 @@ The audit runs **before** the {{TERMINAL_ACTION}}. {{TERMINAL_ACTION_CAPITALIZED
 
 4. **Approval gate**: the next phase cannot fire until the user explicitly types `{{APPROVAL_TOKEN}}` (case-insensitive). Silence, "looks good", "ok", "proceed", or partial responses are NOT approval.
 
+5. **Suggestion review (final-call)** — *runs only after the approval token is received, before the ledger phase fires*. Skip this step entirely when the skill does NOT include the Mid-run suggestion capture block (i.e., when `improvement_suggestions[]` is not part of the skill's `run_history.json` schema). When it IS included:
+
+   Surface every entry captured during this run via the suggestion-capture protocol, then offer the user a final chance to add more:
+
+   ```
+   Suggestions captured during this run (N total):
+     1. [phase X, tag=<tag-or-none>] "<verbatim text>"
+     2. [phase Y, tag=<tag-or-none>] "<verbatim text>"
+     ...
+
+   Any final suggestions to add? Use the same trigger-prefix syntax (or type `done` to skip):
+     - suggestion: <text>
+     - improvement: <text>
+     - for the skill: <text>
+     - [suggestion] <text>
+   ```
+
+   Append any final entries to `improvement_suggestions[]` with the same shape as mid-run captures; the `phase` field for these final-call entries is `"audit"`. If the user types `done` (or equivalent literal token), proceed to the ledger phase. If the user adds more, capture each, then re-prompt until `done`. Silence is NOT advancement — wait for `done`.
+
 ---
 
 ## Authoring notes

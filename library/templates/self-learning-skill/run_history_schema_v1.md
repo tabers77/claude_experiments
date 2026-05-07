@@ -9,9 +9,12 @@ The persistent ledger backing a self-learning skill. One file per skill, located
   "version": 1,
   "fail_counters": { },
   "runs": [ ],
-  "friction_log": [ ]
+  "friction_log": [ ],
+  "improvement_suggestions": [ ]
 }
 ```
+
+The `improvement_suggestions` array is OPTIONAL — it appears only when the skill includes the Mid-run suggestion capture block (see `library/templates/self-learning-skill/suggestion-capture.md`). Skills without that block omit the field entirely; readers must tolerate either shape.
 
 ## `version` (integer)
 
@@ -88,6 +91,33 @@ Append-only log of recurring pain points that **aren't** structural failures (en
 
 When resolved, fill `resolved_at` + `resolved_via` rather than deleting the entry. The historical record is the value — it tells future-you (or another contributor) what workarounds were tried and which one stuck.
 
+## `improvement_suggestions` (array, OPTIONAL)
+
+Present only when the skill includes the Mid-run suggestion capture block (see `library/templates/self-learning-skill/suggestion-capture.md`). Append-only log of user-proposed improvements to the skill itself, captured during runs via trigger prefixes (`suggestion:`, `improvement:`, etc.) plus any final-call entries added during the audit:
+
+```json
+{
+  "ts": "<iso8601>",
+  "target": "<run input>",
+  "phase": "<current phase number when the user spoke up, or 'audit' for final-call entries>",
+  "tag": "<optional, parsed from [brackets] in the user's message; null if absent>",
+  "text": "<verbatim text after the prefix and optional [tag]>",
+  "applied_at": "<iso8601 | null>",
+  "applied_via": "<description of SKILL.md change | null>"
+}
+```
+
+**Lifecycle (Tier 1 — capture only)**:
+- Suggestions are recorded verbatim. The current run is NOT altered by capture — the skill continues whatever phase logic dictates.
+- `applied_at` and `applied_via` start as `null`; the user fills them in manually after applying a SKILL.md edit inspired by one or more suggestions.
+- The array is append-only: never overwrite, never drop entries on `Write`. Manual edits to set `applied_at` are supported and expected.
+
+**Future tiers (deferred)**:
+- Tier 2 — when entries with the same `tag` reach a threshold (default 3), surface a fix-proposal block at run end and let the user manually apply.
+- Tier 3 — auto-apply at threshold, mirroring `fail_counters` Mode B. Requires a per-suggestion `remediation_hint`, which is friction at the wrong moment; reserved for cases where Tier 2 has proven categorization works.
+
+Skills WITHOUT the suggestion-capture block omit this field entirely. Readers must tolerate either shape (present or absent) — never reject a v1 JSON because `improvement_suggestions` is missing.
+
 ## Auto-apply behavior (Mode B)
 
 When a counter reaches `count >= threshold`:
@@ -149,6 +179,9 @@ For a freshly-generated skill, initialize with the **universal seed FAIL rules**
     }
   },
   "runs": [],
-  "friction_log": []
+  "friction_log": [],
+  "improvement_suggestions": []
 }
 ```
+
+Omit the trailing `"improvement_suggestions": []` line when the generated skill opts OUT of the Mid-run suggestion capture block. The default for `meta-self-learning-skill-gen` is to include it; opt-out is reserved for skills that don't fit the pattern (single-phase, pure-interview, one-shot generators).

@@ -33,9 +33,18 @@ Persist the audit so failure patterns become evidence over time.
      - **Procedural phase** → threshold = **2** (one is noise; two is drift).
      - **Cosmetic phase** → threshold = **5** (low cost; wait for a clear pattern).
 
-4. **Write the file** with the `Write` tool. Stage and commit it as part of the {{TERMINAL_ACTION}} commit if that phase already ran; otherwise leave it unstaged for the next closure to pick up.
+4. **Persist captured suggestions** (skip if the skill does NOT include the Mid-run suggestion capture block). Any entries added to `improvement_suggestions[]` during this run — mid-run captures plus audit-phase final-call entries — are written to the ledger as part of the same `Write` call. The array is append-only — never overwrite or drop existing entries.
 
-5. **Threshold check** — for any counter where `count >= threshold`:
+5. **Write the file** with the `Write` tool. Stage and commit it as part of the {{TERMINAL_ACTION}} commit if that phase already ran; otherwise leave it unstaged for the next closure to pick up.
+
+6. **Print run-end summary** including suggestions when the block is in use:
+   ```
+   Run summary: outcome=<closed|paused|aborted>, FAIL tags=<count>, suggestions=<this-run-count> (total log: <all-time-count>)
+   Review suggestions at: {{SKILL_PATH}}/run_history.json → improvement_suggestions[]
+   ```
+   Skip the suggestions line entirely for skills without the capture block.
+
+7. **Threshold check** — for any counter where `count >= threshold`:
    - Print a **fix proposal** block: the failure pattern, the recommended SKILL.md edit (specific file + line + before/after diff drawn from `remediation_hint`), the tag.
    - **Apply automatically** (Mode B): make the SKILL.md edit. The user reviews the change in their normal commit-review loop.
    - After applying: reset the counter to 0; set `applied_at` to the current timestamp; optionally fill `applied_via` with a one-line description of the structural change made.

@@ -84,5 +84,6 @@
       "notes": "Stream I auth foundation. Phase 2 clean (0 conflict markers). Phase 4 live UI case 1 sales_negotiator_db_only PASSED 310.21s after dev-stack rebuild (stale container missing fastapi-azure-auth dep — dep correctly declared on the branch). Phase 5: 1 Medium + 5 Low + 1 gap, zero High; staged in BUGS_GAPS_AUTH.md as I-G1, I-M1, I-M2, I-L1..L6. Phase 7: 9/9 surfaced items resolved with explicit user choice. User approval token verbatim: 'merge approved'."
     }
   ],
-  "friction_log": []
+  "friction_log": [],
+  "improvement_suggestions": []
 }
