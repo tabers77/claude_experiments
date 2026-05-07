@@ -35,6 +35,11 @@ Each skill is a `skills/<name>/SKILL.md` with YAML frontmatter (`name`, `descrip
 ### Agent Memory Pattern
 The 5 learning skills use `context: fork` + `agent: learning-coach` to get persistent memory. The `learning-coach` agent has `memory: user` which stores state in `~/.claude/agent-memory/learning-coach/`. The `code-reviewer` agent has no persistent memory and uses model `sonnet`.
 
+### Self-Learning Skills Pattern
+A skill-authoring pattern for skills that improve their own `SKILL.md` based on real runs. Each skill keeps a local `run_history.json` ledger of categorical failure modes; when a counter trips its threshold, the skill auto-edits its body per a stored `remediation_hint`. Reference implementation: `shared-bug-gap-fix` (in the `intelligence-platform` repo). Templates and design doc live at:
+- `library/templates/self-learning-skill/` — `SKILL.md.tpl`, `audit-phase.md`, `ledger-phase.md`, `run_history_schema_v1.md`
+- `documentation/SELF_LEARNING_SKILLS.md` — design doc, invariants, authoring checklist
+
 ### Hooks
 - **SessionStart:** Validate plugin and show skill count on new sessions via `scripts/session-start-hook.py`
 - **UserPromptSubmit:** Auto-suggest relevant skills based on user prompt via `skill-rules.json` + `scripts/skill-activation-hook.py`
@@ -74,7 +79,7 @@ When updating roadmap status, priorities, or completed items:
 
 If a new priority item is added or an existing one is split/merged/completed, update both files in the same edit session.
 
-## Available Skills (25)
+## Available Skills (26)
 
 | Phase | Skills |
 |-------|--------|
@@ -84,7 +89,7 @@ If a new priority item is added or an existing one is split/merged/completed, up
 | Reviewing & Refactoring | `code-diagnosis`, `quality-bug-sweep`, `safe-changes-impact-check`, `safe-changes-refactor-safe`, `quality-sync-docs` |
 | Wrapping Up | `commit-ready` |
 | Learning | `learning-algo-practice`, `learning-concept-recall`, `learning-debug-training`, `learning-code-review-eye` |
-| Library Maintenance | `meta-agent-teams`, `meta-discover-claude-features`, `meta-experiment-feature`, `meta-skill-audit` |
+| Library Maintenance | `meta-agent-teams`, `meta-discover-claude-features`, `meta-experiment-feature`, `meta-skill-audit`, `meta-self-learning-skill-gen` |
 
 ## Skill Decision Guide
 

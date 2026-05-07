@@ -260,6 +260,7 @@ Skills are organized by **development phase** — find the phase you're in, pick
 | `/meta-discover-claude-features` | Scout official docs + community for new Claude Code features to adopt |
 | `/meta-experiment-feature` | Set up experiments for a specific feature you already know about |
 | `/meta-skill-audit` | Audit library for overlaps and gaps |
+| `/meta-self-learning-skill-gen` | Interactive generator for **self-learning skills** — interviews you about phases, terminal action, approval token, then assembles a working SKILL.md (audit + ledger inlined) and bootstraps run_history.json from `library/templates/self-learning-skill/`. See `documentation/SELF_LEARNING_SKILLS.md` for the pattern. |
 
 > **Discovery workflow**: `/meta-discover-claude-features` finds what's new → you pick what's relevant → `/meta-experiment-feature` sets up the experiment → `/meta-skill-audit` checks the result fits cleanly.
 
@@ -313,6 +314,7 @@ LIBRARY MAINTENANCE
   What's new in Claude Code?          /meta-discover-claude-features
   Try a specific new feature          /meta-experiment-feature
   Check for skill overlaps            /meta-skill-audit
+  Generate a self-learning skill      /meta-self-learning-skill-gen
 ```
 
 ---
@@ -350,6 +352,7 @@ claude_experiments/
 │   ├── meta-discover-claude-features/
 │   ├── meta-experiment-feature/
 │   ├── meta-project-setup/
+│   ├── meta-self-learning-skill-gen/
 │   ├── meta-skill-audit/
 │   └── quality-sync-docs/
 ├── agents/                       # Agent definitions
@@ -373,7 +376,7 @@ claude_experiments/
 ├── library/                      # Reference material
 │   ├── hooks/                    # Hook examples by category
 │   ├── rules/                    # Reusable rule templates
-│   └── templates/                # CLAUDE.md templates
+│   └── templates/                # CLAUDE.md templates + self-learning-skill scaffold
 ├── playbook/                     # Source of truth
 ├── test_project/                 # Verification project
 ├── tests/                        # Validation scripts
