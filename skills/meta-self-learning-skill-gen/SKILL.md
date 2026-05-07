@@ -40,7 +40,10 @@ The interview is the value. Resist the urge to skip questions; each one correspo
 
 ### Step 1 — Detect starting point
 
-1. **Check arguments**: if the user passed `improve <skill-name>`, respond: "Improve mode is not yet supported in v1. To modify an existing self-learning skill, open its SKILL.md directly." and stop.
+1. **Check arguments and dispatch**:
+   - If the user passed `convert <path-to-skill-dir-or-SKILL.md>`: jump to the **Convert Mode** section below (Steps C1–C8). Greenfield Steps 2–10 do NOT run.
+   - If the user passed `improve <skill-name>`: respond "Improve mode is not yet supported in v1. To modify an existing self-learning skill, open its SKILL.md directly." and stop.
+   - Otherwise: continue with greenfield generation (Steps 2–10).
 2. **Read the four templates** (you'll substitute from them later):
    - `library/templates/self-learning-skill/SKILL.md.tpl`
    - `library/templates/self-learning-skill/audit-phase.md`
@@ -327,6 +330,160 @@ Want to invoke the skill now? Tell me your example input and I'll walk through t
 
 ---
 
+## Convert Mode — Promote an existing skill to self-learning
+
+This mode runs as a **separate dispatch** from greenfield generation. It takes the path of an existing (non-self-learning) skill, evaluates whether retrofitting the audit + ledger pattern makes sense, and applies the conversion in place.
+
+**Invoke**: `/meta-self-learning-skill-gen convert <path-to-skill-dir-or-SKILL.md>`
+
+The greenfield interview (Steps 2–10) is replaced by an eligibility scan + a much shorter targeted interview, since most of the skill's structure (phases, inputs, principle) is extracted from the existing SKILL.md. The user only confirms proposals and fills the gaps the audit + ledger pattern requires (terminal action, approval token, per-phase tier).
+
+### Step C1 — Locate, load, and refuse no-ops
+
+1. Resolve the input path:
+   - Directory → expect `<path>/SKILL.md`.
+   - File → treat as the SKILL.md directly.
+   - Neither resolves → abort with the path tried.
+2. Read the SKILL.md fully.
+3. Refuse to convert if the skill is **already self-learning**. Detect via any of:
+   - Frontmatter `metadata.pattern: self-learning`.
+   - Sibling `run_history.json` exists.
+   - A phase titled "Pre-action self-audit" or "Update the run-history ledger" already present.
+   On hit, stop with: "This skill is already self-learning. Edit its SKILL.md directly — improve mode is out of scope at v1."
+
+### Step C2 — Eligibility evaluation
+
+Score the skill against six criteria. **Convertible** if 4+ pass; **borderline** if 3; **not a fit** if ≤2.
+
+| # | Criterion | How to check |
+|---|---|---|
+| 1 | Has a clear terminal action | Body mentions `git commit`, `gh`, `deploy`, `Write` of a final artifact, API call, etc. |
+| 2 | Has identifiable phases or steps | Multiple `## Phase`, `## Step`, or numbered headings present |
+| 3 | Has a load-bearing rule | Body uses "must", "never", "always", "verbatim", "do not paraphrase" — something to anchor the principle on |
+| 4 | Consumes user input | Skill takes free-text, IDs, paths, or structured input from the user |
+| 5 | Deterministic enough | Not pure interview/Q&A or open-ended chat (those don't benefit from audit) |
+| 6 | Stable surface | Not marked draft/experimental/v0 and not actively being rewritten |
+
+Print the scorecard with verdict + a one-sentence justification per criterion. If **not a fit**, stop and explain the strongest blocker — do NOT proceed to a useless conversion. If **borderline**, surface the failing criteria and ask the user whether to continue anyway.
+
+### Step C3 — Extract candidate values from the existing SKILL.md
+
+Pull as much as possible mechanically before asking the user anything:
+
+- `SKILL_NAME` → from frontmatter `name`.
+- `ONE_LINE_DESCRIPTION` → from frontmatter `description` (first sentence).
+- `TRIGGER_KEYWORDS` → from frontmatter description tail or any `Keywords:` line.
+- `LOAD_BEARING_PRINCIPLE` → propose from the strongest "must"/"never" sentence in the body. Mark as **proposed**.
+- Domain phases → enumerate every existing `## Phase N — Name` (or `## Step N — Name`) heading; preserve numbering and bodies as-is. Note the heading prefix used (`Phase` vs `Step`) — convert mode keeps it.
+- Inputs → extract from any existing `## Inputs` table or input description.
+- `TERMINAL_ACTION` → infer from the last domain phase's verbs (commit / deploy / write / api-call). Mark as **proposed**.
+- `APPROVAL_TOKEN` → if a literal token is already enforced in the body (e.g. `audit approved`, `confirmed`, `proceed`), use it; otherwise mark **needs-user-input**.
+
+Print the extracted summary. Only the **proposed** and **needs-user-input** items will be re-asked in C4.
+
+### Step C4 — Targeted interview (only the gaps)
+
+Ask only what extraction couldn't unambiguously cover:
+
+1. **Confirm the load-bearing principle** — accept, edit, or replace the proposed line.
+2. **Confirm the terminal action and approval token** — accept proposals or override. Same validation as greenfield Step 3 (token = 1–4 words, lowercase, no punctuation).
+3. **Tier each existing domain phase** (load-bearing=1 / procedural=2 / cosmetic=5). This is the one place convert mode still requires real judgment — existing SKILL.md doesn't carry tier metadata.
+4. **For each input-consuming phase, confirm verbatim-quote enforcement.** If a phase currently summarizes user input rather than quoting it, the audit row will fail `audit-paraphrased-user-input` on first run. Flag this so the user understands the audit is INTENTIONALLY going to bite — it's the system working.
+5. **Optional domain FAIL rules** — same as greenfield Step 6. Recommended default: skip and let the ledger accumulate from real runs.
+6. **Heading-prefix sanity check** — if existing skill uses `## Step` instead of `## Phase`, ask: keep `Step` (default — preserves byte-identical existing content) or normalize to `Phase`.
+
+### Step C5 — Show conversion plan and wait for `convert` token
+
+Present the diff plan before writing anything. Be explicit about what is preserved versus what is added:
+
+```
+=== Conversion plan for skills/<name>/ ===
+
+Frontmatter changes:
+  + metadata.pattern: self-learning
+  + metadata.schema-version: 1
+  (name, description, and any other existing fields unchanged)
+
+Phase additions (existing <N> domain phases preserved BYTE-IDENTICAL):
+  + Phase <N+1> — Pre-action self-audit (CHECKPOINT, blocking)
+      Approval token: `<token>`
+      Audit rows: <N> (one per existing domain phase)
+      Verbatim-quote rows: <count of input-consuming phases>
+      FAIL detection rules: 3 universal + <count> domain
+  + Phase <N+2> — Update the run-history ledger
+      Writes to: skills/<name>/run_history.json
+
+Files to create:
+  + skills/<name>/run_history.json (bootstrap from schema v1 "Initial state")
+
+Files to modify:
+  ~ skills/<name>/SKILL.md
+      - Add metadata block to frontmatter
+      - Append two phases after the current last phase
+      - Append "Self-learning checklist" section if missing
+
+Phases NOT changed:
+  - Existing phase bodies preserved verbatim. No renaming, no renumbering.
+  - The current last phase that contained the terminal action is now gated by
+    the audit phase's `<token>` approval — its body fires only after approval.
+
+Type `convert` to apply. Anything else aborts.
+```
+
+**Wait for the literal `convert` token** (case-insensitive). Same gate semantics as greenfield's `generate`: silence, "ok", "yes", "proceed" do NOT advance.
+
+### Step C6 — Apply the conversion
+
+When `convert` is received:
+
+1. **Edit the SKILL.md frontmatter** with `Edit` to add the `metadata` block. Preserve every other field exactly.
+2. **Append the audit phase** after the last existing domain phase. Use the body of `library/templates/self-learning-skill/audit-phase.md` with substitutions from C3/C4. Audit row count must equal the number of existing domain phases; rows for input-consuming phases include the verbatim-quote slot. Use the chosen heading prefix (`Phase` or `Step`) consistently.
+3. **Append the ledger phase** after the audit phase. Use `ledger-phase.md` with `{{SKILL_PATH}} → skills/<name>` substitution.
+4. **Append the "Self-learning checklist" section** at the bottom of the SKILL.md if it isn't already present (copy from `SKILL.md.tpl`'s tail).
+5. **Write `skills/<name>/run_history.json`** from the schema v1 "Initial state" snippet, plus any domain FAIL rules from C4.
+
+Use `Edit` (not `Write`) for the SKILL.md changes so existing content is preserved precisely. Use `Write` for the new `run_history.json`.
+
+### Step C7 — Validate the converted skill
+
+Run the same six mechanical checks as greenfield Step 9 (no orphan placeholders, JSON is valid v1, audit row count matches domain phase count, approval token is literal-and-quoted, ledger is the last phase, phase numbering is contiguous). Add two convert-specific checks:
+
+7. **Original phase bodies preserved byte-identical** — diff each pre-existing phase block against the post-conversion file. Content must match exactly except for any tier annotation added in headings.
+8. **Frontmatter still parses** — confirm the new `metadata` block didn't break any existing field. Every key from the pre-conversion frontmatter must still resolve to the same value.
+
+If all eight pass, print:
+
+```
+✓ Conversion validated. Skill ready for first audited invocation.
+```
+
+### Step C8 — Closure: first-invocation reminder
+
+```
+Smoke test (same shape as greenfield):
+1. Invoke the skill on a representative real input.
+2. Watch the audit phase fire — it should list <N> rows, one per original phase,
+   with verbatim quotes for any input-consuming phase.
+3. Block on `<approval-token>` — silence and "ok" must NOT advance.
+4. After the terminal action, confirm a new entry appears under
+   skills/<name>/run_history.json → runs[].
+
+Convert-mode caveat: any phase that previously paraphrased user input will fail
+`audit-paraphrased-user-input` on first run. That's the system working as
+designed — counter trips at threshold=1, and the next invocation auto-edits the
+offending phase per the stored remediation hint.
+```
+
+### Convert-mode edge cases
+
+1. **Existing skill is a single phase** — borderline. Audit needs at least one row, which works, but a one-phase skill rarely benefits from the pattern. Warn and confirm.
+2. **Existing skill mixes domain work and terminal action in the last phase** — recommend (don't force) splitting them so the audit can sit cleanly in between. Acceptable to keep them whole; the audit + approval token simply gates entry to that combined phase.
+3. **Existing skill has no clear input-consuming phase** — the verbatim-quote rule still seeds in `run_history.json` but never trips. That's fine.
+4. **Existing skill uses unconventional headings** (e.g. `### 1.`, `### Step One:`) — abort with a clear message asking the user to first normalize the headings to `## Phase N — Name` or `## Step N — Name`. Do NOT try to auto-rewrite headings.
+5. **Existing skill is in the plugin's library/templates path** — refuse. Templates are not real skills.
+
+---
+
 ## Edge cases
 
 1. **Name collision**: Step 2 catches this; ask for a different name. Never overwrite.
@@ -352,7 +509,10 @@ Want to invoke the skill now? Tell me your example input and I'll walk through t
 ## Usage
 
 ```
-/meta-self-learning-skill-gen
+/meta-self-learning-skill-gen                              # greenfield: interview + generate a new skill
+/meta-self-learning-skill-gen convert <path-to-skill>      # convert: promote an existing skill to self-learning
 ```
 
-The skill walks Steps 1–10 with explicit gates. Generation requires the literal `generate` token. The final result is a working `skills/<name>/` folder you can invoke immediately.
+**Greenfield** walks Steps 1–10 with explicit gates and requires the literal `generate` token. The final result is a working `skills/<name>/` folder you can invoke immediately.
+
+**Convert** walks Steps C1–C8 instead, runs eligibility evaluation, extracts as much structure as possible from the existing SKILL.md, asks only for the gaps the audit + ledger pattern requires, and applies the conversion in place after the literal `convert` token. Existing phase bodies are preserved byte-identical.
