@@ -1,0 +1,79 @@
+{
+  "version": 1,
+  "fail_counters": {
+    "audit-paraphrased-user-input": {
+      "count": 0,
+      "threshold": 1,
+      "phase": "audit",
+      "description": "Audit row paraphrased user intent rather than quoting verbatim. Load-bearing honesty failure.",
+      "occurrences": [],
+      "remediation_hint": "Tighten the audit phase: 'Each verdict MUST cite objective evidence — a tool call observed, a command output, a file diff, or a literal quote from the user. Never paraphrase user input.' Add explicit FAIL detection for any audit row that paraphrases rather than quotes verbatim.",
+      "applied_at": null
+    },
+    "audit-no-explicit-approval-wait": {
+      "count": 0,
+      "threshold": 2,
+      "phase": "audit",
+      "description": "Skill advanced past a user-gate phase without observing the literal approval token.",
+      "occurrences": [],
+      "remediation_hint": "Add an explicit wait-for-token gate at the audit-to-print boundary. Silence, 'looks good', 'ok', 'proceed' do NOT count as approval — only the literal 'merge approved' token (case-insensitive).",
+      "applied_at": null
+    },
+    "tool-claim-without-call": {
+      "count": 0,
+      "threshold": 1,
+      "phase": "any",
+      "description": "SKILL.md text claimed a tool/skill ran but no corresponding tool call was observed in the session.",
+      "occurrences": [],
+      "remediation_hint": "Audit phase MUST verify the actual tool-call trace, not narration. Mark FAIL when the audit row says 'invoked X' but no Skill/Bash/Read call for X exists in the session.",
+      "applied_at": null
+    },
+    "2-merge-conflict-not-blocked": {
+      "count": 0,
+      "threshold": 1,
+      "phase": "2",
+      "description": "Phase 2 marked pass but git merge-tree output contains conflict markers (<<<<<<<, =======, >>>>>>>) OR exit code was non-zero. Approving a merge with known conflicts defeats the skill's core principle.",
+      "occurrences": [],
+      "remediation_hint": "In Phase 2, after running `git merge-tree --write-tree --name-only origin/dev <head>`, MUST inspect both exit code and stdout. Add explicit step: 'If exit code != 0 OR stdout is non-empty, mark Phase 2 FAIL and surface conflicting paths to Phase 7.' The pass condition is exit=0 AND empty stdout — both required.",
+      "applied_at": null
+    },
+    "4-live-test-skipped-without-justification": {
+      "count": 0,
+      "threshold": 1,
+      "phase": "4",
+      "description": "Live UI test skipped AND diff touched UI-exercising backend (routes.py, services/orchestrator.py, mcp/, tool definitions) AND no user-provided skip reason recorded AND dev-stack preflight did NOT explicitly fail.",
+      "occurrences": [],
+      "remediation_hint": "In Phase 4 step 2, add explicit branching: when high-blast UI surface is touched, the live tier is mandatory unless (a) preflight check fails with captured evidence, OR (b) user provides a verbatim skip reason recorded in Phase 7. Pure 'no time' / silence does not count.",
+      "applied_at": null
+    },
+    "5-code-diagnosis-narration-only": {
+      "count": 0,
+      "threshold": 1,
+      "phase": "5",
+      "description": "Phase 5 narrated diagnosis findings without an observed Skill(skill=\"claude-library:code-diagnosis\", ...) tool call in this session. Defeats the load-bearing no-new-bugs principle.",
+      "occurrences": [],
+      "remediation_hint": "Phase 5 step 1 must require an OBSERVABLE Skill call. Add: 'The exact tool invocation must appear in the session trace. If the audit row says \"diagnosis ran\" but no Skill call is visible, mark Phase 5 FAIL automatically.' Reinforce in Phase 8 audit row format that Phase 5 evidence must cite the Skill call ID, not a paraphrase of findings.",
+      "applied_at": null
+    },
+    "6-env-secret-committed": {
+      "count": 0,
+      "threshold": 1,
+      "phase": "6",
+      "description": "Diff added a .env* line whose value matches the secret heuristic (high-entropy >=32 chars, contains password=/secret=/api_key= with non-placeholder value, hex/base64 strings >=32 chars) rather than a placeholder.",
+      "occurrences": [],
+      "remediation_hint": "In Phase 6, expand the secrets-heuristic check to include: regex for AWS/GCP/Azure key prefixes (AKIA, AIza, sk-, etc.), Stora Enso internal token patterns, and entropy threshold for any value >=32 chars. Add the offending file:line to the Phase 7 unresolved-items list automatically — never let it pass silently.",
+      "applied_at": null
+    },
+    "7-implicit-skip-no-justification": {
+      "count": 0,
+      "threshold": 1,
+      "phase": "7",
+      "description": "surfaced > resolved-with-explicit-choice. Count = (surfaced - resolved). Defeats the user-resolution gate principle.",
+      "occurrences": [],
+      "remediation_hint": "Phase 7 must enforce: every surfaced item gets ONE of {block-merge, fix-now, skip-with-reason, abort}. Silence or 'looks good' is not a choice. Add explicit FAIL row to the audit when the count of surfaced items exceeds the count of items with a recorded explicit choice.",
+      "applied_at": null
+    }
+  },
+  "runs": [],
+  "friction_log": []
+}
