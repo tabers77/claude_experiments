@@ -41,9 +41,9 @@
       "count": 0,
       "threshold": 1,
       "phase": "4",
-      "description": "Live UI test skipped AND diff touched UI-exercising backend (routes.py, services/orchestrator.py, mcp/, tool definitions) AND no user-provided skip reason recorded AND dev-stack preflight did NOT explicitly fail.",
+      "description": "Live UI test skipped AND any diff path matches a glob in HIGH_BLAST_PATHS AND LIVE_UI_TEST_COMMAND is non-null AND no user-provided skip reason recorded AND DEV_STACK_PREFLIGHT_URL preflight (when set) did NOT explicitly fail.",
       "occurrences": [],
-      "remediation_hint": "In Phase 4 step 2, add explicit branching: when high-blast UI surface is touched, the live tier is mandatory unless (a) preflight check fails with captured evidence, OR (b) user provides a verbatim skip reason recorded in Phase 7. Pure 'no time' / silence does not count.",
+      "remediation_hint": "In Phase 4 step 2, add explicit branching tied to the config block: when any diff path matches HIGH_BLAST_PATHS AND LIVE_UI_TEST_COMMAND is non-null, the live tier is mandatory unless (a) DEV_STACK_PREFLIGHT_URL preflight fails with captured evidence, OR (b) user provides a verbatim skip reason recorded in Phase 7. Pure 'no time' / silence does not count.",
       "applied_at": null
     },
     "5-code-diagnosis-narration-only": {
@@ -74,6 +74,15 @@
       "applied_at": null
     }
   },
-  "runs": [],
+  "runs": [
+    {
+      "ts": "2026-05-07T18:18:00+02:00",
+      "target": "merge this branch into dev (current=feat/auth-foundation; head=7b7fd50ab97e4bfadfc1c97a7042e80b44a8eff0; base=dev)",
+      "outcome": "closed",
+      "verdict": "GREEN",
+      "phases_failed": [],
+      "notes": "Stream I auth foundation. Phase 2 clean (0 conflict markers). Phase 4 live UI case 1 sales_negotiator_db_only PASSED 310.21s after dev-stack rebuild (stale container missing fastapi-azure-auth dep — dep correctly declared on the branch). Phase 5: 1 Medium + 5 Low + 1 gap, zero High; staged in BUGS_GAPS_AUTH.md as I-G1, I-M1, I-M2, I-L1..L6. Phase 7: 9/9 surfaced items resolved with explicit user choice. User approval token verbatim: 'merge approved'."
+    }
+  ],
   "friction_log": []
 }

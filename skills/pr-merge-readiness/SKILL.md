@@ -26,6 +26,72 @@ If the input is none of the above, dump the current branch name and `gh pr list 
 
 ---
 
+## Project config
+
+Defaults match a common Python web service. Override per-project by editing this block — every reference to these names elsewhere in the skill resolves to the values defined here. Empty list / null means "skip the dependent check"; the skill never silently substitutes.
+
+```yaml
+BASE_BRANCH: dev
+  # The branch the feature branch is being merged into. Used in `git merge-tree origin/<BASE_BRANCH> <head>`.
+
+HIGH_BLAST_PATHS:
+  # Glob patterns whose diff makes the live UI test mandatory in Phase 4.
+  # Empty list → no path-based "high-blast" trigger; live UI runs only when explicitly opted in.
+  - "**/routes.py"
+  - "**/orchestrator*.py"
+  - "**/business_case_orchestrator*.py"
+  - "**/mcp/**"
+  - "**/tools/**"
+  - "**/registry/**"
+
+PRE_COMMIT_RULES_PATH:
+  # Path to a project's pre-commit-check skill or doc. First existing path is used.
+  # Empty list → skip Phase 3 lookup, use Phase 3 step 2 default checks directly.
+  - ".claude/skills/shared-pre-commit-check.md"
+  - ".claude/skills/pre-commit-check.md"
+  - "documentation/COLLABORATION.md"
+
+TRACKER_FILES:
+  # In-repo tracker files whose diff is sanity-checked in Phase 5 step 4.
+  # Empty list → skip the diff-anomaly check.
+  - "documentation/implementation_docs/BUGS_AND_GAPS.md"
+
+LIVE_UI_TEST_COMMAND: null
+  # Command to run the live UI tier in Phase 4. Set to a real command when the project has live UI test infra.
+  # Examples:
+  #   pytest -m live -v tests/test_live_ui_workflow.py
+  #   docker compose -f docker-compose.test.yml run --rm backend pytest -m live -v tests/test_live_ui_workflow.py
+  # null → no live UI test infra; Phase 4 records "no live UI infra" and `4-live-test-skipped-without-justification` does NOT trip.
+
+DEV_STACK_PREFLIGHT_URL: null
+  # URL Phase 4 hits before running the live UI tier.
+  # null → no preflight; treat dev stack reachability as unknown and require user judgment via Phase 7.
+  # Example: http://localhost:8000/marketing/projects
+
+DEFAULT_TEST_COMMANDS:
+  # Per-tier commands for Phase 4 when no project-specific routing rules apply.
+  # Set tier to null to skip that tier entirely on this project.
+  smoke: pytest -m smoke
+  unit: pytest
+  integration: pytest -m integration
+  lint_python: ruff check .
+  lint_frontend: npm run lint
+  typecheck_frontend: npm run typecheck
+```
+
+**How configuration is consumed**:
+- Phase 3 reads `PRE_COMMIT_RULES_PATH` (first existing file) before falling back to defaults.
+- Phase 4 routes test tiers using `HIGH_BLAST_PATHS` (mandatory live tier trigger), `LIVE_UI_TEST_COMMAND` (the actual command to run), `DEV_STACK_PREFLIGHT_URL` (preflight gate), and `DEFAULT_TEST_COMMANDS` (per-tier commands).
+- Phase 5 reads `TRACKER_FILES` to bound the diff-anomaly check.
+- Phase 8 audit rows cite the resolved values verbatim, not the placeholder names.
+
+**What you should NOT do**:
+- Don't reference paths like `routes.py` in the skill body if your project doesn't have them — edit `HIGH_BLAST_PATHS` instead.
+- Don't leave `LIVE_UI_TEST_COMMAND` set to an example value when no live infra exists — set it to `null` so the skill records "no live UI infra" honestly.
+- Don't change the SKILL.md's phase logic to fit a project quirk — extend the config block with a new key and reference it from the phase.
+
+---
+
 ## Phase 1 — Parse input + identify target
 
 1. **Detect mode**:
@@ -33,8 +99,8 @@ If the input is none of the above, dump the current branch name and `gh pr list 
    - Argument looks like a branch name (contains `/` or matches `^(feat|fix|chore|docs|refactor|test)/`) → `branch` mode.
    - No argument → `current` mode (use `git rev-parse --abbrev-ref HEAD`).
 2. **Resolve `head` and `base`**:
-   - `pr` mode: `gh pr view <num> --json headRefName,baseRefName,url,title,state` — capture `head`, `base` (must be `dev`; warn if not), URL, title.
-   - `branch`/`current` mode: `head` = the branch; `base` = `dev` (assumed; warn if remote-tracking diverges).
+   - `pr` mode: `gh pr view <num> --json headRefName,baseRefName,url,title,state` — capture `head`, `base` (must equal `BASE_BRANCH` from the config block; warn if not), URL, title.
+   - `branch`/`current` mode: `head` = the branch; `base` = `BASE_BRANCH` (assumed; warn if remote-tracking diverges or if a peer config like `.github/PULL_REQUEST_TEMPLATE.md` suggests a different default).
 3. **Confirm the branch exists locally and remotely**:
    ```powershell
    git rev-parse --verify "refs/heads/<head>"
@@ -45,59 +111,61 @@ If the input is none of the above, dump the current branch name and `gh pr list 
 
 ## Phase 2 — Clean-merge probe
 
-Verify the feature branch will merge cleanly into `dev` *as it stands right now*. The probe is read-only — it does NOT touch the working tree or create commits.
+Verify the feature branch will merge cleanly into `BASE_BRANCH` *as it stands right now*. The probe is read-only — it does NOT touch the working tree or create commits.
 
-1. **Fetch latest dev**:
+1. **Fetch latest base**:
    ```powershell
-   git fetch origin dev
+   git fetch origin <BASE_BRANCH>
    ```
 2. **Probe with `git merge-tree`** (the modern three-arg form returns a tree-ish + reports conflicts):
    ```powershell
-   git merge-tree --write-tree --name-only origin/dev <head>
+   git merge-tree --write-tree --name-only origin/<BASE_BRANCH> <head>
    # Capture exit code and stdout
    ```
    - Exit code `0` and empty stdout → **clean**. Pass.
    - Exit code non-zero OR stdout contains paths → **conflicts**. List the conflicting paths verbatim. Mark FAIL (`2-merge-conflict-not-blocked`) and proceed to Phase 7 with a hard "must resolve before merge" item.
-3. **Capture evidence verbatim** for the audit: the command run and the first/last few lines of output (or "empty stdout, exit 0").
+3. **Capture evidence verbatim** for the audit: the command run (with `<BASE_BRANCH>` resolved) and the first/last few lines of output (or "empty stdout, exit 0").
 
 ## Phase 3 — Pre-commit-check rules sweep
 
-Apply the rules from `shared-pre-commit-check` (or the project's local equivalent) to the diff between `origin/dev` and `<head>`. The skill does NOT re-define the rules — it consumes the existing skill's body so updates flow through automatically.
+Apply the project's pre-commit-check rules (resolved from `PRE_COMMIT_RULES_PATH`) to the diff between `origin/<BASE_BRANCH>` and `<head>`. The skill does NOT re-define the rules — it consumes whichever rules file the config points at so updates flow through automatically.
 
-1. **Locate the rules**: `Read` `shared-pre-commit-check.md` (or `.claude/skills/shared-pre-commit-check.md`) if present in the project. If absent, surface a clear note in the verdict ("no shared-pre-commit-check found; falling back to default checks") and run the default checks below.
-2. **Default checks** (when no project-specific rules file is found):
-   - Smoke tests pass (`pytest -m smoke` or project equivalent).
-   - Lint clean on changed files (`ruff check`, `npm run lint`, etc.).
+1. **Locate the rules**: walk `PRE_COMMIT_RULES_PATH` in order; `Read` the first existing file. Capture which path was used. If `PRE_COMMIT_RULES_PATH` is empty OR none of the listed paths exist, surface a clear note in the verdict (`"no pre-commit-check rules file found at configured paths; falling back to default checks"`) and run the default checks below.
+2. **Default checks** (when no rules file is found):
+   - Smoke tests pass (`DEFAULT_TEST_COMMANDS.smoke`).
+   - Lint clean on changed files (`DEFAULT_TEST_COMMANDS.lint_python` and/or `DEFAULT_TEST_COMMANDS.lint_frontend`, depending on which file types are in the diff).
    - No protected files staged (configurable per project; common defaults: `CLAUDE.md`, `.gitignore`, top-level docs).
    - No secrets/credentials staged (`.env`, `.env.local`, `*.pem`, `id_rsa`, etc.).
-3. **Run each rule against the diff** between `origin/dev` and `<head>`:
+3. **Run each rule against the diff** between `origin/<BASE_BRANCH>` and `<head>`:
    ```powershell
-   git diff --name-only origin/dev...<head>
+   git diff --name-only origin/<BASE_BRANCH>...<head>
    ```
    For each rule, capture the command run + its output verbatim.
 4. **Aggregate outcomes** as a per-rule table for the audit:
    ```
-   smoke=<pass|FAIL+counts>, lint=<pass|FAIL+files>,
+   rules-source=<path|defaults>, smoke=<pass|FAIL+counts>, lint=<pass|FAIL+files>,
    protected=<none|<list>>, ownership=<ok|warn>, safety=<ok|FAIL>
    ```
 5. Any rule failure → mark Phase 3 FAIL and surface to Phase 7.
 
 ## Phase 4 — Relevant-tests run (incl. live UI gate)
 
-Run the test tiers that actually exercise the changed surface — not the full suite (per the same routing philosophy as `shared-bug-gap-fix` Phase 6).
+Run the test tiers that actually exercise the changed surface — not the full suite. Routing is driven by the config block; project-specific paths and commands live there, not here.
 
-1. **Compute the changed surface**: `git diff --name-only origin/dev...<head>`. Bucket files by extension and path:
-   - Frontend (`frontend/src/`, `*.tsx`, `*.ts`): run `npm run lint && npm run typecheck` (no frontend test infra unless one is configured).
-   - Backend Python — pure logic, no DB: `pytest -m smoke`.
-   - Backend Python — DB / SQL / fixtures: `pytest -m "smoke or unit or integration"` against an isolated DB (test container if the project has one).
-   - Backend Python — high-blast (`routes.py`, `services/orchestrator.py`, `mcp/`, registries, tool definitions): also run the live UI test (e.g. `pytest -m live -v <live-workflow-test>`).
-   - Migrations (`db/migrations/`): smoke + integration + alembic up/down round-trip.
-2. **Live UI test sub-gate**: if the diff touches any UI-exercising backend code path (`routes.py`, `services/orchestrator.py`, `mcp/`, tool definitions registered in the live workflow), the live UI test is **mandatory** unless:
-   - The dev stack preflight check fails (e.g., `curl -fs http://localhost:8000/<healthcheck>` returns non-2xx) — skip cleanly with a note ("live UI tier skipped: dev stack unreachable, preflight failed at <url>").
-   - The user provides an explicit skip reason (recorded verbatim in Phase 7 resolution gate).
+1. **Compute the changed surface**: `git diff --name-only origin/<BASE_BRANCH>...<head>`. Bucket files by extension and `HIGH_BLAST_PATHS` membership:
+   - Frontend (`*.tsx`, `*.ts`, `*.jsx`, `*.js`, `**/frontend/**`): run `DEFAULT_TEST_COMMANDS.lint_frontend && DEFAULT_TEST_COMMANDS.typecheck_frontend`.
+   - Backend Python — no match against `HIGH_BLAST_PATHS`, no DB layer touched: run `DEFAULT_TEST_COMMANDS.smoke`.
+   - Backend Python — DB / SQL / fixtures (paths matching `**/db/**`, `**/migrations/**`, `**/fixtures/**`): `DEFAULT_TEST_COMMANDS.smoke` + `DEFAULT_TEST_COMMANDS.unit` + `DEFAULT_TEST_COMMANDS.integration` against an isolated DB (test container if the project has one).
+   - Backend Python — **high-blast** (any diff path matches a glob in `HIGH_BLAST_PATHS`): run the broader tiers AND the live UI test (`LIVE_UI_TEST_COMMAND`).
+   - Migrations (`**/migrations/**` or paths matching the project's migration glob): smoke + integration + alembic up/down round-trip.
+2. **Live UI test sub-gate**: if any diff path matches `HIGH_BLAST_PATHS`, the live UI test is **mandatory** unless one of these honest exceptions applies:
+   - `LIVE_UI_TEST_COMMAND` is `null` → record `"live UI tier: no infra configured (LIVE_UI_TEST_COMMAND=null)"`. This is NOT a `4-live-test-skipped-without-justification` failure — the skill respects the project's stated absence of live infra.
+   - `DEV_STACK_PREFLIGHT_URL` is set AND the preflight call (`curl -fs <DEV_STACK_PREFLIGHT_URL>`) returns non-2xx → record the failed URL + status code, skip cleanly.
+   - The user provides an explicit skip reason via Phase 7 (recorded verbatim).
+
    Skipping without one of these → `4-live-test-skipped-without-justification` FAIL.
-3. **Optional blast-radius probe**: when the diff touches high-blast surfaces, invoke `claude-library:safe-changes-impact-check` and fold its findings into Phase 5/7. This is a recommendation, not mandatory.
-4. **Capture per-tier telemetry** for the audit: tier name, command run, wall-clock, pass count, fail count, skipped count.
+3. **Optional blast-radius probe**: when any diff path matches `HIGH_BLAST_PATHS`, invoke `claude-library:safe-changes-impact-check` and fold its findings into Phase 5/7. This is a recommendation, not mandatory.
+4. **Capture per-tier telemetry** for the audit: tier name, exact command run (with config values resolved), wall-clock, pass count, fail count, skipped count.
 
 ## Phase 5 — No-new-bugs sweep
 
@@ -111,7 +179,7 @@ This is the principle-anchor — the skill cannot mark Phase 5 `pass` without an
 
 2. **Surface findings** in a "Sweep results" block. For each finding: severity, file:line, one-line description.
 3. **Optional**: when Phase 4 step 3 flagged the change as high-blast, also invoke `claude-library:quality-bug-sweep` for the comprehensive scan. Default: skip unless high-blast.
-4. **Diff-anomaly check**: `git diff origin/dev...<head> -- <project-tracker-file>` (e.g. `documentation/implementation_docs/BUGS_AND_GAPS.md` if the project uses a tracker). Confirm only expected rows changed; unexpected diffs are surfaced to Phase 7.
+4. **Diff-anomaly check**: for each path in `TRACKER_FILES`, `git diff origin/<BASE_BRANCH>...<head> -- <tracker-path>`. Confirm only expected rows changed; unexpected diffs are surfaced to Phase 7. If `TRACKER_FILES` is empty, skip this step and record `"diff-anomaly check skipped: no TRACKER_FILES configured"`.
 5. Any new finding (especially severity ≥ medium) → mark Phase 5 FAIL and surface to Phase 7. The user — not the skill — decides whether to skip, fix, or track.
 
 ## Phase 6 — `.env` / `.env.local` review
@@ -120,7 +188,7 @@ Fires only when the diff touches `.env*` files. Otherwise: pass trivially with `
 
 1. **Detect env files in the diff**:
    ```powershell
-   git diff --name-only origin/dev...<head> | Select-String -Pattern '\.env(\.[a-z]+)?$'
+   git diff --name-only origin/<BASE_BRANCH>...<head> | Select-String -Pattern '\.env(\.[a-z]+)?$'
    ```
 2. **For each env file in the diff**, run all the checks below and capture outcomes verbatim:
 
@@ -177,8 +245,8 @@ The audit runs **before** the print. Print cannot fire until the user explicitly
    ```
    Self-audit for run on <input> at <ts>:
    - Phase 1 [pass]      | input parsed: <mode> <target>; user input verbatim: "<literal quote>"
-   - Phase 2 [pass|FAIL] | git merge-tree --write-tree --name-only origin/dev <head>: exit=<code>; conflicts: <none|<paths>>
-   - Phase 3 [pass|FAIL] | shared-pre-commit-check rule outcomes: smoke=<...>, lint=<...>, protected=<...>, ownership=<...>, safety=<...>
+   - Phase 2 [pass|FAIL] | git merge-tree --write-tree --name-only origin/<BASE_BRANCH> <head>: exit=<code>; conflicts: <none|<paths>>
+   - Phase 3 [pass|FAIL] | rules-source=<resolved PRE_COMMIT_RULES_PATH or "defaults">; outcomes: smoke=<...>, lint=<...>, protected=<...>, ownership=<...>, safety=<...>
    - Phase 4 [pass|FAIL] | tiers run: <list>; results: <pass/fail/skipped counts per tier>; live UI: <ran|skipped + reason>
    - Phase 5 [pass|FAIL] | claude-library:code-diagnosis Skill call observed: <yes/no>; findings: <count> at <file:line list>
    - Phase 6 [pass|FAIL] | env files in diff: <yes/no>; if yes: secrets-heuristic=<pass|FAIL+evidence>, placeholder=<pass|FAIL>, .env.example sync=<ok|missing>
@@ -197,7 +265,7 @@ The audit runs **before** the print. Print cannot fire until the user explicitly
    **Domain FAIL rules** (specific to this skill):
 
    - **`2-merge-conflict-not-blocked` FAIL** (load-bearing, threshold=1): Phase 2 marked `pass` but `git merge-tree` output contains conflict markers (`<<<<<<<`, `=======`, `>>>>>>>`) OR exit code was non-zero.
-   - **`4-live-test-skipped-without-justification` FAIL** (load-bearing, threshold=1): live UI test skipped AND diff touched UI-exercising backend (`routes.py`, `services/orchestrator.py`, `mcp/`, tool definitions) AND no user-provided skip reason recorded AND dev-stack preflight did NOT explicitly fail.
+   - **`4-live-test-skipped-without-justification` FAIL** (load-bearing, threshold=1): live UI test skipped AND any diff path matches a glob in `HIGH_BLAST_PATHS` AND `LIVE_UI_TEST_COMMAND` is non-null AND no user-provided skip reason recorded AND `DEV_STACK_PREFLIGHT_URL` preflight (when set) did NOT explicitly fail.
    - **`5-code-diagnosis-narration-only` FAIL** (load-bearing, threshold=1): Phase 5 narrated diagnosis findings without an observed `Skill(skill="claude-library:code-diagnosis", ...)` tool call in this session.
    - **`6-env-secret-committed` FAIL** (load-bearing, threshold=1): diff added a `.env*` line whose value matches the secret heuristic (high-entropy ≥32 chars, contains `password=`/`secret=`/`api_key=` with non-placeholder value, hex/base64 strings ≥32 chars) rather than a placeholder.
    - **`7-implicit-skip-no-justification` FAIL** (load-bearing, threshold=1): `surfaced > resolved-with-explicit-choice`. Count = (surfaced − resolved).
@@ -244,7 +312,7 @@ Persist the audit so failure patterns become evidence over time.
 2. **Branch only exists locally (no remote)**: Phase 1 step 3 hard-stops; the skill needs `origin/<head>` for `git merge-tree`. User pushes the branch first or aborts.
 3. **No `.env*` files in diff**: Phase 6 passes trivially with one row in the audit (`env files in diff: no`). Do not invent issues to surface.
 4. **No `claude-library:code-diagnosis` available** (e.g., plugin not loaded): hard-stop in Phase 5 with a clear message — the load-bearing principle CANNOT be satisfied without the call. Tell the user how to load the plugin.
-5. **User's project has its own pre-commit-check skill under a different name**: ask the user where the rules live; default to `shared-pre-commit-check.md` if present.
+5. **User's project has its own pre-commit-check skill under a different name**: edit `PRE_COMMIT_RULES_PATH` in the config block to point at the project's actual rules file. Do NOT ask at runtime — the config is the single place to change this.
 6. **Live UI test infrastructure not present in the project**: Phase 4 step 2 records "no live UI test infrastructure found"; this is NOT a `4-live-test-skipped-without-justification` failure — the rule applies only when the test exists and was skipped.
 7. **User aborts at Phase 7 or Phase 8**: clean exit. Run-history ledger still gets a `runs[]` entry with `outcome: "aborted"` and the phases that failed. No verdict printed.
 

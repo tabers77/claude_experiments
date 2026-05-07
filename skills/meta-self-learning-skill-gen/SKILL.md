@@ -52,22 +52,36 @@ The interview is the value. Resist the urge to skip questions; each one correspo
 
    If any template is missing, abort with a clear error pointing to the path. Do NOT try to repair or invent template content.
 
-### Step 2 — Interview: identity
+### Step 2 — Interview: identity + location
 
-Ask all four questions at once, let the user answer in bulk:
+Ask all five questions at once, let the user answer in bulk:
 
 ```
 I'll generate a self-learning skill for you. First, the basics:
 
-1. Skill name? (kebab-case, e.g. `log-decision`. Must not collide with an existing skill in skills/.)
+0. Where should this skill live? Pick one:
+   - plugin   — `skills/<name>/` in this plugin repo (loadable across projects via `--plugin-dir`)
+   - project  — `.claude/skills/<name>/` in the current project (project-specific)
+   - user     — `~/.claude/skills/<name>/` (personal, across all your projects)
+   - custom   — provide an absolute path to a directory; the skill folder will be created inside it
+
+1. Skill name? (kebab-case, e.g. `log-decision`. Must not collide with an existing skill at the chosen location.)
 2. One-sentence description? (what the skill does — will go in the YAML description)
 3. Trigger keywords? (comma-separated, used by skill auto-routing)
 4. Load-bearing principle? (the one rule the skill must NEVER violate — guides tier classification later)
 ```
 
+**Validate the location** and resolve to an absolute `target_dir` for use in later steps:
+- `plugin` → `target_dir = <CWD>/skills`. Confirm CWD looks like a plugin repo (contains `.claude-plugin/plugin.json` OR a populated `skills/` dir with peer skills). If CWD is not a plugin repo, warn and ask the user to confirm or switch to `project`.
+- `project` → `target_dir = <CWD>/.claude/skills`. Create `<CWD>/.claude/skills/` with `mkdir -p` if missing. Confirm CWD is a git repository (contains `.git/`).
+- `user` → `target_dir = ~/.claude/skills` (resolve `~` to the actual home dir). Create if missing.
+- `custom` → ask the user for an absolute path to a parent directory (NOT including `<name>`). Validate the parent directory exists and is writable. The skill folder will be created at `<custom-path>/<name>/`.
+
 **Validate the name**:
 - Must match `^[a-z][a-z0-9-]+$` (kebab-case, no underscores).
-- Use `Glob` `skills/<name>/` to confirm the directory doesn't already exist. If it does, stop and ask the user for a different name. **Never overwrite an existing skill folder under any circumstance.**
+- Use `Glob` `<target_dir>/<name>/` to confirm the directory doesn't already exist. If it does, stop and ask the user for a different name. **Never overwrite an existing skill folder under any circumstance.**
+
+**Carry `target_dir` forward** through Steps 7, 8c, 9, and 10 — every reference to `skills/<name>/` in the rest of this doc means `<target_dir>/<name>/`.
 
 ### Step 3 — Interview: terminal action and approval token
 
@@ -180,10 +194,11 @@ Before writing any files, present the full plan:
 ```
 === Generation plan ===
 
-Skill folder:    skills/<name>/
+Skill folder:    <target_dir>/<name>/
+                 (resolved from Step 2 location choice: <plugin|project|user|custom>)
 Files to create:
-  - skills/<name>/SKILL.md          (assembled from .tpl + audit-phase.md + ledger-phase.md)
-  - skills/<name>/run_history.json  (bootstrap from run_history_schema_v1.md "Initial state")
+  - <target_dir>/<name>/SKILL.md          (assembled from .tpl + audit-phase.md + ledger-phase.md)
+  - <target_dir>/<name>/run_history.json  (bootstrap from run_history_schema_v1.md "Initial state")
 
 Frontmatter:
   name: <name>
@@ -284,11 +299,13 @@ When `generate` is received:
 #### 8c — Write both files
 
 ```
-Write skills/<name>/SKILL.md
-Write skills/<name>/run_history.json
+Write <target_dir>/<name>/SKILL.md
+Write <target_dir>/<name>/run_history.json
 ```
 
-Show the user the file paths and a short preview of each (frontmatter + first 30 lines for SKILL.md; full content for run_history.json).
+(`<target_dir>` resolved in Step 2: plugin → `<CWD>/skills`, project → `<CWD>/.claude/skills`, user → `~/.claude/skills`, custom → user-provided.)
+
+Show the user the absolute file paths and a short preview of each (frontmatter + first 30 lines for SKILL.md; full content for run_history.json).
 
 ### Step 9 — Validate the generated files
 
