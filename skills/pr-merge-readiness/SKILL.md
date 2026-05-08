@@ -142,6 +142,24 @@ improvement: [6-secret-detection] add Stora Enso internal token regex
 
 ---
 
+## Observer file boundary
+
+This skill includes an observer phase (Phase 10) that writes to `observations.json` and `suggestions.md`. **All other phases (1 through 9) MUST NOT read those files.**
+
+The two files are owned by the observer phase exclusively and exist for cross-run pattern analysis + human review. They are *descriptive* (record what happened across prior runs), not *prescriptive* (do not encode what should happen on this run).
+
+In particular, the agent running domain phases MUST NOT:
+
+- Use `observations.json` content as background context when framing prompts to the user.
+- Alter a phase's recommendation, default branching, or option ordering based on prior observations.
+- Cite observations to justify a skill behavior in-flight.
+
+The only legitimate path for an observation to change skill behavior is: observer clusters the signal → writes a proposal to `suggestions.md` → human reviews → human edits this `SKILL.md` (or dismisses the proposal). The audit channel and the observer channel remain **isolated by design** — that isolation is what keeps observer's seeded data from silently biasing the skill's defaults.
+
+If you are an LLM/agent running this skill: treat `observations.json` and `suggestions.md` as if they did not exist until you reach Phase 10. Reading them earlier is a load-bearing violation, and there is no FAIL tag for it because the file content is silent — the only safeguard is this rule.
+
+---
+
 ## Phase 1 — Parse input + identify target
 
 1. **Detect mode**:
@@ -380,6 +398,105 @@ Persist the audit so failure patterns become evidence over time.
    - **Apply automatically** (Mode B): make the SKILL.md edit. The user reviews the change in their normal commit-review loop.
    - After applying: reset the counter to 0; set `applied_at` to the current timestamp; optionally fill `applied_via` with a one-line description of the structural change made.
    - **Conflict handling**: if multiple tags trip in the same run, apply remediations serially (oldest tag first by `occurrences[0].ts`). Surface conflicts to the user — never silently overwrite a remediation that another tag just wrote.
+
+## Phase 10 — Post-ledger observer (suggestion-only, retrofitted prototype)
+
+The observer runs **after** the ledger has written `run_history.json` and any audit-tripped remediations have been auto-applied. Its job is to surface qualitative signals the audit's mechanical FAIL detection cannot catch, and — once enough observations accumulate — propose changes for manual review.
+
+The observer NEVER edits `SKILL.md`. It writes only to `observations.json` (per-run notes) and `suggestions.md` (clustered proposals). The user reviews `suggestions.md` and decides whether to integrate any proposal.
+
+This phase is OPTIONAL and was retrofitted to this skill from `library/templates/self-learning-skill/observer-phase.md`. See `documentation/SELF_LEARNING_SKILLS.md` for design details. It is bolted in as a prototype; if the pattern proves valuable, the planned next step is to lift the observer body out into a standalone `meta-observer-review` skill or a `Stop` hook.
+
+1. **Read state**:
+   - `skills/pr-merge-readiness/observations.json` — initialize per the schema if missing. This file was bootstrapped with seed entries derived from a paper retrospective on runs 1–2 of `run_history.json` (see `documentation/OBSERVER_RETROSPECTIVE_PR_MERGE_READINESS.md`).
+   - `skills/pr-merge-readiness/run_history.json` — for the run that just finished (last entry in `runs[]`) and prior runs (for cross-run context, including `friction_log[]` and `improvement_suggestions[]`).
+
+2. **Walk the just-finished run from a different vantage than the audit.** The audit reports mechanical FAIL conditions; the observer looks for qualitative signals the audit was never told to look for. Categories to scan for (extend per skill, never invent observations to fill space):
+
+   | Category slug | What to look for | Example signal (from this skill's history) |
+   |---|---|---|
+   | `user_friction` | re-asked questions, repeated corrections, "no, I meant", visible frustration | user typed three corrections to the same audit row before approving |
+   | `redundant_phase` | phase Y duplicates phase X's output; user explicitly skipped a phase | Phase 4 surfaced findings already listed in Phase 3 |
+   | `scope_drift` | the skill ventured outside its frontmatter `description` | a merge-readiness skill started auto-fixing code |
+   | `missing_audit_category` | a recurring qualitative concern with no FAIL tag covering it | tracker-file diff anomaly noted by user but not by any audit row |
+   | `dev_env_friction` | environmental setup pain that recurs across runs | "stale container missing dep" mentioned in two runs' notes |
+   | `output_format_quality` | UX-only signal: format/readability of the skill's output | audit row evidence string too long to scan visually |
+   | `cross_phase_redundancy` | two phases share evidence the user only had to provide once | Phase 1 and Phase 3 both quoted the same user input |
+   | `boundary_violation` | a domain phase (1–9) referenced or used content from `observations.json` / `suggestions.md` (which it must not read) | Phase 2's user prompt framing visibly originated in observer-file content; the skill cited a prior observation in-flight to justify a recommendation |
+
+3. **Append observations** to `observations.json`. Each observation MUST cite verbatim evidence — never paraphrase user input. **Zero observations is a valid output.** Do NOT invent signals to demonstrate the observer is doing work.
+
+   Each observation row:
+   ```json
+   {
+     "ts": "<iso8601-now>",
+     "run_ref": "<ts of the matching runs[] entry in run_history.json>",
+     "target": "<run input>",
+     "category": "<slug from the table above, or new slug if a novel signal>",
+     "_theme_slug": "<optional sub-theme slug for theme-similarity check; lowercase-hyphenated, stable forever; omit when the parent category alone is sufficient>",
+     "phase": "<phase number where signal appeared, or 'cross-phase'>",
+     "evidence": "<verbatim quote / observed event>",
+     "interpretation": "<one-line reasoning for why this signal matters>",
+     "proposed_audit_tag": "<optional new FAIL tag the audit could track, or null>"
+   }
+   ```
+
+4. **Cross-run clustering check** — for each category in `observations.json`:
+   - Count entries whose `applied_at` (in any subsequent `review_log` entry) is null.
+   - If `count >= 3`, this category trips a proposal pass.
+   - **Convergence rule (overrides threshold)**: if observer recorded ≥1 unaddressed observation in a category AND `run_history.json:improvement_suggestions[]` contains a user-typed entry whose `tag` or `text` matches the same theme, treat the category as cluster-tripped regardless of count. Two independent channels agreeing is stronger evidence than 3 same-channel observations. When the convergence rule trips, the proposal in `suggestions.md` MUST cite both the observation `ts` values AND the matching `improvement_suggestions[]` entry verbatim.
+   - **Theme-similarity check (before writing a proposal)**: a single category often contains observations describing distinct underlying themes (e.g., `missing_audit_category` covering both "tracker-closure-drift" and "skipped-test-rationale"). Before writing a proposal, group the observations within the tripped category by underlying theme — same root-cause, same recommended remediation. Only sub-clusters with count ≥ 3 (or convergence) trigger a proposal. Sub-clusters below threshold remain in `observations.json` until they grow. Do NOT lump unrelated themes into one proposal.
+
+5. **Write proposal to `suggestions.md`** for each tripped (sub-)cluster:
+   - Append a new section with the clustered theme (one line), the observations as evidence (verbatim, with `ts` references), the observer's interpretation, and a specific proposed `SKILL.md` edit (or "no specific edit yet — propose new audit tag `<slug>`").
+   - Status: `unreviewed`. The user manually flips this to `applied` or `dismissed` after reading.
+
+   Proposal format (markdown):
+   ```markdown
+   ## <iso8601-date> — Theme: <clustered theme>
+
+   **Pattern observed in N runs:**
+   - <run 1 ts>: <verbatim evidence>
+   - <run 2 ts>: <verbatim evidence>
+   - <run 3 ts>: <verbatim evidence>
+
+   **Interpretation:** <observer's one-paragraph reasoning>
+
+   **Proposed change to SKILL.md:**
+   - <specific edit suggestion: file + section + before/after>, OR
+   - "No specific edit; recommend adding a new audit FAIL tag `<slug>` covering <condition>."
+
+   **Status:** unreviewed
+   **Applied at:** null
+   **Applied via:** null
+   ```
+
+6. **Append to `review_log[]`** in `observations.json`:
+   ```json
+   {
+     "ts": "<iso8601-now>",
+     "trigger": "threshold | manual",
+     "clustered_theme": "<short description>",
+     "category": "<the category slug that tripped>",
+     "observations_referenced": ["<ts1>", "<ts2>", "<ts3>"],
+     "suggestion_written_to": "skills/pr-merge-readiness/suggestions.md",
+     "applied_at": null,
+     "applied_via": null
+   }
+   ```
+
+7. **Print observer summary**:
+   ```
+   Observer: <count> new observations recorded; <count> proposals written to suggestions.md (<unreviewed-total> unreviewed in log)
+   ```
+
+8. **Hard limits** (do NOT relax these without revisiting the design doc):
+   - Observer NEVER edits `SKILL.md`. Only `observations.json` and `suggestions.md`.
+   - Observer NEVER paraphrases user input — verbatim quotes only, same rule the audit enforces.
+   - Observer NEVER invents observations to demonstrate value. Zero observations is a valid run.
+   - Observer NEVER auto-applies a proposal. `suggestions.md` is read-write for the human, not the skill.
+   - Observer NEVER writes to `run_history.json` **with one narrow exception**: when an observation's category is `dev_env_friction`, the observer MAY append a single corresponding entry to `run_history.json:friction_log[]`. This is permitted because the schema's `friction_log` field exists exactly for this signal class, and environmental friction has no SKILL.md edit that fixes it — `suggestions.md` is the wrong destination. Observer touches NO other field of `run_history.json`.
+   - Observer DOES NOT block the run from closing. By the time it fires, the ledger has already written and the verdict-print is done. If the observer errors, the run is still considered closed.
 
 ---
 

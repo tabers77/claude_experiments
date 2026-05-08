@@ -30,12 +30,14 @@ These are what make the pattern work. Every self-learning skill must honor them:
 
 ## The architecture
 
-A self-learning skill is a regular Claude Code skill folder with two extra ingredients:
+A self-learning skill is a regular Claude Code skill folder with two extra ingredients (three when the optional observer is included):
 
 ```
 skills/<name>/
-├── SKILL.md              # Domain phases (1..N-2) + standardized audit (N-1) + ledger (N)
-└── run_history.json      # Persistent ledger: schema v1
+├── SKILL.md              # Domain phases (1..N-2) + standardized audit (N-1) + ledger (N) [+ observer (N+1) optional]
+├── run_history.json      # Persistent ledger: schema v1 (audit + ledger own this file)
+├── observations.json     # OPTIONAL: observer's qualitative ledger (observer phase owns this file)
+└── suggestions.md        # OPTIONAL: observer's clustered proposals queue (human-reviewed)
 ```
 
 The skill's flow:
@@ -44,9 +46,40 @@ The skill's flow:
 Phase 1..N-2  : Domain work (your custom phases)
 Phase N-1     : Pre-action self-audit (verbatim evidence, FAIL detection, approval gate)
 Phase N       : Update run-history ledger (append run, increment counters, trip remediation)
+Phase N+1     : OPTIONAL — Observer (qualitative signals, cross-run clustering, suggestion-only)
 ```
 
-Phases N-1 and N are **standardized** across all self-learning skills. The domain phases are 1 through N-2.
+Phases N-1 and N are **standardized** across all self-learning skills. Phase N+1 is **optional** — include it when the skill would benefit from a second vantage that catches what the audit's mechanical FAIL detection cannot. The domain phases are 1 through N-2.
+
+## The observer phase (optional, suggestion-only)
+
+The audit catches *what was told to be tracked* (predefined FAIL tags, deterministic detection, auto-apply). The observer catches *what wasn't*: user friction, redundant phases, scope drift, signs of audit blind spots. It runs **after** the ledger, sees the post-remediation state of `SKILL.md`, and writes only to two new files:
+
+- `observations.json` — append-only ledger of qualitative signals per run (one entry per signal).
+- `suggestions.md` — clustered proposals written when ≥3 observations share a category; human-reviewed.
+
+The observer's primary value is **cross-run pattern detection** — themes invisible in a single run become visible once `observations.json` accumulates. It NEVER auto-edits `SKILL.md`; that asymmetry with the audit is deliberate (qualitative judgment is lower-confidence than mechanical detection).
+
+| Aspect | Audit (Phase N-1) | Observer (Phase N+1) |
+|---|---|---|
+| Detection | Mechanical (deterministic FAIL rules) | Qualitative (LLM judgment) |
+| Vantage | Per-run | Cross-run + per-run |
+| Confidence | High | Lower |
+| Action | Auto-edit `SKILL.md`; git diff is review | Write proposal to `suggestions.md`; user reviews |
+| Rollback | `git revert` | Mark `Status: dismissed` |
+
+Full template + schema:
+- `library/templates/self-learning-skill/observer-phase.md` — the phase body to inline.
+- `library/templates/self-learning-skill/observations_schema_v1.md` — schema for `observations.json` and the `suggestions.md` proposal format.
+
+### Coupling and the planned decoupling path
+
+The observer is currently bolted into the host skill as Phase N+1 — a deliberate prototype choice to keep the change surface small and let the pattern prove itself before we invest in infra. If the observer demonstrates value across multiple skills (real proposals get applied, false-positive rate stays low), the planned next step is to **lift it out** into one of:
+
+1. A standalone `meta-observer-review` skill that the user invokes manually after a run, reading any skill's `observations.json` independently.
+2. A `Stop` hook that captures the run automatically and writes the observation entry without needing host-skill cooperation.
+
+Authors should treat the observer body as **movable, not load-bearing in its current location**. The schema (`observations.json` + `suggestions.md`) is the load-bearing contract — the phase body is just the prototype carrier.
 
 ## The schema
 
@@ -177,4 +210,7 @@ These don't block v1. Surface them when they matter.
 - `library/templates/self-learning-skill/SKILL.md.tpl` — full SKILL.md template
 - `library/templates/self-learning-skill/audit-phase.md` — audit boilerplate (Phase N-1)
 - `library/templates/self-learning-skill/ledger-phase.md` — ledger boilerplate (Phase N)
-- `library/templates/self-learning-skill/run_history_schema_v1.md` — schema reference + bootstrap JSON
+- `library/templates/self-learning-skill/observer-phase.md` — observer boilerplate (Phase N+1, OPTIONAL)
+- `library/templates/self-learning-skill/run_history_schema_v1.md` — `run_history.json` schema reference + bootstrap JSON
+- `library/templates/self-learning-skill/observations_schema_v1.md` — `observations.json` schema + `suggestions.md` format
+- `library/templates/self-learning-skill/suggestion-capture.md` — mid-run user-suggestion capture block

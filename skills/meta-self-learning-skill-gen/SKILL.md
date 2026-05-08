@@ -23,6 +23,9 @@ description: Generate a self-learning Claude Code skill through interactive inte
 - `library/templates/self-learning-skill/audit-phase.md` — audit body (Phase N-1)
 - `library/templates/self-learning-skill/ledger-phase.md` — ledger body (Phase N)
 - `library/templates/self-learning-skill/run_history_schema_v1.md` — schema + bootstrap JSON
+- `library/templates/self-learning-skill/suggestion-capture.md` — mid-run user-suggestion capture block (consumed in Step 5.5 / 8a.5)
+- `library/templates/self-learning-skill/observer-phase.md` — observer body (Phase N+1, OPTIONAL, consumed in Step 5.6 / 8a.7)
+- `library/templates/self-learning-skill/observations_schema_v1.md` — observer schema + bootstrap JSON for `observations.json` and `suggestions.md`
 
 ---
 
@@ -44,13 +47,16 @@ The interview is the value. Resist the urge to skip questions; each one correspo
    - If the user passed `convert <path-to-skill-dir-or-SKILL.md>`: jump to the **Convert Mode** section below (Steps C1–C8). Greenfield Steps 2–10 do NOT run.
    - If the user passed `improve <skill-name>`: respond "Improve mode is not yet supported in v1. To modify an existing self-learning skill, open its SKILL.md directly." and stop.
    - Otherwise: continue with greenfield generation (Steps 2–10).
-2. **Read the four templates** (you'll substitute from them later):
+2. **Read the templates** (you'll substitute from them later). The first four are mandatory; the last three are loaded on demand based on Step 5.5 / 5.6 toggles:
    - `library/templates/self-learning-skill/SKILL.md.tpl`
    - `library/templates/self-learning-skill/audit-phase.md`
    - `library/templates/self-learning-skill/ledger-phase.md`
    - `library/templates/self-learning-skill/run_history_schema_v1.md`
+   - `library/templates/self-learning-skill/suggestion-capture.md` (read when Step 5.5 enables suggestion-capture)
+   - `library/templates/self-learning-skill/observer-phase.md` (read when Step 5.6 enables observer)
+   - `library/templates/self-learning-skill/observations_schema_v1.md` (read when Step 5.6 enables observer)
 
-   If any template is missing, abort with a clear error pointing to the path. Do NOT try to repair or invent template content.
+   If any required template is missing, abort with a clear error pointing to the path. Do NOT try to repair or invent template content.
 
 ### Step 2 — Interview: identity + location
 
@@ -180,6 +186,56 @@ Should this skill include the Mid-run suggestion capture block? (y/n, default y)
 
 Carry `suggestion_capture_enabled: <true|false>` forward to Steps 7, 8a, 8b, 9.
 
+### Step 5.6 — Interview: observer phase (Phase N+1, OPTIONAL prototype pattern)
+
+```
+Should this skill include the Observer phase (Phase N+1)? (y/n, default n)
+
+  When enabled, a post-ledger phase records qualitative signals the audit's
+  mechanical FAIL detection cannot catch — user friction, redundant phases,
+  scope drift, signs of missing audit categories — and surfaces clustered
+  proposals to a `suggestions.md` file. Suggestion-only; never auto-edits SKILL.md.
+  Two new files are created at the skill's root: `observations.json` (per-run
+  ledger) and `suggestions.md` (clustered proposals queue).
+
+  Default n. The pattern is a prototype (see `documentation/SELF_LEARNING_SKILLS.md`
+  in the claude_experiments repo). Enable when:
+    - The skill will run frequently (cross-run pattern detection has runway).
+    - The skill consumes meaningful user input (Phase 7-style resolution gates).
+    - You want a second vantage on what audit can't reach.
+
+  IMPORTANT: if you enable observer but disable suggestion-capture (Step 5.5),
+  the convergence rule cannot fire (it requires `improvement_suggestions[]`).
+  Recommend enabling both together. Warn the user if they choose
+  observer=y AND suggestion_capture=n.
+```
+
+If the user answers `y`:
+
+```
+What cluster threshold should trigger a proposal write to suggestions.md?
+  Default: 3 (one is anecdote, two could be coincidence, three is a pattern).
+  Tune up (not down) for skills with very high run cadence — lower thresholds
+  produce noisy suggestions.md files that erode trust in proposals.
+```
+
+Carry forward:
+- `observer_enabled: <true|false>`
+- `cluster_threshold: <int>` (only meaningful when `observer_enabled` is true)
+
+If `observer_enabled` is `true` AND `suggestion_capture_enabled` is `false`, print this warning before proceeding to Step 6:
+
+```
+⚠ Observer enabled without suggestion-capture. The convergence rule (observer
+  observation + matching user-typed `improvement_suggestions[]` entry → trip
+  regardless of cluster threshold) cannot fire for this skill. Observer will
+  still work via cross-run clustering at the threshold you chose, but you'll
+  miss the strongest signal class. Recommend revisiting Step 5.5 to enable
+  suggestion-capture as well. Continue anyway? [y/n]
+```
+
+Wait for explicit `y` to continue, or let the user revisit Step 5.5.
+
 ### Step 6 — Interview: optional domain FAIL rules
 
 ```
@@ -215,8 +271,11 @@ Before writing any files, present the full plan:
 Skill folder:    <target_dir>/<name>/
                  (resolved from Step 2 location choice: <plugin|project|user|custom>)
 Files to create:
-  - <target_dir>/<name>/SKILL.md          (assembled from .tpl + audit-phase.md + ledger-phase.md)
+  - <target_dir>/<name>/SKILL.md          (assembled from .tpl + audit-phase.md + ledger-phase.md [+ observer-phase.md])
   - <target_dir>/<name>/run_history.json  (bootstrap from run_history_schema_v1.md "Initial state")
+  <only if observer_enabled is true:>
+  - <target_dir>/<name>/observations.json (bootstrap from observations_schema_v1.md "Initial state")
+  - <target_dir>/<name>/suggestions.md    (header only, no proposals at bootstrap)
 
 Frontmatter:
   name: <name>
@@ -233,10 +292,20 @@ Phase structure:
   Phase <N> — Update the run-history ledger
     Writes to: <target_dir>/<name>/run_history.json
     Persists improvement_suggestions[]: <enabled|disabled>
+  <only if observer_enabled is true:>
+  Phase <N+1> — Post-ledger observer (suggestion-only)
+    Writes to: <target_dir>/<name>/observations.json + suggestions.md
+    Cluster threshold: <cluster_threshold>
+    Convergence rule active: <true if suggestion_capture_enabled else false>
 
 Mid-run suggestion capture: <enabled|disabled>
   When enabled, the SKILL.md gets a "Mid-run suggestion capture" block after the
   Inputs section, and run_history.json includes an improvement_suggestions[] array.
+
+Observer phase: <enabled|disabled>
+  When enabled, a post-ledger Phase N+1 records qualitative signals and surfaces
+  clustered proposals to suggestions.md. Suggestion-only; never auto-edits SKILL.md.
+  Bootstraps observations.json (empty per schema v1) and suggestions.md (header only).
 
 Audit row shapes (one per domain phase, applied in audit phase):
   Phase 1: <evidence shape — verbatim quote slot if input-consuming>
@@ -309,6 +378,27 @@ When `generate` is received:
 
 6. **Fill the trailing sections** (`Edge cases`, `Plugin skills composed`, `Out of scope`, `Usage`) with sensible defaults if the user didn't provide them. For first-time skills, populate `Usage` with at least one `/<skill-name> <example>` invocation drawn from the inputs.
 
+7. **Inline the observer pattern (TWO sections, both required)** if `observer_enabled` is true (Step 5.6). The observer pattern requires inlining two distinct sections from `library/templates/self-learning-skill/observer-phase.md` — see its "Two sections to inline" notice. Inlining only one of the two is a structural error.
+
+   **7a. Inline the `Observer file boundary` callout near the top of the SKILL.md.** Copy the markdown block under the template's "Companion: Observer file boundary callout" section (the fenced ` ```markdown ... ``` ` block — copy its contents only, not the fence). Insert it as a new top-level section between the Mid-run suggestion capture block (when `suggestion_capture_enabled` is true) or the `## Inputs` section (when capture is disabled) AND the first domain phase. Apply substitutions:
+      - `{{N}}` → observer phase number (= ledger phase number + 1; one higher than the ledger)
+
+      This callout is what prevents the leak where an LLM running the skill reads `observations.json` during a domain phase and lets it bias the framing.
+
+   **7b. Inline the observer Phase body as the LAST phase.** Insert the section that starts with `## Phase {{N}} — Post-ledger observer (suggestion-only)` and ends just before the next `---` horizontal rule (i.e., before "## Authoring notes") — as a new top-level section AFTER the inlined ledger phase, BEFORE the trailing `Edge cases` section. Apply substitutions in the inlined text:
+      - `{{N}}` → observer phase number (= ledger phase number + 1; same as 7a)
+      - `{{SKILL_PATH}}` → `<target_dir>/<name>` resolved to a relative path from the project root
+      - `{{CLUSTER_THRESHOLD}}` → from Step 5.6 (default 3)
+
+   **7c. Update the trailing `## Self-learning checklist (before shipping)` section** to include the observer-specific checks:
+   - [ ] `observations.json` exists at the skill's root, initialized with the schema v1 "Initial state" structure (empty `observations[]` and `review_log[]`).
+   - [ ] `suggestions.md` exists at the skill's root, header only, no proposals at bootstrap.
+   - [ ] Observer phase (Phase N+1) is the LAST phase. No phase fires after it.
+   - [ ] **`Observer file boundary` callout is present near the top of the SKILL.md** (between Inputs/capture block and Phase 1). Without this callout, the prohibition against domain phases reading observer files is not enforced.
+   - [ ] If `suggestion_capture_enabled` is also true, the convergence rule note in the observer phase body is intact (does NOT say "field is missing").
+
+   Skip this entire sub-step (7a, 7b, and 7c) if `observer_enabled` is false.
+
 #### 8b — Build run_history.json
 
 1. Use the **"Initial state"** JSON snippet from `run_history_schema_v1.md` verbatim as the base.
@@ -329,16 +419,50 @@ When `generate` is received:
    ```
 4. Validate that the resulting JSON parses (mentally walk it for matching braces/quotes).
 
-#### 8c — Write both files
+#### 8b.5 — Build observations.json and suggestions.md (only when `observer_enabled` is true)
 
+Skip this entire sub-step if `observer_enabled` is false.
+
+1. **`observations.json`**: use the **"Initial state"** JSON snippet from `observations_schema_v1.md` verbatim (top-level: `version: 1`, empty `observations[]`, empty `review_log[]`). Greenfield skills do NOT seed observations — that's only for retrofitted skills with prior `runs[]` history.
+
+2. **`suggestions.md`**: write a header-only file with this content (substitute `<skill-name>` and `<cluster-threshold>`):
+
+   ```markdown
+   # `<skill-name>` — Observer suggestions
+
+   This file is written by the **observer phase** (the last phase of this skill) when cross-run clustering trips. Each section below is an unreviewed proposal generated from ≥<cluster-threshold> observations sharing a theme (or 1 observation + matching `improvement_suggestions[]` entry — the convergence rule).
+
+   The user reviews each section and flips `Status: unreviewed` to either `applied` or `dismissed`. When applied, the user fills `Applied at:` (ISO 8601) and `Applied via:` (one-line description of the SKILL.md edit), then mirrors the same values into the matching `review_log[]` entry of `observations.json`.
+
+   The observer never edits this file's existing sections — it only appends new proposals. Existing sections are owned by the human reviewer.
+
+   ---
+
+   <!--
+   Observer-written proposals appear below this line.
+   Each proposal follows the format documented in the SKILL.md observer phase, step 5.
+   -->
+   ```
+
+3. Validate the JSON (`observations.json`) parses; the markdown (`suggestions.md`) is freeform and does not need validation beyond the heading being present.
+
+#### 8c — Write the files
+
+Mandatory:
 ```
 Write <target_dir>/<name>/SKILL.md
 Write <target_dir>/<name>/run_history.json
 ```
 
+Conditional (only when `observer_enabled` is true):
+```
+Write <target_dir>/<name>/observations.json
+Write <target_dir>/<name>/suggestions.md
+```
+
 (`<target_dir>` resolved in Step 2: plugin → `<CWD>/skills`, project → `<CWD>/.claude/skills`, user → `~/.claude/skills`, custom → user-provided.)
 
-Show the user the absolute file paths and a short preview of each (frontmatter + first 30 lines for SKILL.md; full content for run_history.json).
+Show the user the absolute file paths and a short preview of each (frontmatter + first 30 lines for SKILL.md; full content for run_history.json; full content for observations.json and suggestions.md when present).
 
 ### Step 9 — Validate the generated files
 
@@ -348,14 +472,24 @@ Run these mechanical checks. Fail loudly on any miss — DO NOT silently proceed
 2. **JSON is valid v1**: parse `run_history.json` (mentally or via `python -c "import json; ..."`). Confirm `version == 1`, `fail_counters` is an object, `runs` and `friction_log` are arrays.
 3. **Audit phase has correct row count**: count `- Phase` lines in the audit block — must equal the number of domain phases.
 4. **Approval gate uses the literal token**: confirm the audit phase contains the exact approval token from Step 3 wrapped in backticks.
-5. **Ledger phase is the last phase**: no `## Phase` heading appears after the ledger block.
+5. **Last phase is correct**: if `observer_enabled` is false, the ledger is the last phase — no `## Phase` heading appears after the ledger block. If `observer_enabled` is true, the observer is the last phase — no `## Phase` heading appears after the observer block.
 6. **Phase numbering is contiguous**: 1, 2, ..., N with no gaps. Sub-phases (1.5, 5.5) are allowed but flag for review.
 7. **Suggestion-capture consistency**: confirm SKILL.md and run_history.json agree.
    - If `suggestion_capture_enabled` is true: SKILL.md MUST contain `## Mid-run suggestion capture` heading AND `run_history.json` MUST contain `"improvement_suggestions": []`.
    - If false: SKILL.md MUST NOT contain that heading AND `run_history.json` MUST NOT contain that key.
    Mismatch → fail loudly and report which side disagrees.
 
-If all seven pass, print:
+8. **Observer-phase consistency**: confirm SKILL.md and the observer files agree.
+   - If `observer_enabled` is true: SKILL.md MUST contain a `## Phase <N+1> — Post-ledger observer` heading (where `<N+1>` is the ledger phase number + 1) AND a separate `## Observer file boundary` callout placed near the top (before the first `## Phase` heading) AND both `observations.json` and `suggestions.md` MUST exist at the skill root. `observations.json` MUST be valid v1 (`version: 1`, empty `observations[]`, empty `review_log[]`). `suggestions.md` MUST contain the `# <skill-name> — Observer suggestions` heading. The boundary callout MUST appear textually before the first `## Phase` heading — if it appears after, fail (it would arrive too late to gate Claude's read).
+   - If false: SKILL.md MUST NOT contain a Phase N+1 observer heading, MUST NOT contain `## Observer file boundary`, AND neither `observations.json` nor `suggestions.md` should exist.
+   Mismatch → fail loudly and report which side disagrees.
+
+9. **Observer ↔ suggestion-capture coherence**: when `observer_enabled` is true, scan the observer phase body for the convergence-rule note. Confirm it matches the suggestion-capture toggle:
+   - If `suggestion_capture_enabled` is true: the note must NOT say "field is missing" / "does not apply".
+   - If false: the note SHOULD acknowledge that the convergence rule cannot fire for this skill (it's allowed but should be marked).
+   Mismatch is a soft warning, not a hard fail.
+
+If all checks (1–7 always; 8–9 when observer_enabled) pass, print:
 
 ```
 ✓ Generation validated. Skill ready to invoke.
@@ -445,6 +579,9 @@ Ask only what extraction couldn't unambiguously cover:
 4. **For each input-consuming phase, confirm verbatim-quote enforcement.** If a phase currently summarizes user input rather than quoting it, the audit row will fail `audit-paraphrased-user-input` on first run. Flag this so the user understands the audit is INTENTIONALLY going to bite — it's the system working.
 5. **Optional domain FAIL rules** — same as greenfield Step 6. Recommended default: skip and let the ledger accumulate from real runs.
 6. **Heading-prefix sanity check** — if existing skill uses `## Step` instead of `## Phase`, ask: keep `Step` (default — preserves byte-identical existing content) or normalize to `Phase`.
+7. **Mid-run suggestion capture toggle** — same as greenfield Step 5.5. Default y. Carry `suggestion_capture_enabled` forward.
+8. **Observer phase toggle** — same as greenfield Step 5.6. Default n. Carry `observer_enabled` and `cluster_threshold` forward. Apply the same warning if observer is enabled but suggestion-capture is disabled.
+9. **Retrospective seeding for observer** — only ask when `observer_enabled` is true AND the existing skill has prior runs in `run_history.json`. Offer: "Pre-populate `observations.json` with seed observations derived from a paper retrospective on the existing `runs[]`? [y/n, default y]". When `y`, the conversion plan in C5 will include a retrospective seeding step that creates back-dated observation entries; when `n`, the file is initialized empty.
 
 ### Step C5 — Show conversion plan and wait for `convert` token
 
@@ -464,16 +601,40 @@ Phase additions (existing <N> domain phases preserved BYTE-IDENTICAL):
       Audit rows: <N> (one per existing domain phase)
       Verbatim-quote rows: <count of input-consuming phases>
       FAIL detection rules: 3 universal + <count> domain
+      Suggestion review (final-call): <enabled if suggestion_capture_enabled else disabled>
   + Phase <N+2> — Update the run-history ledger
       Writes to: skills/<name>/run_history.json
+      Persists improvement_suggestions[]: <enabled|disabled>
+  <only if observer_enabled is true:>
+  + Phase <N+3> — Post-ledger observer (suggestion-only)
+      Writes to: skills/<name>/observations.json + suggestions.md
+      Cluster threshold: <cluster_threshold>
+      Convergence rule active: <true if suggestion_capture_enabled else false>
+      Retrospective seed: <enabled|disabled> (from C4 step 9)
+
+Mid-run suggestion capture: <enabled|disabled>
+  When enabled, the SKILL.md gets a "Mid-run suggestion capture" block inserted
+  between the existing Inputs section and the first existing domain phase, and
+  run_history.json includes an improvement_suggestions[] array.
+
+Observer phase: <enabled|disabled>
+  When enabled, a post-ledger Phase <N+3> records qualitative signals and surfaces
+  clustered proposals to suggestions.md. Bootstraps observations.json (with seed
+  observations from retrospective on existing runs[] when retrospective seeding
+  is enabled, otherwise empty) and suggestions.md (header + bootstrap state table).
 
 Files to create:
   + skills/<name>/run_history.json (bootstrap from schema v1 "Initial state")
+  <only if observer_enabled is true:>
+  + skills/<name>/observations.json (seeded if retrospective seeding=enabled, else empty)
+  + skills/<name>/suggestions.md (header + bootstrap state table)
 
 Files to modify:
   ~ skills/<name>/SKILL.md
       - Add metadata block to frontmatter
-      - Append two phases after the current last phase
+      - Insert "Mid-run suggestion capture" block (if suggestion_capture_enabled)
+      - Append audit + ledger phases after the current last phase
+      - Append observer phase after the ledger (if observer_enabled)
       - Append "Self-learning checklist" section if missing
 
 Phases NOT changed:
@@ -491,21 +652,33 @@ Type `convert` to apply. Anything else aborts.
 When `convert` is received:
 
 1. **Edit the SKILL.md frontmatter** with `Edit` to add the `metadata` block. Preserve every other field exactly.
-2. **Append the audit phase** after the last existing domain phase. Use the body of `library/templates/self-learning-skill/audit-phase.md` with substitutions from C3/C4. Audit row count must equal the number of existing domain phases; rows for input-consuming phases include the verbatim-quote slot. Use the chosen heading prefix (`Phase` or `Step`) consistently.
-3. **Append the ledger phase** after the audit phase. Use `ledger-phase.md` with `{{SKILL_PATH}} → skills/<name>` substitution.
-4. **Append the "Self-learning checklist" section** at the bottom of the SKILL.md if it isn't already present (copy from `SKILL.md.tpl`'s tail).
-5. **Write `skills/<name>/run_history.json`** from the schema v1 "Initial state" snippet, plus any domain FAIL rules from C4.
+2. **Insert the Mid-run suggestion capture block** if `suggestion_capture_enabled` is true. Use `Edit` to insert the body of `library/templates/self-learning-skill/suggestion-capture.md` (the `## Mid-run suggestion capture` section, before the next `---`) between the existing `## Inputs` section and the first existing domain phase. Apply `{{SKILL_NAME}}` and `{{SKILL_PATH}}` substitutions. Skip if disabled.
+3. **Append the audit phase** after the last existing domain phase. Use the body of `library/templates/self-learning-skill/audit-phase.md` with substitutions from C3/C4. Audit row count must equal the number of existing domain phases; rows for input-consuming phases include the verbatim-quote slot. Use the chosen heading prefix (`Phase` or `Step`) consistently. Include the suggestion-review final-call sub-step when `suggestion_capture_enabled` is true; omit when disabled.
+4. **Append the ledger phase** after the audit phase. Use `ledger-phase.md` with `{{SKILL_PATH}} → skills/<name>` substitution. Include the "Persist captured suggestions" step + suggestions line in run-end summary when `suggestion_capture_enabled` is true.
+5. **Append the observer pattern (TWO sections, both required)** if `observer_enabled` is true. Use `library/templates/self-learning-skill/observer-phase.md` (see "Two sections to inline" in that template):
+   - **5a.** Insert the `Observer file boundary` callout near the top of the SKILL.md — between the Mid-run suggestion capture block (or Inputs section if capture is disabled) and the first existing domain phase. Apply `{{N}}` substitution. This is what prevents domain phases from reading observer files.
+   - **5b.** Append the observer Phase body after the ledger phase. Apply `{{N}}`, `{{SKILL_PATH}}`, `{{CLUSTER_THRESHOLD}}` substitutions.
 
-Use `Edit` (not `Write`) for the SKILL.md changes so existing content is preserved precisely. Use `Write` for the new `run_history.json`.
+   Skip both 5a and 5b if `observer_enabled` is false.
+6. **Append the "Self-learning checklist" section** at the bottom of the SKILL.md if it isn't already present (copy from `SKILL.md.tpl`'s tail).
+7. **Write `skills/<name>/run_history.json`** from the schema v1 "Initial state" snippet, plus any domain FAIL rules from C4. Include the `improvement_suggestions: []` field when `suggestion_capture_enabled` is true; omit otherwise.
+8. **Write `skills/<name>/observations.json`** if `observer_enabled` is true:
+   - **Empty** (per `observations_schema_v1.md` "Initial state") when retrospective seeding is disabled OR the existing `run_history.json` has no `runs[]` entries.
+   - **Seeded** when retrospective seeding is enabled AND `runs[]` has entries: do a paper retrospective on each `runs[].notes`, `friction_log[]`, and any `improvement_suggestions[]` entries; produce 1+ seed `observations[]` entries with back-dated `ts` matching original run timestamps, verbatim evidence (no paraphrase), and category slugs from the standard table. `review_log[]` stays empty so the first live observer run can naturally trigger clustering against the seeded data.
+9. **Write `skills/<name>/suggestions.md`** if `observer_enabled` is true. Use the header-only template from greenfield Step 8b.5 step 2. When retrospective seeding produced seed observations, ALSO append a "State as of bootstrap (\<date\>)" table summarizing sub-cluster counts per `_theme_slug` within each category — same shape as `pr-merge-readiness/suggestions.md` and `shared-bug-gap-fix/suggestions.md`.
+
+Use `Edit` (not `Write`) for the SKILL.md changes so existing content is preserved precisely. Use `Write` for new files (`run_history.json`, `observations.json`, `suggestions.md`).
 
 ### Step C7 — Validate the converted skill
 
-Run the same six mechanical checks as greenfield Step 9 (no orphan placeholders, JSON is valid v1, audit row count matches domain phase count, approval token is literal-and-quoted, ledger is the last phase, phase numbering is contiguous). Add two convert-specific checks:
+Run the same checks as greenfield Step 9 (1–7 always; 8–9 when observer_enabled). Add two convert-specific checks:
 
-7. **Original phase bodies preserved byte-identical** — diff each pre-existing phase block against the post-conversion file. Content must match exactly except for any tier annotation added in headings.
-8. **Frontmatter still parses** — confirm the new `metadata` block didn't break any existing field. Every key from the pre-conversion frontmatter must still resolve to the same value.
+10. **Original phase bodies preserved byte-identical** — diff each pre-existing phase block against the post-conversion file. Content must match exactly except for any tier annotation added in headings.
+11. **Frontmatter still parses** — confirm the new `metadata` block didn't break any existing field. Every key from the pre-conversion frontmatter must still resolve to the same value.
 
-If all eight pass, print:
+Note: in convert mode, the observer phase (when enabled) becomes Phase `<existing_N + 3>` — i.e., one higher than the new ledger which is itself `<existing_N + 2>`. Validation check 5 ("ledger is the last phase") is replaced with "observer is the last phase if observer_enabled, else ledger is the last phase" — convert mode uses whichever is final based on the toggle.
+
+If all applicable checks pass, print:
 
 ```
 ✓ Conversion validated. Skill ready for first audited invocation.

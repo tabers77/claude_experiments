@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "_seed_note": "Bootstrapped from a paper retrospective on runs 1-2 of run_history.json (auth-foundation, bug-gap-skill-test). Back-dated to original run timestamps; review_log empty so cross-run clustering can fire on the first live observer run. Full retrospective at documentation/OBSERVER_RETROSPECTIVE_PR_MERGE_READINESS.md. Theme tracker-closure-drift will trip the convergence rule on first observer run because improvement_suggestions[] already contains 5-impl-vs-tracker-check.",
+  "observations": [
+    {
+      "ts": "2026-05-07T18:18:00+02:00",
+      "run_ref": "2026-05-07T18:18:00+02:00",
+      "target": "merge this branch into dev (current=feat/auth-foundation; head=7b7fd50ab97e4bfadfc1c97a7042e80b44a8eff0; base=dev)",
+      "category": "dev_env_friction",
+      "_theme_slug": "dev-stack-staleness",
+      "phase": "4",
+      "evidence": "Phase 4 live UI case 1 sales_negotiator_db_only PASSED 310.21s after dev-stack rebuild (stale container missing fastapi-azure-auth dep — dep correctly declared on the branch).",
+      "interpretation": "Stale dev container missing a branch-declared dependency forced a rebuild before the live UI tier could pass. Environmental friction; no SKILL.md edit fixes a stale container. Per the observer's narrow exception, recurrence of dev_env_friction would be appended to run_history.json:friction_log[] rather than proposed in suggestions.md.",
+      "proposed_audit_tag": null
+    },
+    {
+      "ts": "2026-05-08T00:00:00+02:00",
+      "run_ref": "2026-05-08T00:00:00+02:00",
+      "target": "this branch into dev (current=feat/bug_gap_skill_test; head=b6053cf8cc91fcbce1f3dee0d91169e134878fe8; base=dev)",
+      "category": "dev_env_friction",
+      "_theme_slug": "dev-stack-staleness",
+      "phase": "4",
+      "evidence": "Phase 4 after backend image rebuild (stale container had been missing fastapi-azure-auth + new pyproject per-file-ignore; same root-cause class as the 2026-05-07 run).",
+      "interpretation": "Second consecutive run hitting the same stale-container friction class. Cross-run pattern (count = 2 of 3 threshold). One more occurrence flips this into a friction_log[] proposal — possibly a Phase 4 stale-container preflight that compares image-installed deps with branch's pyproject.toml.",
+      "proposed_audit_tag": null
+    },
+    {
+      "ts": "2026-05-08T00:00:00+02:00",
+      "run_ref": "2026-05-08T00:00:00+02:00",
+      "target": "this branch into dev (current=feat/bug_gap_skill_test)",
+      "category": "missing_audit_category",
+      "_theme_slug": "tracker-closure-drift",
+      "phase": "5",
+      "evidence": "tracker-file diff anomaly surfaced — diff did not touch BUGS_AND_GAPS.md despite COMPLETED_STREAMS.md adding closure narratives for W-7-prep-c, V-L2, V-L3, SP-7. Item 1 fixed in working tree (BUGS_AND_GAPS.md rewritten: rows for W-7-prep-c/V-L2/V-L3/SP-7 removed, Section 2 19→16 rows, Section 3 13→12 rows, priority chain cleaned, Last-updated bumped to 2026-05-08).",
+      "interpretation": "Closure narratives added to COMPLETED_STREAMS.md without corresponding row deletions in BUGS_AND_GAPS.md is a mechanically-detectable inconsistency the audit currently does not check. Convergence rule will trip on the first live observer run because the user already typed `improvement_suggestions[].tag = 5-impl-vs-tracker-check` at run 2's audit (verbatim text: 'before surfacing actions in Phase 7, verify what was actually implemented in the branch matches the documentation tracker (BUGS_AND_GAPS.md). This implementation-vs-docs check should run by default as part of Phase 5, not be skipped.'). Highest-confidence observation in this seed set.",
+      "proposed_audit_tag": "5-tracker-closure-without-row-removal"
+    },
+    {
+      "ts": "2026-05-08T00:00:00+02:00",
+      "run_ref": "2026-05-08T00:00:00+02:00",
+      "target": "this branch into dev (current=feat/bug_gap_skill_test)",
+      "category": "missing_audit_category",
+      "_theme_slug": "pre-existing-vs-regression",
+      "phase": "3",
+      "evidence": "ruff scoped to changed files = 4 errors (F401 os unused in conf/logging_config.py:14; I001 import block in tests/test_logging_pipeline.py:14) verified pre-existing on origin/dev → not regressions.",
+      "interpretation": "User manually distinguished pre-existing lint failures from regressions introduced by the branch. The audit currently has no mechanical check for 'is this finding new vs. pre-existing on base'. A Phase 3 sub-step that runs lint on origin/<BASE_BRANCH> first, then diffs against <head>'s lint output, would surface this distinction without user labor. Below threshold; observer records but does not propose at bootstrap.",
+      "proposed_audit_tag": "3-pre-existing-vs-regression-not-distinguished"
+    },
+    {
+      "ts": "2026-05-08T00:00:00+02:00",
+      "run_ref": "2026-05-08T00:00:00+02:00",
+      "target": "this branch into dev (current=feat/bug_gap_skill_test)",
+      "category": "missing_audit_category",
+      "_theme_slug": "skipped-test-rationale",
+      "phase": "4",
+      "evidence": "smoke 401 passed / 1 skipped, targeted 7 passed / 4 skipped",
+      "interpretation": "Pytest skip counts reported without per-test rationale. Weak signal on its own — pytest's own skips are normal — but the audit has no mechanism to detect when a branch *introduces new* skips vs. inheriting pre-existing ones. The actually valuable proposal at threshold would be a Phase 4 sub-step comparing the skipped-test list against base. Below threshold; recorded for completeness, observer would not propose at bootstrap.",
+      "proposed_audit_tag": null
+    }
+  ],
+  "review_log": []
+}
