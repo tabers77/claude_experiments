@@ -261,6 +261,89 @@ If `y`, loop:
 Add another? (y/n)
 ```
 
+### Step 6.5 — Discover composable skills (suggest-only)
+
+The interview now has enough signal — phases, phase bodies, principle — to mechanically suggest which existing skills the new skill could compose at runtime. This step is **suggest-only**: the user accepts, edits, or skips each match; nothing is auto-wired.
+
+**Skip conditions** (print one line and continue to Step 7):
+- User types `skip composition discovery` at any prompt in this step.
+- All three scopes turn up zero skills (very early bootstrap of a plugin).
+- No candidate clears medium confidence across any phase.
+
+#### 6.5.1 — Scan three scopes
+
+`Glob` `<root>/*/SKILL.md` in each scope, then `Read` the frontmatter (`name` + `description`) of each match.
+
+| Scope | Root |
+|---|---|
+| Plugin    | parent of this meta-skill's own directory (its peer `skills/` directory) |
+| User      | `~/.claude/skills/` (resolve `~` to actual home dir; skip silently if missing) |
+| Project   | parent of `<target_dir>` when `location ≠ plugin`; same as plugin scope otherwise |
+
+De-duplicate by skill `name` across scopes (plugin > user > project precedence). Exclude the not-yet-existing new skill being generated.
+
+#### 6.5.2 — Match phases + principle against candidate descriptions
+
+For each (phase, candidate) pair:
+1. Tokenize `<phase name> + <phase body>` (lowercase; drop stopwords: `the`, `is`, `a`, `of`, `to`, `and`, `or`, `for`, `in`, `on`, `with`, `this`, `that`, `it`, `as`, `at`, `by`, `from`, `be`).
+2. Tokenize the candidate's frontmatter `description` the same way.
+3. Count distinct content-bearing token overlaps.
+
+Confidence tiers:
+- **high**: ≥3 token matches AND the candidate description names the phase's intent verb (`sweep`, `diagnose`, `impact`, `refactor`, `commit`, `plan`, `review`, `audit`, etc.).
+- **medium**: 1–2 token matches, OR intent-verb match without 3 tokens.
+- **low**: <1 content-bearing match. Drop — do not show.
+
+Also match the **load-bearing principle** globally: candidates whose description aligns with the principle (e.g., principle "no new bugs introduced" → `quality-bug-sweep`, `code-diagnosis`) attach to the phases where their work would land, not as a separate global block.
+
+#### 6.5.3 — Present per-phase suggestions
+
+Display one block per phase with ≥1 medium-or-higher candidate. Phases with zero matches above low tier are skipped silently:
+
+```
+Phase i — <phase name>
+  [high]   <namespace>:<skill-name> — <trigger drawn from candidate description>
+  [medium] <namespace>:<skill-name> — <trigger>
+```
+
+Namespace prefix: `claude-library:` for plugin scope, no prefix for project-local, the user's own convention (ask once at scope-scan time) for user-global.
+
+#### 6.5.4 — Accept / edit / skip per phase
+
+For each phase block, ask:
+
+```
+Phase i — accept which suggestions?
+  - accept all high-tier
+  - accept specific (give the names)
+  - edit (provide your own trigger text per accepted skill)
+  - skip (no compositions for this phase)
+```
+
+Capture user-accepted entries into a structure carried forward to Steps 7, 8a, and 9:
+
+```
+composed_skills = [
+  {"skill": "claude-library:safe-changes-impact-check", "phase": "3", "trigger": "Change touches orchestrator/MCP/migrations/auth/registries"},
+  {"skill": "claude-library:code-diagnosis", "phase": "7", "trigger": "Always, path-scoped on changed files"}
+]
+```
+
+Empty `composed_skills` is valid — the new skill simply ships with no composition table.
+
+#### 6.5.5 — Explicit exclusions (optional)
+
+After per-phase acceptance, ask once more:
+
+```
+Any candidates to explicitly call out as NOT composed (with reason)?
+  Format: <skill-name> — <one-line reason>
+  Example: planning-impl-plan — the interview IS the plan; nesting would loop
+  Type `done` when finished.
+```
+
+Capture into `not_composed = [{"skill": "...", "reason": "..."}]`. Empty is valid.
+
 ### Step 7 — Show generation plan and wait for `generate` token
 
 Before writing any files, present the full plan:
@@ -316,6 +399,14 @@ run_history.json seed counters:
   - audit-no-explicit-approval-wait (universal, threshold=2, procedural)
   - tool-claim-without-call (universal, threshold=1, load-bearing)
   <+ any domain rules from Step 6>
+
+Plugin skills composed (from Step 6.5):
+  <one row per composed_skills entry: "Phase <i>: <skill> (trigger: <trigger>)">
+  <print "(none — populate by hand later)" when composed_skills is empty>
+
+Plugin skills explicitly NOT composed (from Step 6.5):
+  <one row per not_composed entry: "<skill> — <reason>">
+  <omit this entire block when not_composed is empty>
 
 Type `generate` to proceed. Anything else aborts.
 ```
@@ -376,7 +467,10 @@ When `generate` is received:
 
 5. **Strip template scaffolding comments.** Remove all `<!-- ... -->` HTML comment blocks that exist only to explain the template structure (the long blocks under "DOMAIN PHASES" and "STANDARDIZED LAST TWO PHASES"). The generated SKILL.md is the artifact, not the template — its readers don't need template guidance.
 
-6. **Fill the trailing sections** (`Edge cases`, `Plugin skills composed`, `Out of scope`, `Usage`) with sensible defaults if the user didn't provide them. For first-time skills, populate `Usage` with at least one `/<skill-name> <example>` invocation drawn from the inputs.
+6. **Fill the trailing sections from collected data**:
+   - `Plugin skills composed by this skill` — render one table row per `composed_skills` entry (Step 6.5.4): columns `Skill | Phase | Trigger`. When `composed_skills` is empty, write the table header plus a single placeholder row "*(none — populate by hand if/when you discover compositions on first runs)*" so the section's shape is preserved.
+   - `Plugin skills NOT composed` — render one bullet per `not_composed` entry (Step 6.5.5): `- <skill> — <reason>`. Omit this section entirely when `not_composed` is empty.
+   - `Edge cases`, `Out of scope`, `Usage` — populate with sensible defaults if the user didn't provide them. For first-time skills, populate `Usage` with at least one `/<skill-name> <example>` invocation drawn from the inputs.
 
 7. **Inline the observer pattern (TWO sections, both required)** if `observer_enabled` is true (Step 5.6). The observer pattern requires inlining two distinct sections from `library/templates/self-learning-skill/observer-phase.md` — see its "Two sections to inline" notice. Inlining only one of the two is a structural error.
 
@@ -489,7 +583,9 @@ Run these mechanical checks. Fail loudly on any miss — DO NOT silently proceed
    - If false: the note SHOULD acknowledge that the convergence rule cannot fire for this skill (it's allowed but should be marked).
    Mismatch is a soft warning, not a hard fail.
 
-If all checks (1–7 always; 8–9 when observer_enabled) pass, print:
+10. **Composition table well-formed**: when `composed_skills` (Step 6.5.4) is non-empty, the generated SKILL.md MUST contain a `Plugin skills composed by this skill` table with exactly one row per `composed_skills` entry. Each row must have a non-empty Skill, Phase, and Trigger cell. When `not_composed` (Step 6.5.5) is non-empty, the generated SKILL.md MUST contain a `Plugin skills NOT composed` bullet list with exactly one bullet per entry. Empty `composed_skills` and `not_composed` are valid: the composition table is rendered with the "(none — populate by hand if/when you discover compositions on first runs)" placeholder row; the not-composed block is omitted entirely. Mismatch (declared in interview but missing in file, or vice versa) → fail loudly and report which side disagrees.
+
+If all checks (1–7 always; 8–9 when observer_enabled; 10 when `composed_skills` or `not_composed` is non-empty) pass, print:
 
 ```
 ✓ Generation validated. Skill ready to invoke.
@@ -583,6 +679,19 @@ Ask only what extraction couldn't unambiguously cover:
 8. **Observer phase toggle** — same as greenfield Step 5.6. Default n. Carry `observer_enabled` and `cluster_threshold` forward. Apply the same warning if observer is enabled but suggestion-capture is disabled.
 9. **Retrospective seeding for observer** — only ask when `observer_enabled` is true AND the existing skill has prior runs in `run_history.json`. Offer: "Pre-populate `observations.json` with seed observations derived from a paper retrospective on the existing `runs[]`? [y/n, default y]". When `y`, the conversion plan in C5 will include a retrospective seeding step that creates back-dated observation entries; when `n`, the file is initialized empty.
 
+### Step C4.5 — Discover composable skills (convert mode, additive only)
+
+Convert mode reuses greenfield Step 6.5's scanning and matching logic with one difference: the existing skill may already have a `Plugin skills composed by this skill` table. The step is **additive only** — it never removes or rewrites existing rows, only proposes new ones.
+
+1. **Parse existing composition** from the loaded SKILL.md: read the `Plugin skills composed by this skill` table (if present) and the `Plugin skills NOT composed` block (if present). Capture as `existing_composed_skills` and `existing_not_composed`, preserving the original row shape verbatim.
+2. **Run the same scan as Steps 6.5.1–6.5.2** against the existing skill's domain phases and load-bearing principle.
+3. **Filter candidates**: drop any candidate whose skill name already appears in `existing_composed_skills` OR `existing_not_composed` — the author already decided about it. Surface only genuinely new candidates.
+4. **Present per-phase suggestions** as in Step 6.5.3, with a header noting "additive only — existing rows preserved".
+5. **Accept / edit / skip per phase**, capturing into `new_composed_skills`. These will be appended to the existing table in C6, not replace it.
+6. **Optional exclusions** — same prompt as Step 6.5.5, captured into `new_not_composed` and appended to the existing not-composed block.
+
+Skip the entire step (print one line, continue to C5) when no new candidates clear medium confidence.
+
 ### Step C5 — Show conversion plan and wait for `convert` token
 
 Present the diff plan before writing anything. Be explicit about what is preserved versus what is added:
@@ -635,7 +744,18 @@ Files to modify:
       - Insert "Mid-run suggestion capture" block (if suggestion_capture_enabled)
       - Append audit + ledger phases after the current last phase
       - Append observer phase after the ledger (if observer_enabled)
+      - Append composition additions (from C4.5): new rows to
+        `Plugin skills composed by this skill`; new bullets to
+        `Plugin skills NOT composed`. Additive only — existing preserved.
       - Append "Self-learning checklist" section if missing
+
+Plugin skills composed — additions only (from Step C4.5):
+  <one row per new_composed_skills entry: "Phase <i>: <skill> (trigger: <trigger>)">
+  <omit this block when new_composed_skills is empty>
+
+Plugin skills NOT composed — additions only (from Step C4.5):
+  <one bullet per new_not_composed entry: "- <skill> — <reason>">
+  <omit this block when new_not_composed is empty>
 
 Phases NOT changed:
   - Existing phase bodies preserved verbatim. No renaming, no renumbering.
@@ -660,18 +780,22 @@ When `convert` is received:
    - **5b.** Append the observer Phase body after the ledger phase. Apply `{{N}}`, `{{SKILL_PATH}}`, `{{CLUSTER_THRESHOLD}}` substitutions.
 
    Skip both 5a and 5b if `observer_enabled` is false.
-6. **Append the "Self-learning checklist" section** at the bottom of the SKILL.md if it isn't already present (copy from `SKILL.md.tpl`'s tail).
-7. **Write `skills/<name>/run_history.json`** from the schema v1 "Initial state" snippet, plus any domain FAIL rules from C4. Include the `improvement_suggestions: []` field when `suggestion_capture_enabled` is true; omit otherwise.
-8. **Write `skills/<name>/observations.json`** if `observer_enabled` is true:
+6. **Apply composition additions** (from C4.5). Skip when both `new_composed_skills` and `new_not_composed` are empty. Otherwise use `Edit` to:
+   - Append each `new_composed_skills` row to the existing `Plugin skills composed by this skill` table (or create the section if missing entirely).
+   - Append each `new_not_composed` entry to the existing `Plugin skills NOT composed` bullet list (or create it if missing).
+   - Existing rows and bullets are preserved byte-identical — convert mode is additive only.
+7. **Append the "Self-learning checklist" section** at the bottom of the SKILL.md if it isn't already present (copy from `SKILL.md.tpl`'s tail).
+8. **Write `skills/<name>/run_history.json`** from the schema v1 "Initial state" snippet, plus any domain FAIL rules from C4. Include the `improvement_suggestions: []` field when `suggestion_capture_enabled` is true; omit otherwise.
+9. **Write `skills/<name>/observations.json`** if `observer_enabled` is true:
    - **Empty** (per `observations_schema_v1.md` "Initial state") when retrospective seeding is disabled OR the existing `run_history.json` has no `runs[]` entries.
    - **Seeded** when retrospective seeding is enabled AND `runs[]` has entries: do a paper retrospective on each `runs[].notes`, `friction_log[]`, and any `improvement_suggestions[]` entries; produce 1+ seed `observations[]` entries with back-dated `ts` matching original run timestamps, verbatim evidence (no paraphrase), and category slugs from the standard table. `review_log[]` stays empty so the first live observer run can naturally trigger clustering against the seeded data.
-9. **Write `skills/<name>/suggestions.md`** if `observer_enabled` is true. Use the header-only template from greenfield Step 8b.5 step 2. When retrospective seeding produced seed observations, ALSO append a "State as of bootstrap (\<date\>)" table summarizing sub-cluster counts per `_theme_slug` within each category — same shape as `pr-merge-readiness/suggestions.md` and `shared-bug-gap-fix/suggestions.md`.
+10. **Write `skills/<name>/suggestions.md`** if `observer_enabled` is true. Use the header-only template from greenfield Step 8b.5 step 2. When retrospective seeding produced seed observations, ALSO append a "State as of bootstrap (\<date\>)" table summarizing sub-cluster counts per `_theme_slug` within each category — same shape as `pr-merge-readiness/suggestions.md` and `shared-bug-gap-fix/suggestions.md`.
 
 Use `Edit` (not `Write`) for the SKILL.md changes so existing content is preserved precisely. Use `Write` for new files (`run_history.json`, `observations.json`, `suggestions.md`).
 
 ### Step C7 — Validate the converted skill
 
-Run the same checks as greenfield Step 9 (1–7 always; 8–9 when observer_enabled). Add two convert-specific checks:
+Run the same checks as greenfield Step 9 (1–7 always; 8–9 when observer_enabled; 10 when `new_composed_skills` or `new_not_composed` is non-empty). Add two convert-specific checks:
 
 10. **Original phase bodies preserved byte-identical** — diff each pre-existing phase block against the post-conversion file. Content must match exactly except for any tier annotation added in headings.
 11. **Frontmatter still parses** — confirm the new `metadata` block didn't break any existing field. Every key from the pre-conversion frontmatter must still resolve to the same value.
