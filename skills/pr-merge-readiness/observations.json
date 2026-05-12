@@ -56,7 +56,56 @@
       "evidence": "smoke 401 passed / 1 skipped, targeted 7 passed / 4 skipped",
       "interpretation": "Pytest skip counts reported without per-test rationale. Weak signal on its own — pytest's own skips are normal — but the audit has no mechanism to detect when a branch *introduces new* skips vs. inheriting pre-existing ones. The actually valuable proposal at threshold would be a Phase 4 sub-step comparing the skipped-test list against base. Below threshold; recorded for completeness, observer would not propose at bootstrap.",
       "proposed_audit_tag": null
+    },
+    {
+      "ts": "2026-05-11T17:00:00+02:00",
+      "run_ref": "2026-05-11T17:00:00+02:00",
+      "target": "gaps bugs fixer into dev (current=feat/gap_bugs_fixer)",
+      "category": "missing_audit_category",
+      "_theme_slug": "git-version-compat-not-handled-in-skill",
+      "phase": "2",
+      "evidence": "Phase 2 step 2 ran `git merge-tree --write-tree --name-only origin/dev feat/gap_bugs_fixer` and got exit code 129 with stderr `usage: git merge-tree <base-tree> <branch1> <branch2>`. `git --version` returned `git version 2.37.0.windows.1`; the `--write-tree` form requires git 2.38+. Skill fell back to a worktree probe (`git worktree add --detach $TMPDIR origin/dev` + `git merge --no-commit --no-ff <head>`), which produced the equivalent verdict (`Automatic merge went well; stopped before committing as requested`, exit=0, no unmerged paths). Run 2 (2026-05-08) also hit this — its run-history notes record `legacy 3-arg git merge-tree because git 2.37 lacks --write-tree; exit=0, empty stdout` — but no matching observation was filed.",
+      "interpretation": "The SKILL.md prescribes a command (`git merge-tree --write-tree --name-only ...`) that fails on git versions the operator actually runs. Each run requires ad-hoc fallback. Proper remediation is a Phase 2 sub-step: `git --version | parse → if >=2.38 use --write-tree; else use worktree probe (git worktree add --detach + git merge --no-commit --no-ff + read git diff --diff-filter=U; cleanup with git worktree remove --force)`. Observer count: 1 in observations.json. Real-world count: 2 (this run + 2026-05-08 noted in run_history but not seeded). No proposal at threshold yet, but a third recurrence should trip the convergence rule once another improvement_suggestions[] entry with a matching tag lands.",
+      "proposed_audit_tag": "2-git-version-fallback-not-automatic"
+    },
+    {
+      "ts": "2026-05-11T17:00:00+02:00",
+      "run_ref": "2026-05-11T17:00:00+02:00",
+      "target": "gaps bugs fixer into dev (current=feat/gap_bugs_fixer)",
+      "category": "dev_env_friction",
+      "_theme_slug": "test-container-readonly-mount-blocks-host-tooling",
+      "phase": "7",
+      "evidence": "Phase 7 item #3 was resolved as `Auto-fix now`. Ran `docker compose -f docker-compose.test.yml run --rm --entrypoint=ruff backend check --fix <files>` and got `E902 Read-only file system (os error 30)` for every changed file — `docker-compose.test.yml` mounts source as `./backend/intelligence_platform:/app/intelligence_platform:ro` and `./backend/tests:/app/tests:ro`. Skill fell back to a manual `docker run` with rw mount overrides and `MSYS_NO_PATHCONV=1` for git-bash on Windows: `docker run --rm -v /c/.../backend/intelligence_platform:/app/intelligence_platform:rw -v .../backend/tests:/app/tests:rw -v .../backend/pyproject.toml:/app/pyproject.toml:ro -w //app intelligence-platform-test-backend ruff check --fix <files>` → `Found 86 errors (59 fixed, 27 remaining)`.",
+      "interpretation": "Test-stack compose deliberately mounts source read-only (so tests cannot mutate working tree), which conflicts with any Phase 7 'auto-fix now' resolution that wants to modify the source. Per the observer's narrow exception, this is environmental friction with no clean SKILL.md fix — the test container is correctly read-only by design. The right remediation is operator-side: either run ruff against a local virtualenv (no ruff currently on host PATH per `which ruff` → exit 1), or document the rw-override docker invocation in the SKILL.md as the canonical Phase 7 auto-fix command. Recording in observations.json, not friction_log[], because a SKILL.md doc-edit is plausible (not strictly an environment-only issue).",
+      "proposed_audit_tag": null
+    },
+    {
+      "ts": "2026-05-11T17:00:00+02:00",
+      "run_ref": "2026-05-11T17:00:00+02:00",
+      "target": "gaps bugs fixer into dev (current=feat/gap_bugs_fixer)",
+      "category": "output_format_quality",
+      "_theme_slug": "phase-5-findings-need-severity-and-provenance",
+      "phase": "5",
+      "evidence": "User verbatim mid-Phase-5: 'I need to understand whcich are the issues we have that must be fixed now (high , medium , low prio) before merging and why these issues were not discored in this brach , be brief dont over explain . I need to dunerstand if these issues were already existen issues or we introdued them in this branch , and why there are not regifreted as issue ?' (transcribed verbatim incl. typos). Phase 5 initially surfaced `claude-library:code-diagnosis` output verbatim with the sub-skill's native triage shape (Bugs / Smells / Opportunities), without explicit columns for high/medium/low severity, introduced-by-this-branch vs pre-existing, or fix-now-vs-defer recommendation. The user had to explicitly ask for re-tabulation before being able to decide which items to fix.",
+      "interpretation": "Mirrors the seeded shared-bug-gap-fix observations from 2026-05-08 (`phase-7-findings-need-severity-and-provenance`) and 2026-05-11T15:35 (`phase-7-5-unresolved-items-provenance-unclear`), but in this skill's Phase 5. Underlying pattern: when a findings table reaches the user, it must lead with [severity, provenance, recommended ship-decision] columns by default — not the sub-skill's native triage shape. Phase 5's audit row format could mandate the re-tabulation step after the Skill call returns. First occurrence in this skill's observations.json; no proposal yet, but cross-skill recurrence is now well-attested.",
+      "proposed_audit_tag": "5-findings-table-needs-severity-provenance-columns"
     }
   ],
-  "review_log": []
+  "review_log": [
+    {
+      "ts": "2026-05-11T17:00:00+02:00",
+      "trigger": "convergence",
+      "clustered_theme": "tracker-closure-drift (closure narratives added to COMPLETED_STREAMS.md without corresponding row removal in BUGS_AND_GAPS.md)",
+      "category": "missing_audit_category",
+      "observations_referenced": [
+        "2026-05-08T00:00:00+02:00"
+      ],
+      "improvement_suggestions_referenced": [
+        "2026-05-08T00:00:00+02:00 (tag=5-impl-vs-tracker-check)"
+      ],
+      "suggestion_written_to": "skills/pr-merge-readiness/suggestions.md",
+      "applied_at": null,
+      "applied_via": null
+    }
+  ]
 }
