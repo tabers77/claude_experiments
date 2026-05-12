@@ -72,6 +72,24 @@
       "occurrences": [],
       "remediation_hint": "Phase 7 must enforce: every surfaced item gets ONE of {block-merge, fix-now, skip-with-reason, abort}. Silence or 'looks good' is not a choice. Add explicit FAIL row to the audit when the count of surfaced items exceeds the count of items with a recorded explicit choice.",
       "applied_at": null
+    },
+    "5-tracker-closure-without-row-removal": {
+      "count": 0,
+      "threshold": 1,
+      "phase": "5",
+      "description": "Phase 5 sub-step 4b detected a closure narrative added to one TRACKER_FILE without a matching row removal in the paired tracker. Load-bearing because it defeats the documentation-implementation pairing invariant.",
+      "occurrences": [],
+      "remediation_hint": "In Phase 5 step 4b, for each path in TRACKER_FILES, diff against origin/<BASE_BRANCH>. If the diff adds a closure narrative paragraph (mentioning a tracker ID like W-*/V-*/SP-*/GAP-NNN AND outcome language like closed/fixed/resolved/shipped), confirm the corresponding row was removed from the paired TRACKER_FILE in the same diff. If TRACKER_FILES has <2 entries, skip cleanly and record 'tracker closure-pairing skipped: needs >=2 TRACKER_FILES'.",
+      "applied_at": null
+    },
+    "7-recommendation-gate-not-applied": {
+      "count": 0,
+      "threshold": 2,
+      "phase": "7",
+      "description": "Phase 7 surfaced an item meeting all four `Fix it now (recommended)` preconditions but did NOT mark fix-now as recommended in the option block. Threshold=2 because a single occurrence may be a borderline precondition call; two means the gate logic is drifting.",
+      "occurrences": [],
+      "remediation_hint": "In Phase 7 step 2, evaluate the four preconditions (<=15 lines, code/docs only, smoke re-run <=60s, fix matches one of: missing-import / deprecation comment update / follow-up tracker row / removed-dead-code / narrow exception handler / fail-loud assertion). When ALL four are met, default-recommend fix-now and list it as option #1 (`Fix it now (recommended)`). Otherwise use the symmetric four-option list without recommendation.",
+      "applied_at": null
     }
   },
   "runs": [
@@ -98,6 +116,14 @@
       "verdict": "GREEN",
       "phases_failed": [],
       "notes": "GAP-002 Stages 1-5 merge readiness (cumulative work of 3 prior shared-bug-gap-fix runs: 2026-05-08 Stage 1, 2026-05-11T11 Stages 2-4, 2026-05-11T15:30 Stage 5). Phase 2 clean via worktree probe (git 2.37 lacks --write-tree → fell back to `git worktree add --detach + git merge --no-commit --no-ff`; exit=0, no unmerged paths). Phase 3: smoke 403/1 PASS, frontend lint+typecheck clean, ruff 77 errors on 12 changed files (7× F821 Callable pre-existing on dev verified; 1× F821 SQL_TOOL_NAMES was load-bearing — confirmed by failing test, fixed). Phase 4 (HIGH_BLAST: routes.py, orchestrator*.py, mcp/**, tools/**, registry/**): unit+integration 982 passed, 21 failed → 16 pre-existing on dev baseline, 5 NEW regressions identified. Live UI: LIVE_UI_TEST_COMMAND=null per config (honest skip, no FAIL). Phase 5 Skill(claude-library:code-diagnosis) observed: 3 bugs / 3 smells / 4 opportunities. Phase 6: no env files in diff. Phase 7: 7/7 unresolved items resolved with explicit user choice. Mid-audit Flow-8 fixes: source_tool_mapping.py:216 NameError fixed via get_sql_tool_names() accessor; test_project_registry.py rewrote endpoint test for new ToolCatalogResponse shape; test_sales_negotiator.py switched @patch from query_utils.get_data to finance_tools.get_data/supplier_tools.get_data (root cause: _native_registry eager-import binds the local ref before any test patch installs). Ruff --fix applied 59 cosmetic fixes (item #3). PEP 562 dynamic attrs in services/orchestrator.py and services/source_tool_mapping.py replaced with explicit accessors get_dataset_tool_map()/get_tool_to_datasets()/get_all_dataset_names()/get_sql_tool_names(); all 6 caller sites updated across business_case_orchestrator.py (3 sites), test_orchestrator.py (import dropped, unused), test_tool_registry.py (2 sites), source_tool_mapping.py (1 site). MCP gateway exception logger bumped from debug→warning in routes.py:691 (item #7 partial). Items #1/#2/#5/#6 skipped with verbatim justifications. Post-fix verification: 987 passed, 16 failed (same pre-existing set, 0 new regressions), smoke still 403/1. User typed verbatim 'can I skip this item ?' for item #6 (native_registry shim refactor — deferred to a future stage per the shim's own retirement docstring). Three observations written to .claude/skills/shared-bug-gap-fix/observations.json under category=missing_audit_category with proposed audit tags 6-ruff-on-changed-files-not-blocking, 6-test-tier-escalation-on-high-blast-changes, 6-endpoint-test-pairing-not-verified — attributing the regression-detection responsibility to the bug-gap-fix skill (closure-time owner), not pr-merge-readiness (safety-net owner). User approval token verbatim: 'merge approved'."
+    },
+    {
+      "ts": "2026-05-12T16:30:00+02:00",
+      "target": "merge this branch into dev (current=feat/gap_bugs_fixer; head=f2222aa60908352f742c45921ac89e08102eee33; base=dev)",
+      "outcome": "closed",
+      "verdict": "GREEN",
+      "phases_failed": [],
+      "notes": "GAP-002-followup merge readiness (single shared-bug-gap-fix run on 2026-05-12 closed 8 consumer-site routings through _tool_catalog_union()/_valid_tool_names(); also closed T-M1, T-L2, I-G2; logged T-L3 follow-up). Phase 2 clean (git 2.37 lacks --write-tree → legacy 3-arg `git merge-tree 379ff3a origin/dev feat/gap_bugs_fixer`; 1511 lines output, 0 conflict markers via grep; `git rev-list --count --left-right` = 0\\t9 confirming fast-forward possible — 9 commits ahead, 0 behind). Phase 3: rules-source=.claude/skills/shared-pre-commit-check.md, smoke 403/1 PASS (30.81s), ruff scoped to 5 changed backend files = 68 errors (9 critical: 7×F821 Callable in routes.py at lines 412/470/2752/2891/2954/3428 — ALL pre-existing on dev verified by `git log origin/dev..feat/gap_bugs_fixer -- routes.py` returning only the GAP-002-followup commit; mitigated at runtime by `from __future__ import annotations`; 1×F841 last_evt at routes.py:3138 pre-existing; 1×UP035 typing.Callable at validation.py:22 pre-existing); 59 non-critical (24×I001, 21×E501, 7×F401, 5×N803, 2×N806). Protected=PASS (none of implementation.md/README.md/CLAUDE.md/.gitignore/COLLABORATION.md in diff), safety=PASS (no .env, no migrations, no personal files), ownership=cross-stream (expected for gap-fix branch). Phase 4 (HIGH_BLAST hit: routes.py + business_case_orchestrator.py + tools/validation.py + registry/agent_generator.py): unit 969 passed / 5 FAILED / 6 skip / 450 deselected (63.37s) — all 5 failures in test_mcp_server.py with AttributeError 'FastMCP' object has no attribute '_tool_manager' — verified pre-existing on dev (branch did NOT touch mcp/ or test_mcp_server.py) and TRACKED as BUGS_AND_GAPS row 17 / T-L1 (logged 2026-05-08 with planned fix); integration 32 passed / 16 skip / 1382 deselected (16.78s). Live UI: LIVE_UI_TEST_COMMAND=null per config (no FAIL trip per rule); user-acknowledged config gap noted (project actually has backend/tests/test_live_ui_workflow.py + `live` marker). test-cache lines: NOT WIRED (no [test-cache] ... line in any tier output; conftest.py at repo root present but plugin not loading inside container — likely CLAUDE_PLUGIN_ROOT env var not visible to the container). Phase 5 Skill(claude-library:code-diagnosis, args='5 changed backend files') OBSERVED in session: 0 bugs / 3 medium smells / 3 opportunities; tracker diff (BUGS_AND_GAPS.md + archive/COMPLETED_STREAMS.md) consistent with Flow-8 row move (4 closures + 1 follow-up added). Phase 6: no env files in diff (trivial pass). Phase 7: 5/5 surfaced resolved with explicit choice — Item 1 user selected 'Skip — pre-existing, not regression'; Item 2 user selected 'Skip — tracked as T-L1'; Item 3 user selected 'Skip — refactor only, no behavior change'; Item 4 user typed verbatim 'yes , proceed' → in-session fixes applied to backend/intelligence_platform/registry/agent_generator.py:117-149 (added fail-loud `logger.error` guard when `tool_registry.list_all()` returns empty after side-effect import; split `except Exception:` into `(ConnectionError, TimeoutError, OSError) → logger.info` + bare `Exception → logger.warning` with separate rationale comments) AND smell #3 closed by adding row 19 T-L4 to documentation/implementation_docs/BUGS_AND_GAPS.md Section 2 ('Remove deprecated TOOL_CATALOG / VALID_TOOL_NAMES aliases after one release'); post-fix smoke re-run 403/1 clean (35.00s); Item 5 user selected 'Pass — Flow 8 row move clean' after printed diff review. User approval token verbatim: 'merge approved'. 1 mid-run suggestion captured (phase 7, no tag): 'if fixes are small and we are 100% sure they wont introduce new bugs then we should prefer to suggest to solve this in the same session'. NOTE: in-session edits to agent_generator.py and BUGS_AND_GAPS.md remain uncommitted in the working tree at verdict time — user must commit before running `git merge --ff-only feat/gap_bugs_fixer`."
     }
   ],
   "friction_log": [],
@@ -108,8 +134,8 @@
       "phase": "audit",
       "tag": "5-impl-vs-tracker-check",
       "text": "before surfacing actions in Phase 7, verify what was actually implemented in the branch matches the documentation tracker (BUGS_AND_GAPS.md). This implementation-vs-docs check should run by default as part of Phase 5, not be skipped.",
-      "applied_at": null,
-      "applied_via": null
+      "applied_at": "2026-05-12T18:00:00+02:00",
+      "applied_via": "Inserted Phase 5 step 4b (tracker closure-pairing reconciliation) per convergence-trip proposal in suggestions.md (2026-05-11). Added `5-tracker-closure-without-row-removal` FAIL rule (load-bearing, threshold=1) to Phase 8 and seeded the counter in fail_counters."
     },
     {
       "ts": "2026-05-08T00:00:00+02:00",
@@ -119,6 +145,15 @@
       "text": "render the Phase 8 audit rows as a markdown table (columns: Phase, Status, Evidence) instead of a bulleted 'Phase X [pass] | <evidence>' list — much more readable when evidence strings are long (e.g. full git merge-tree commit hashes).",
       "applied_at": null,
       "applied_via": null
+    },
+    {
+      "ts": "2026-05-12T16:30:00+02:00",
+      "target": "merge this branch into dev (current=feat/gap_bugs_fixer)",
+      "phase": "7",
+      "tag": null,
+      "text": "if fixes are small and we are 100% sure they wont introduce new bugs then we should prefer to suggest to solve this in the same session",
+      "applied_at": "2026-05-12T18:00:00+02:00",
+      "applied_via": "Augmented Phase 7 step 2 with the Recommendation gate (four preconditions: <=15 lines, code/docs only, smoke re-run <=60s, fix matches canonical small-fix categories) plus the reordered option block (`Fix it now (recommended)` listed first when the gate fires). Added `7-recommendation-gate-not-applied` FAIL rule (procedural, threshold=2) to Phase 8 and seeded the counter in fail_counters."
     }
   ]
 }

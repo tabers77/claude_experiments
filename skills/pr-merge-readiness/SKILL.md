@@ -250,6 +250,7 @@ This is the principle-anchor — the skill cannot mark Phase 5 `pass` without an
 2. **Surface findings** in a "Sweep results" block. For each finding: severity, file:line, one-line description.
 3. **Optional**: when Phase 4 step 3 flagged the change as high-blast, also invoke `claude-library:quality-bug-sweep` for the comprehensive scan. Default: skip unless high-blast.
 4. **Diff-anomaly check**: for each path in `TRACKER_FILES`, `git diff origin/<BASE_BRANCH>...<head> -- <tracker-path>`. Confirm only expected rows changed; unexpected diffs are surfaced to Phase 7. If `TRACKER_FILES` is empty, skip this step and record `"diff-anomaly check skipped: no TRACKER_FILES configured"`.
+4b. **Tracker closure-pairing reconciliation**: for each path in `TRACKER_FILES`, diff the file against `origin/<BASE_BRANCH>`. If the diff *adds* a closure narrative (heuristic: a new paragraph mentioning a tracker ID like `W-*`, `V-*`, `SP-*`, `GAP-NNN` *and* outcome language such as "closed", "fixed", "resolved", "shipped"), confirm that the corresponding tracker row in the project's bug/gap tracker (typically the OTHER `TRACKER_FILE` — e.g. `BUGS_AND_GAPS.md` when `COMPLETED_STREAMS.md` got the closure narrative) was *removed* in the same diff. If the row is still present, surface to Phase 7 as a hard item with FAIL tag `5-tracker-closure-without-row-removal`. If `TRACKER_FILES` has fewer than 2 entries (so there's no "other" tracker to pair against), skip cleanly and record `"tracker closure-pairing skipped: needs >=2 TRACKER_FILES"`.
 5. Any new finding (especially severity ≥ medium) → mark Phase 5 FAIL and surface to Phase 7. The user — not the skill — decides whether to skip, fix, or track.
 
 ## Phase 6 — `.env` / `.env.local` review
@@ -292,7 +293,24 @@ Before the audit can run, every unresolved item from Phases 1–6 must be addres
    4. [phase 6] .env.local has API_KEY=sk-real-looking-value (looks like secret)
    ```
 
-2. **For each item, ask the user explicitly** for a choice from this set:
+2. **For each item, ask the user explicitly** for a choice from this set.
+
+   **Recommendation gate (before listing options)**: when a surfaced item meets ALL of the following preconditions, the skill MUST default-recommend `fix-now` and list it as the first option visually:
+
+   - the fix touches ≤ 15 lines AND
+   - the fix is in code or docs only (no schema migrations, no infra config, no security boundary) AND
+   - a re-run of the relevant test tier after the fix is feasible within this session (smoke tier ≤ 60s) AND
+   - the fix description is one of: missing-import, deprecation comment update, follow-up tracker row, removed-dead-code, narrow exception handler, fail-loud assertion.
+
+   When the recommendation gate fires, the option block must read:
+
+   1. **Fix it now (recommended)** — <one-line description>
+   2. Skip with logged justification
+   3. Block the merge
+   4. Abort the run
+
+   When the recommendation gate does NOT fire (any precondition fails), the existing symmetric four-option list is used and the skill does not recommend a default:
+
    - **block the merge** — verdict will be RED. Skill records the reason and proceeds to audit.
    - **fix it now** — user describes the fix; skill applies it (or asks the user to apply); loops back to the originating phase.
    - **skip with logged justification** — user provides a one-line reason. Recorded verbatim in the audit and the run-history ledger.
@@ -337,8 +355,10 @@ The audit runs **before** the print. Print cannot fire until the user explicitly
    - **`2-merge-conflict-not-blocked` FAIL** (load-bearing, threshold=1): Phase 2 marked `pass` but `git merge-tree` output contains conflict markers (`<<<<<<<`, `=======`, `>>>>>>>`) OR exit code was non-zero.
    - **`4-live-test-skipped-without-justification` FAIL** (load-bearing, threshold=1): live UI test skipped AND any diff path matches a glob in `HIGH_BLAST_PATHS` AND `LIVE_UI_TEST_COMMAND` is non-null AND no user-provided skip reason recorded AND `DEV_STACK_PREFLIGHT_URL` preflight (when set) did NOT explicitly fail.
    - **`5-code-diagnosis-narration-only` FAIL** (load-bearing, threshold=1): Phase 5 narrated diagnosis findings without an observed `Skill(skill="claude-library:code-diagnosis", ...)` tool call in this session.
+   - **`5-tracker-closure-without-row-removal` FAIL** (load-bearing, threshold=1): Phase 5 sub-step 4b detected a closure narrative added to one `TRACKER_FILE` without a matching row removal in the paired tracker. Load-bearing because it defeats the documentation-implementation pairing invariant.
    - **`6-env-secret-committed` FAIL** (load-bearing, threshold=1): diff added a `.env*` line whose value matches the secret heuristic (high-entropy ≥32 chars, contains `password=`/`secret=`/`api_key=` with non-placeholder value, hex/base64 strings ≥32 chars) rather than a placeholder.
    - **`7-implicit-skip-no-justification` FAIL** (load-bearing, threshold=1): `surfaced > resolved-with-explicit-choice`. Count = (surfaced − resolved).
+   - **`7-recommendation-gate-not-applied` FAIL** (procedural, threshold=2): Phase 7 surfaced an item meeting all four `Fix it now (recommended)` preconditions but did NOT mark fix-now as recommended in the option block. Threshold=2 because a single occurrence may be a borderline precondition call; two means the gate logic is drifting.
 
 3. **Show the audit and ask the user to confirm OR correct every row.** The audit is NOT approved on silence or partial answer. The skill must wait for the user to:
    - **confirm** each row as written, OR

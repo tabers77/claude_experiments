@@ -89,6 +89,39 @@
       "evidence": "User verbatim mid-Phase-5: 'I need to understand whcich are the issues we have that must be fixed now (high , medium , low prio) before merging and why these issues were not discored in this brach , be brief dont over explain . I need to dunerstand if these issues were already existen issues or we introdued them in this branch , and why there are not regifreted as issue ?' (transcribed verbatim incl. typos). Phase 5 initially surfaced `claude-library:code-diagnosis` output verbatim with the sub-skill's native triage shape (Bugs / Smells / Opportunities), without explicit columns for high/medium/low severity, introduced-by-this-branch vs pre-existing, or fix-now-vs-defer recommendation. The user had to explicitly ask for re-tabulation before being able to decide which items to fix.",
       "interpretation": "Mirrors the seeded shared-bug-gap-fix observations from 2026-05-08 (`phase-7-findings-need-severity-and-provenance`) and 2026-05-11T15:35 (`phase-7-5-unresolved-items-provenance-unclear`), but in this skill's Phase 5. Underlying pattern: when a findings table reaches the user, it must lead with [severity, provenance, recommended ship-decision] columns by default — not the sub-skill's native triage shape. Phase 5's audit row format could mandate the re-tabulation step after the Skill call returns. First occurrence in this skill's observations.json; no proposal yet, but cross-skill recurrence is now well-attested.",
       "proposed_audit_tag": "5-findings-table-needs-severity-provenance-columns"
+    },
+    {
+      "ts": "2026-05-12T16:30:00+02:00",
+      "run_ref": "2026-05-12T16:30:00+02:00",
+      "target": "merge this branch into dev (current=feat/gap_bugs_fixer; head=f2222aa60908352f742c45921ac89e08102eee33; base=dev)",
+      "category": "output_format_quality",
+      "_theme_slug": "phase-5-findings-need-severity-and-provenance",
+      "phase": "7",
+      "evidence": "User verbatim mid-Phase-7 after I surfaced 3 medium smells from claude-library:code-diagnosis: 'I need to undertand if this is something we have introduced or pre existen , how bad it is ? epxlian it in 2 setneces max' (transcribed verbatim incl. typos). The Phase 5 findings reached Phase 7 with the sub-skill's native triage shape (Bugs / Smells / Opportunities), without explicit columns for introduced-by-this-branch vs pre-existing or fix-now-vs-defer recommendation. Same friction as the 2026-05-11 occurrence in this skill (theme phase-5-findings-need-severity-and-provenance) and the cross-skill seeded observations on 2026-05-08/2026-05-11T15:35 in shared-bug-gap-fix.",
+      "interpretation": "Second occurrence of the same theme in this skill (cumulative 2 of threshold 3). Below threshold for a standalone proposal but the pattern is now strongly attested: every run that surfaces non-trivial Phase 5 findings forces the user to manually request severity + provenance + recommendation re-tabulation. A Phase 5 audit-row format that mandates the re-tabulation step after the Skill call returns — leading with columns [severity (High/Med/Low), provenance (new in branch / pre-existing on base), recommended-action (fix-now / defer / skip)] before showing the sub-skill's narrative — would short-circuit this. Recording for clustering, no proposal yet.",
+      "proposed_audit_tag": "5-findings-table-needs-severity-provenance-columns"
+    },
+    {
+      "ts": "2026-05-12T16:30:00+02:00",
+      "run_ref": "2026-05-12T16:30:00+02:00",
+      "target": "merge this branch into dev (current=feat/gap_bugs_fixer)",
+      "category": "user_friction",
+      "_theme_slug": "phase-7-item-label-not-self-explanatory",
+      "phase": "7",
+      "evidence": "User verbatim during the Phase 7 audit-correction loop: 'explain this \"Resolve item 5 now\" what is itme 5 about ? do we need to solve this ? I thought we were clear' (transcribed verbatim incl. typos). Item 5's surfaced label was 'Tracker diff sanity check (`BUGS_AND_GAPS.md` / `COMPLETED_STREAMS.md` row move)' — terse, requires recall of Phase 5 step 4's diff-anomaly check definition. The user had explicitly resolved items 1–4 with confident choices but did not recall what item 5 named; the audit row was the first time the label re-appeared after the original Phase 7 surface ~30 messages earlier.",
+      "interpretation": "Phase 7 item labels survive into the audit as one-line summaries but lose context (the longer explanatory paragraph from the original Phase 7 surface is dropped). When the audit redisplays a FAIL row for an unresolved item, the user has to scroll back or ask. A small fix: when re-displaying audit rows whose items were not explicitly resolved, include the original Phase 7 explanatory paragraph inline. First occurrence in this skill's observations.json; no proposal yet.",
+      "proposed_audit_tag": null
+    },
+    {
+      "ts": "2026-05-12T16:30:00+02:00",
+      "run_ref": "2026-05-12T16:30:00+02:00",
+      "target": "merge this branch into dev (current=feat/gap_bugs_fixer)",
+      "category": "missing_audit_category",
+      "_theme_slug": "phase-7-default-recommend-in-session-fix-for-trivial-changes",
+      "phase": "7",
+      "evidence": "User typed (via `suggest:` trigger-prefix, captured as improvement_suggestions[] entry ts=2026-05-12T16:30:00+02:00): 'if fixes are small and we are 100% sure they wont introduce new bugs then we should prefer to suggest to solve this in the same session'. Mid-flow, the Phase 7 surface for item 4 (3 medium smells in agent_generator.py) presented 4 options ordered `[Skip — track as follow-up, Skip + show tracker diff, Fix smell #3 now, Block merge]` — the `fix-now` option appeared 3rd of 4 with no skill-side recommendation, despite the smells being one-line additions with no behavior change. The user then re-asked twice (`should we register this a gap or not , it is unclear what you recommend here and why`; `I need to undertand if we can fix this quilcy before proceeding`) before I explicitly recommended `#1 + #2 + #3(a)`.",
+      "interpretation": "Phase 7's resolution-options menu currently lists block / fix-now / skip / abort without any default-recommendation logic. For trivial in-session safe fixes (one-line additions, smoke-passing, no behavior change), the skill should default-recommend `fix-now` and order it visually first, instead of treating all four options symmetrically. The user's typed suggestion attests to this in the convergence-rule sense: ≥1 unaddressed observer observation (this one) + matching improvement_suggestions[] entry verbatim → cluster trips on first observer occurrence. Proposal will be written to suggestions.md.",
+      "proposed_audit_tag": null
     }
   ],
   "review_log": [
@@ -104,8 +137,23 @@
         "2026-05-08T00:00:00+02:00 (tag=5-impl-vs-tracker-check)"
       ],
       "suggestion_written_to": "skills/pr-merge-readiness/suggestions.md",
-      "applied_at": null,
-      "applied_via": null
+      "applied_at": "2026-05-12T18:00:00+02:00",
+      "applied_via": "Inserted Phase 5 step 4b (tracker closure-pairing reconciliation) verbatim from the proposal, plus added `5-tracker-closure-without-row-removal` (load-bearing, threshold=1) to Phase 8 FAIL detection rules and seeded the matching counter in run_history.json:fail_counters."
+    },
+    {
+      "ts": "2026-05-12T16:30:00+02:00",
+      "trigger": "convergence",
+      "clustered_theme": "phase-7-default-recommend-in-session-fix-for-trivial-changes (Phase 7 surfaces fix-now as 1-of-4 options with no default recommendation, even for trivial safe fixes; user must escalate to ask for a recommendation)",
+      "category": "missing_audit_category",
+      "observations_referenced": [
+        "2026-05-12T16:30:00+02:00"
+      ],
+      "improvement_suggestions_referenced": [
+        "2026-05-12T16:30:00+02:00 (no tag — user used `suggest:` prefix without bracket-tag)"
+      ],
+      "suggestion_written_to": "skills/pr-merge-readiness/suggestions.md",
+      "applied_at": "2026-05-12T18:00:00+02:00",
+      "applied_via": "Augmented Phase 7 step 2 with the Recommendation gate (four preconditions: <=15 lines, code/docs only, smoke re-run <=60s, fix matches canonical small-fix categories) and the reordered option block that lists `Fix it now (recommended)` first when the gate fires. Added `7-recommendation-gate-not-applied` (procedural, threshold=2) to Phase 8 FAIL detection rules and seeded the matching counter in run_history.json:fail_counters."
     }
   ]
 }

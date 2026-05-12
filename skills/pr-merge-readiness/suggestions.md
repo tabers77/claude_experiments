@@ -64,7 +64,62 @@ Add the corresponding entry to Phase 8 FAIL detection rules:
   it defeats the documentation-implementation pairing invariant.
 ```
 
-**Status**: unreviewed
-**Applied at**: null
-**Applied via**: null
+**Status**: applied
+**Applied at**: 2026-05-12T18:00:00+02:00
+**Applied via**: Inserted Phase 5 step 4b (tracker closure-pairing reconciliation) verbatim from the proposal, plus added `5-tracker-closure-without-row-removal` (load-bearing, threshold=1) to Phase 8 FAIL detection rules and seeded the matching counter in `run_history.json:fail_counters`.
+
+---
+
+## 2026-05-12 — Theme: phase-7-default-recommend-in-session-fix-for-trivial-changes (Phase 7 surfaces `fix-now` as 1-of-4 options with no default recommendation, even for trivial safe fixes)
+
+**Pattern observed**: convergence trip — one observer observation (this run) + one matching user-typed improvement-suggestion (this run). Per the convergence rule, this fires as a proposal regardless of count.
+
+- **Observation** (`observations.json` ts=`2026-05-12T16:30:00+02:00`, target=`merge this branch into dev (current=feat/gap_bugs_fixer)`, phase=`7`, category=`missing_audit_category`, theme=`phase-7-default-recommend-in-session-fix-for-trivial-changes`): verbatim evidence — "Mid-flow, the Phase 7 surface for item 4 (3 medium smells in agent_generator.py) presented 4 options ordered `[Skip — track as follow-up, Skip + show tracker diff, Fix smell #3 now, Block merge]` — the `fix-now` option appeared 3rd of 4 with no skill-side recommendation, despite the smells being one-line additions with no behavior change. The user then re-asked twice (`should we register this a gap or not , it is unclear what you recommend here and why`; `I need to undertand if we can fix this quilcy before proceeding`) before I explicitly recommended `#1 + #2 + #3(a)`."
+
+- **Matching user-typed improvement-suggestion** (`run_history.json:improvement_suggestions[]` ts=`2026-05-12T16:30:00+02:00`, phase=`7`, no tag): verbatim text — "if fixes are small and we are 100% sure they wont introduce new bugs then we should prefer to suggest to solve this in the same session"
+
+**Interpretation**: two independent channels (the observer's pattern-spot of the Phase 7 option-ordering + the user's explicit feedback) agree that Phase 7 should default-recommend `fix-now` for trivial safe items rather than treating all four options symmetrically. The current SKILL.md text (Phase 7 step 2) lists `block-merge / fix-now / skip-with-justification / abort` without any triage logic on what "trivial" or "safe" means; the operator (Claude) is left to decide ad-hoc whether to recommend in-session fix, and in this run did so only after the user pushed back twice. A small triage rule with falsifiable preconditions would short-circuit this.
+
+**Proposed change to SKILL.md**:
+
+Augment Phase 7 step 2 to add an explicit recommendation gate before listing the four options. Insert after the existing "For each item, ask the user explicitly for a choice from this set" sentence:
+
+```
+**Recommendation gate (before listing options)**: when a surfaced item
+meets ALL of the following preconditions, the skill MUST default-recommend
+`fix-now` and list it as the first option visually:
+
+  - the fix touches ≤ N lines (suggested N=15) AND
+  - the fix is in code or docs only (no schema migrations, no infra
+    config, no security boundary) AND
+  - a re-run of the relevant test tier after the fix is feasible within
+    this session (smoke tier ≤ 60s) AND
+  - the fix description is one of: missing-import, deprecation comment
+    update, follow-up tracker row, removed-dead-code, narrow exception
+    handler, fail-loud assertion.
+
+When the recommendation gate fires, the option block must read:
+  1. **Fix it now (recommended)** — <one-line description>
+  2. Skip with logged justification
+  3. Block the merge
+  4. Abort the run
+
+When the recommendation gate does NOT fire (any precondition fails), the
+existing symmetric four-option list is used and the skill does not
+recommend a default.
+```
+
+Add the corresponding entry to Phase 8 FAIL detection rules (procedural, not load-bearing — UX guidance is not safety-critical):
+
+```
+- **`7-recommendation-gate-not-applied` FAIL** (procedural, threshold=2):
+  Phase 7 surfaced an item meeting all four `Fix it now (recommended)`
+  preconditions but did NOT mark fix-now as recommended in the option
+  block. Threshold=2 because a single occurrence may be a borderline
+  precondition call; two means the gate logic is drifting.
+```
+
+**Status**: applied
+**Applied at**: 2026-05-12T18:00:00+02:00
+**Applied via**: Augmented Phase 7 step 2 with the Recommendation gate (four preconditions: ≤15 lines, code/docs only, smoke re-run ≤60s, fix matches canonical small-fix categories) and the reordered option block that lists `Fix it now (recommended)` first when the gate fires. Added `7-recommendation-gate-not-applied` (procedural, threshold=2) to Phase 8 FAIL detection rules and seeded the matching counter in `run_history.json:fail_counters`.
 
