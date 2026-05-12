@@ -6,8 +6,12 @@ documentation/BRAINSTORMING.md
 .claude/agents/
 
 # Own local config files
-TODO.md 
+TODO.md
 appendix
 venv
-.env 
+.env
 .vscode
+
+# Python bytecode
+__pycache__/
+*.pyc

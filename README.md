@@ -365,6 +365,8 @@ claude_experiments/
 │   ├── skill-activation-hook.py  # UserPromptSubmit hook for auto-suggesting skills
 │   ├── sensitive-file-hook.py    # PreToolUse hook for sensitive file guidance
 │   ├── session-start-hook.py     # SessionStart hook for plugin validation
+│   ├── test_cache.py             # SHA-keyed pytest result cache — CLI helper + shared functions
+│   ├── pytest_test_cache.py      # Pytest plugin: auto-skips already-passed tests, auto-records
 │   └── quality-action/           # Weekly quality check (GitHub Action)
 │       ├── run_analysis.py       # Scan repo → call Azure OpenAI → markdown report
 │       ├── requirements.txt      # Action dependencies

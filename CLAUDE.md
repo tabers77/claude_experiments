@@ -40,6 +40,15 @@ A skill-authoring pattern for skills that improve their own `SKILL.md` based on 
 - `library/templates/self-learning-skill/` — `SKILL.md.tpl`, `audit-phase.md`, `ledger-phase.md`, `run_history_schema_v1.md`
 - `documentation/SELF_LEARNING_SKILLS.md` — design doc, invariants, authoring checklist
 
+### Test-cache (shared, branch-level)
+A commit-SHA-keyed pytest result cache that's a property of the **target repo + branch**, not of any specific skill. Once a target repo opts in (one-time `conftest.py` snippet — see `documentation/TEST_CACHE_SETUP.md`), every pytest invocation in that repo participates: previously-passed tests for the current HEAD SHA are auto-deselected on a clean tree, and fresh results are auto-recorded to `documentation/test-results/<sha>.json` in the target repo. Any skill running pytest — `shared-bug-gap-fix`, `pr-merge-readiness`, `commit-ready`, raw human pytest, CI — contributes and benefits without skill-specific plumbing.
+
+Two scripts:
+- `scripts/pytest_test_cache.py` — the **pytest plugin**. Hooks `pytest_collection_modifyitems` (deselect already-passed) and `pytest_sessionfinish` (record). Adds the `--no-test-cache` flag for per-run opt-out.
+- `scripts/test_cache.py` — **CLI helper** for inspection: `status`, `lookup`, plus the underlying functions (`load_entry`, `save_entry`, `is_tree_clean`, junit parsing) the plugin reuses.
+
+`pr-merge-readiness` Phase 4 assumes the project has opted in: pytest commands are plain (no per-tier plumbing), and the audit row captures the `[test-cache] …` summary line emitted by the plugin.
+
 ### Hooks
 - **SessionStart:** Validate plugin and show skill count on new sessions via `scripts/session-start-hook.py`
 - **UserPromptSubmit:** Auto-suggest relevant skills based on user prompt via `skill-rules.json` + `scripts/skill-activation-hook.py`
@@ -55,6 +64,8 @@ A skill-authoring pattern for skills that improve their own `SKILL.md` based on 
 - `scripts/skill-activation-hook.py` — UserPromptSubmit hook script for skill auto-suggestion
 - `scripts/sensitive-file-hook.py` — PreToolUse hook injecting guidance for sensitive file edits
 - `scripts/session-start-hook.py` — SessionStart hook validating plugin on new sessions
+- `scripts/test_cache.py` — Commit-SHA-keyed pytest result cache: CLI helper for inspection + shared functions
+- `scripts/pytest_test_cache.py` — Pytest plugin that auto-skips already-passed tests and auto-records results (see Test-cache helper below)
 - `skill-rules.json` — Trigger patterns mapping user prompts to skills
 
 ## Rules for Contributing

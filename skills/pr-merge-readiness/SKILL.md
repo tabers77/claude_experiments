@@ -220,6 +220,8 @@ Apply the project's pre-commit-check rules (resolved from `PRE_COMMIT_RULES_PATH
 
 Run the test tiers that actually exercise the changed surface — not the full suite. Routing is driven by the config block; project-specific paths and commands live there, not here.
 
+**Test-cache integration**: the project is expected to have wired up the SHA-keyed pytest cache plugin (see `documentation/TEST_CACHE_SETUP.md` in the claude-library plugin). When wired, every pytest command below transparently **deselects tests already passed for the current HEAD SHA on a clean tree** and **records fresh results** to `documentation/test-results/<sha>.json` — no per-tier plumbing needed; the plugin lives in pytest's lifecycle hooks. The cache file is intended to be committed alongside the code change so teammates pulling the same SHA inherit the cache. If the project hasn't opted in, every tier runs the full set unchanged. Each pytest tier below produces a terminal line like `[test-cache] skipped N tests …` or `[test-cache] recorded N results …` (or `[test-cache] disabled: <reason>`); capture that line verbatim into step 4 telemetry.
+
 1. **Compute the changed surface**: `git diff --name-only origin/<BASE_BRANCH>...<head>`. Bucket files by extension and `HIGH_BLAST_PATHS` membership:
    - Frontend (`*.tsx`, `*.ts`, `*.jsx`, `*.js`, `**/frontend/**`): run `DEFAULT_TEST_COMMANDS.lint_frontend && DEFAULT_TEST_COMMANDS.typecheck_frontend`.
    - Backend Python — no match against `HIGH_BLAST_PATHS`, no DB layer touched: run `DEFAULT_TEST_COMMANDS.smoke`.
@@ -231,9 +233,9 @@ Run the test tiers that actually exercise the changed surface — not the full s
    - `DEV_STACK_PREFLIGHT_URL` is set AND the preflight call (`curl -fs <DEV_STACK_PREFLIGHT_URL>`) returns non-2xx → record the failed URL + status code, skip cleanly.
    - The user provides an explicit skip reason via Phase 7 (recorded verbatim).
 
-   Skipping without one of these → `4-live-test-skipped-without-justification` FAIL.
+   Skipping without one of these → `4-live-test-skipped-without-justification` FAIL. **The live UI tier should be invoked with `--no-test-cache`** so it always runs fresh — UI tests usually depend on external state (a running dev stack) that the SHA alone doesn't capture.
 3. **Optional blast-radius probe**: when any diff path matches `HIGH_BLAST_PATHS`, invoke `claude-library:safe-changes-impact-check` and fold its findings into Phase 5/7. This is a recommendation, not mandatory.
-4. **Capture per-tier telemetry** for the audit: tier name, exact command run (with config values resolved), wall-clock, pass count, fail count, skipped count.
+4. **Capture per-tier telemetry** for the audit: tier name, exact command run (with config values resolved), wall-clock, pass count, fail count, skipped count, and the **verbatim `[test-cache] …` line** emitted by the pytest plugin for that tier (or `"[test-cache] not wired"` when the project hasn't opted in).
 
 ## Phase 5 — No-new-bugs sweep
 
@@ -315,7 +317,7 @@ The audit runs **before** the print. Print cannot fire until the user explicitly
    - Phase 1 [pass]      | input parsed: <mode> <target>; user input verbatim: "<literal quote>"
    - Phase 2 [pass|FAIL] | git merge-tree --write-tree --name-only origin/<BASE_BRANCH> <head>: exit=<code>; conflicts: <none|<paths>>
    - Phase 3 [pass|FAIL] | rules-source=<resolved PRE_COMMIT_RULES_PATH or "defaults">; outcomes: smoke=<...>, lint=<...>, protected=<...>, ownership=<...>, safety=<...>
-   - Phase 4 [pass|FAIL] | tiers run: <list>; results: <pass/fail/skipped counts per tier>; live UI: <ran|skipped + reason>
+   - Phase 4 [pass|FAIL] | tiers run: <list>; results: <pass/fail/skipped counts per tier>; test-cache lines (verbatim, per tier): <list, or "not wired">; live UI: <ran|skipped + reason>
    - Phase 5 [pass|FAIL] | claude-library:code-diagnosis Skill call observed: <yes/no>; findings: <count> at <file:line list>
    - Phase 6 [pass|FAIL] | env files in diff: <yes/no>; if yes: secrets-heuristic=<pass|FAIL+evidence>, placeholder=<pass|FAIL>, .env.example sync=<ok|missing>
    - Phase 7 [pass|FAIL] | unresolved items: <N surfaced> / <M resolved-with-explicit-choice>; user input verbatim: "<literal quote>"
