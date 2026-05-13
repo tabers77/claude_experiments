@@ -123,3 +123,54 @@ Add the corresponding entry to Phase 8 FAIL detection rules (procedural, not loa
 **Applied at**: 2026-05-12T18:00:00+02:00
 **Applied via**: Augmented Phase 7 step 2 with the Recommendation gate (four preconditions: ≤15 lines, code/docs only, smoke re-run ≤60s, fix matches canonical small-fix categories) and the reordered option block that lists `Fix it now (recommended)` first when the gate fires. Added `7-recommendation-gate-not-applied` (procedural, threshold=2) to Phase 8 FAIL detection rules and seeded the matching counter in `run_history.json:fail_counters`.
 
+---
+
+## 2026-05-13 — Theme: audit-rows-hard-to-read-when-evidence-strings-are-long (bulleted `Phase X [pass] | <long evidence>` format wraps badly in narrow terminals)
+
+**Pattern observed**: convergence trip — one observer observation (this run) + TWO matching user-typed improvement-suggestions (2026-05-08 + 2026-05-13). Per the convergence rule, this fires as a proposal regardless of count, and the doubled user signal strengthens the case.
+
+- **Observation** (`observations.json` ts=`2026-05-13T19:00:00+02:00`, target=`this branch into dev (current=feat/stream_n)`, phase=`8`, category=`output_format_quality`, theme=`audit-rows-hard-to-read-when-evidence-strings-are-long`): verbatim evidence — "User typed (via `suggestion :` trigger-prefix, captured as improvement_suggestions[] entry ts=2026-05-13T19:00:00+02:00, tag=output_format_quality): 'this part is unredable : - Phase 1 [pass] | input parsed: current mode, head=feat/stream_n, base=dev; user input verbatim: \"this branch into dev\" - Phase 2 [pass] | git 2.37.0 lacks `merge-tree --write-tree`; fell back to `git merge-base origin/dev feat/stream_n` → d38c48c (equal to origin/dev HEAD) ⇒ branch is 11 commits ahead, 0 behind, strict fast-forward possible, zero conflicts. Exit 0.' The pasted excerpt shows Phase 1 + Phase 2 audit rows wrapping mid-sentence due to terminal width — bullet markers (`-`), the `Phase X [pass] |` prefix, and the evidence body fragment onto multiple lines that break readability."
+
+- **Matching user-typed improvement-suggestion #1** (`run_history.json:improvement_suggestions[]` ts=`2026-05-08T00:00:00+02:00`, phase=`audit`, tag=`8-audit-table-format`): verbatim text — "render the Phase 8 audit rows as a markdown table (columns: Phase, Status, Evidence) instead of a bulleted 'Phase X [pass] | <evidence>' list — much more readable when evidence strings are long (e.g. full git merge-tree commit hashes)."
+
+- **Matching user-typed improvement-suggestion #2** (`run_history.json:improvement_suggestions[]` ts=`2026-05-13T19:00:00+02:00`, phase=`8`, tag=`output_format_quality`): verbatim text — "this part is unredable : - Phase 1 [pass] | input parsed: current mode, head=feat/stream_n, base=dev; user input verbatim: \"this branch into dev\" - Phase 2 [pass] | git 2.37.0 lacks `merge-tree --write-tree`; fell back to `git merge-base origin/dev feat/stream_n` → d38c48c (equal to origin/dev HEAD) ⇒ branch is 11 commits ahead, 0 behind, strict fast-forward possible, zero conflicts. Exit 0."
+
+**Interpretation**: two independent user-typed signals + one observer observation agree that the bulleted `- Phase X [pass] | <evidence>` format is unreadable when evidence strings approach or exceed terminal width. The 2026-05-08 signal proposed the structural fix (markdown table with `| Phase | Status | Evidence |` columns); the 2026-05-13 signal reaffirms the pain. The remediation is mechanical (re-template Phase 8 step 1) and orthogonal to the audit's load-bearing principles — switching from bullets to a table preserves verbatim evidence + verbatim user quotes (the actual safety contract), it only changes presentation.
+
+**Proposed change to SKILL.md**:
+
+Replace the bulleted audit-row template in Phase 8 step 1 with a markdown-table form. Current text (verbatim from SKILL.md):
+
+```
+Each row format: `- Phase X [pass|FAIL] | <evidence>` where `<evidence>` is a literal command, output snippet, file:line reference, or quoted user input.
+```
+
+Proposed replacement:
+
+```
+Each row is a markdown-table row with three columns: `| Phase X | pass|FAIL | <evidence> |` where `<evidence>` is a literal command, output snippet, file:line reference, or quoted user input. Long evidence strings stay on a single logical line (the table cell) and the markdown renderer wraps them; bulleted line-wrapping in terminals breaks readability when evidence approaches 100+ chars.
+```
+
+And replace the example block at the top of Phase 8 step 1 (the `Self-audit for run on <input> at <ts>:` template) with the table form:
+
+```
+Self-audit for run on <input> at <ts>:
+
+| Phase | Status | Evidence |
+|-------|--------|----------|
+| 1 | pass | input parsed: <mode> <target>; user input verbatim: "<literal quote>" |
+| 2 | pass | git merge-tree --write-tree --name-only origin/<BASE_BRANCH> <head>: exit=<code>; conflicts: <none\|<paths>> |
+| 3 | pass\|FAIL | rules-source=<resolved PRE_COMMIT_RULES_PATH or "defaults">; outcomes: smoke=<...>, lint=<...>, protected=<...>, ownership=<...>, safety=<...> |
+| 4 | pass\|FAIL | tiers run: <list>; results: <pass/fail/skipped per tier>; test-cache: <verbatim lines or "not wired">; live UI: <ran\|skipped + reason> |
+| 5 | pass\|FAIL | claude-library:code-diagnosis Skill call observed: <yes/no>; findings: <count> at <file:line list> |
+| 6 | pass\|FAIL | env files in diff: <yes/no>; if yes: secrets-heuristic=<...>, placeholder=<...>, .env.example sync=<...> |
+| 7 | pass\|FAIL | unresolved items: <N surfaced> / <M resolved-with-explicit-choice>; user input verbatim: "<literal quote>" |
+```
+
+No FAIL detection rule needs to change — this is pure presentation. The load-bearing verbatim-quote rule (`audit-paraphrased-user-input`) still applies inside the table cell exactly as before.
+
+**Status**: applied
+**Applied at**: 2026-05-13T19:30:00+02:00
+**Applied via**: Replaced Phase 8 step 1 bulleted self-audit template with a three-column markdown table (`| Phase | Status | Evidence |`) and rewrote the row-format sentence accordingly. Pipe characters inside the `Status` and `Evidence` cells are escaped as `\|` for renderer correctness. No FAIL counter changes — purely presentational, the verbatim-quote rule still applies inside cells.
+
+

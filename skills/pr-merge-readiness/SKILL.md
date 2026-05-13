@@ -332,16 +332,19 @@ The audit runs **before** the print. Print cannot fire until the user explicitly
 
    ```
    Self-audit for run on <input> at <ts>:
-   - Phase 1 [pass]      | input parsed: <mode> <target>; user input verbatim: "<literal quote>"
-   - Phase 2 [pass|FAIL] | git merge-tree --write-tree --name-only origin/<BASE_BRANCH> <head>: exit=<code>; conflicts: <none|<paths>>
-   - Phase 3 [pass|FAIL] | rules-source=<resolved PRE_COMMIT_RULES_PATH or "defaults">; outcomes: smoke=<...>, lint=<...>, protected=<...>, ownership=<...>, safety=<...>
-   - Phase 4 [pass|FAIL] | tiers run: <list>; results: <pass/fail/skipped counts per tier>; test-cache lines (verbatim, per tier): <list, or "not wired">; live UI: <ran|skipped + reason>
-   - Phase 5 [pass|FAIL] | claude-library:code-diagnosis Skill call observed: <yes/no>; findings: <count> at <file:line list>
-   - Phase 6 [pass|FAIL] | env files in diff: <yes/no>; if yes: secrets-heuristic=<pass|FAIL+evidence>, placeholder=<pass|FAIL>, .env.example sync=<ok|missing>
-   - Phase 7 [pass|FAIL] | unresolved items: <N surfaced> / <M resolved-with-explicit-choice>; user input verbatim: "<literal quote>"
+
+   | Phase | Status | Evidence |
+   |-------|--------|----------|
+   | 1 | pass | input parsed: <mode> <target>; user input verbatim: "<literal quote>" |
+   | 2 | pass | git merge-tree --write-tree --name-only origin/<BASE_BRANCH> <head>: exit=<code>; conflicts: <none\|<paths>> |
+   | 3 | pass\|FAIL | rules-source=<resolved PRE_COMMIT_RULES_PATH or "defaults">; outcomes: smoke=<...>, lint=<...>, protected=<...>, ownership=<...>, safety=<...> |
+   | 4 | pass\|FAIL | tiers run: <list>; results: <pass/fail/skipped per tier>; test-cache: <verbatim lines or "not wired">; live UI: <ran\|skipped + reason> |
+   | 5 | pass\|FAIL | claude-library:code-diagnosis Skill call observed: <yes/no>; findings: <count> at <file:line list> |
+   | 6 | pass\|FAIL | env files in diff: <yes/no>; if yes: secrets-heuristic=<...>, placeholder=<...>, .env.example sync=<...> |
+   | 7 | pass\|FAIL | unresolved items: <N surfaced> / <M resolved-with-explicit-choice>; user input verbatim: "<literal quote>" |
    ```
 
-   Each row format: `- Phase X [pass|FAIL] | <evidence>` where `<evidence>` is a literal command, output snippet, file:line reference, or quoted user input.
+   Each row is a markdown-table row with three columns: `| Phase X | pass|FAIL | <evidence> |` where `<evidence>` is a literal command, output snippet, file:line reference, or quoted user input. Long evidence strings stay on a single logical line (the table cell) and the markdown renderer wraps them; bulleted line-wrapping in terminals breaks readability when evidence approaches 100+ chars.
 
 2. **FAIL detection rules** — these trigger automatically; the skill cannot mark `pass` without satisfying them:
 
