@@ -173,4 +173,36 @@ No FAIL detection rule needs to change — this is pure presentation. The load-b
 **Applied at**: 2026-05-13T19:30:00+02:00
 **Applied via**: Replaced Phase 8 step 1 bulleted self-audit template with a three-column markdown table (`| Phase | Status | Evidence |`) and rewrote the row-format sentence accordingly. Pipe characters inside the `Status` and `Evidence` cells are escaped as `\|` for renderer correctness. No FAIL counter changes — purely presentational, the verbatim-quote rule still applies inside cells.
 
+---
+
+## 2026-05-15 — Theme: phase-6-env-review-trivially-passes (Phase 6 has fired in every recorded run since 2026-05-07 and produced "no env files in diff (trivial pass)" every time; user has now explicitly asked to remove the standalone phase)
+
+**Pattern observed**: convergence trip — one observer observation + one matching user-typed improvement-suggestion. Per the convergence rule, this fires as a proposal regardless of count. Cross-run history is unanimous (6/6 runs trivially passed Phase 6) so the empirical signal is strong on its own.
+
+- **Observation** (`observations.json` ts=`2026-05-15T18:00:00+02:00`, target=`merge this branch into dev (current=feat/cicd-pipeline; head=a0e6a007110b585755207e4a58b447d101037c04)`, phase=`6`, category=`redundant_phase`, theme=`phase-6-env-review-trivially-passes`): verbatim cross-run evidence — every recorded run since 2026-05-07 has Phase 6 evidence string containing "no env files in diff (trivial pass)" or equivalent. The load-bearing FAIL rule `6-env-secret-committed` has never tripped (counter still at 0). Six runs across diverse branches (feat/auth-foundation, feat/bug_gap_skill_test, feat/gap_bugs_fixer ×2, feat/stream_n, feat/cicd-pipeline) all touched zero `.env*` files.
+
+- **Matching user-typed improvement-suggestion** (`run_history.json:improvement_suggestions[]` ts=`2026-05-15T18:00:00+02:00`, phase=`audit`, tag=`6-phase-redundant`): verbatim text — "this step was used once 'Phase 6: .env / .env.local review' we should just remove it" (captured via near-miss trigger prefix `suggest:` interpreted as `suggestion:`; intent unambiguous).
+
+**Interpretation**: two independent channels agree that Phase 6 as a *standalone* phase is over-instrumented for this project's actual workflow. However, the load-bearing principle (no secret-in-.env-committed) still needs preserving — pure removal would silently lose protection if a future branch DID stage a `.env.local` with a real secret. The right structural fix is to fold the env-secret check into Phase 3's safety sub-step (where protected-files / migration-number / personal-files checks already live), so the audit no longer renders a separate Phase 6 row when `.env*` files are absent, while the load-bearing detection still fires inside Phase 3 when they are present. This shrinks the audit table from 7 rows to 6 in the common case (zero env diffs) and merges related safety checks under a single phase header.
+
+**Proposed change to SKILL.md** (option A — recommended): **fold Phase 6 into Phase 3's safety sub-step.**
+
+1. In Phase 3 step 2 ("Default checks") and step 3 ("Run each rule against the diff"), add a sub-bullet under safety: "`.env*` / `*.pem` / `*.key` files in diff: if present, run the secret-heuristic from current Phase 6 (high-entropy ≥32 chars, `password=` / `secret=` / `api_key=` patterns, .env.example sync, placeholder convention). If any heuristic trips, surface to Phase 7 with FAIL tag `6-env-secret-committed`."
+2. In Phase 3 step 4 ("Aggregate outcomes"), extend the row with `env-secrets=<pass|FAIL+files>`.
+3. Move the FAIL rule `6-env-secret-committed` from "Domain FAIL rules" to be evaluated as part of the Phase 3 row; keep its tag, threshold, description, and remediation_hint unchanged so existing `run_history.json:fail_counters` continues to map. Phase 8 evidence row 3 becomes `protected=<...>, ownership=<...>, safety=<... + env-secrets=<...>>`.
+4. Delete the standalone "## Phase 6 — `.env` / `.env.local` review" section entirely. Re-number subsequent phases (Phase 7→6, Phase 8→7, Phase 9→8, Phase 10→9) OR keep current numbering with Phase 6 marked "(reserved — folded into Phase 3)" to avoid breaking external references. Recommend the latter for minimal disruption.
+5. Update the Phase 8 audit table template to drop the Phase 6 row entirely (since its outcome is now inside the Phase 3 row's `safety` field).
+
+**Proposed change to SKILL.md** (option B — alternative): **keep Phase 6 but suppress its audit row when no env files are touched.**
+
+1. In Phase 6 step 1, when the `Select-String -Pattern '\.env(\.[a-z]+)?$'` filter returns zero hits, mark Phase 6 as "phase-skipped-no-env-files" and explicitly do NOT emit a Phase 8 audit row for it.
+2. When env files ARE in the diff, Phase 6 runs the full current check set and emits a Phase 8 audit row as it does today.
+3. Phase 8 audit template becomes a variable-row table — Phase 6 row appears only when `phase6_status != "phase-skipped-no-env-files"`.
+
+**Recommended**: option A. Folding into Phase 3 is a one-time structural edit; option B preserves the dead phase as a placeholder and adds variable-row logic to Phase 8 just to hide it.
+
+**Status**: applied
+**Applied at**: 2026-05-16T00:00:00+02:00
+**Applied via**: Implemented option A. Folded the env-secret heuristic table (5 checks: secret heuristic, placeholder convention, .env.example sync, naming convention, .env.local-when-ignored) into Phase 3 step 2's default checks as an env-file safety sub-bullet. Extended Phase 3 step 4 aggregate-outcomes row with `env-secrets=<no-env-files|pass|FAIL+files>`. Replaced standalone Phase 6 section with a reserved placeholder pointing at Phase 3 (kept phase numbering to avoid breaking Phase 7/8/9/10 external references). Dropped Phase 6 row from the Phase 8 audit table and folded its outcome into the Phase 3 row's `env-secrets=` segment. Retained FAIL tag `6-env-secret-committed` (load-bearing, threshold=1) for counter continuity in `run_history.json:fail_counters`; rule description updated to note evaluation now happens within Phase 3 step 2. Updated opening principle ("six gates" → "five gates"), Phase 7 sources list, Phase 7 example-item phase tag (`[phase 6]` → `[phase 3]`), "Phases 1–6" → "Phases 1–5" in Phase 7 auto-pass clause, and Edge cases item 3 accordingly.
+
 

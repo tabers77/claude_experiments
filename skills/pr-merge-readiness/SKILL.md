@@ -8,9 +8,9 @@ metadata:
 
 # PR Merge Readiness
 
-End-to-end pre-merge validation for a feature branch targeting `dev`. The skill walks six gates — clean-merge probe, pre-commit-check rules, relevant-tests run, no-new-bugs sweep, env-file review, and explicit user resolution — then emits a structured verdict. It NEVER runs `git merge` or `gh pr merge`; the user takes that step manually after reading a green verdict.
+End-to-end pre-merge validation for a feature branch targeting `dev`. The skill walks five gates — clean-merge probe, pre-commit-check rules (incl. env-file safety), relevant-tests run, no-new-bugs sweep, and explicit user resolution — then emits a structured verdict. It NEVER runs `git merge` or `gh pr merge`; the user takes that step manually after reading a green verdict.
 
-**Load-bearing principle**: the merge is approved only when all six gates produce verbatim, falsifiable evidence: clean-merge proof, pre-commit-check rules, relevant-tests pass (incl. live UI when applicable), no-new-bugs sweep, env-file review, and explicit user resolution of every surfaced item.
+**Load-bearing principle**: the merge is approved only when all five gates produce verbatim, falsifiable evidence: clean-merge proof, pre-commit-check rules (incl. env-file safety), relevant-tests pass (incl. live UI when applicable), no-new-bugs sweep, and explicit user resolution of every surfaced item.
 
 ## Inputs
 
@@ -203,7 +203,17 @@ Apply the project's pre-commit-check rules (resolved from `PRE_COMMIT_RULES_PATH
    - Smoke tests pass (`DEFAULT_TEST_COMMANDS.smoke`).
    - Lint clean on changed files (`DEFAULT_TEST_COMMANDS.lint_python` and/or `DEFAULT_TEST_COMMANDS.lint_frontend`, depending on which file types are in the diff).
    - No protected files staged (configurable per project; common defaults: `CLAUDE.md`, `.gitignore`, top-level docs).
-   - No secrets/credentials staged (`.env`, `.env.local`, `*.pem`, `id_rsa`, etc.).
+   - **Env-file safety**: detect `.env*` / `*.pem` / `*.key` / `id_rsa` in the diff via `git diff --name-only origin/<BASE_BRANCH>...<head> | Select-String -Pattern '\.env(\.[a-z]+)?$|\.(pem|key)$|id_rsa'`. If any are present, for each file run the env-secret heuristic:
+
+     | Check | What to look for | Trip condition |
+     |---|---|---|
+     | Secret heuristic | values matching high-entropy ≥32 chars, hex/base64 ≥32 chars, `password=` / `secret=` / `api_key=` with non-placeholder values, or known key prefixes (AKIA, AIza, sk-, etc.) | Any value matches → `6-env-secret-committed` FAIL |
+     | Placeholder convention | placeholders use one of: `<your-key-here>`, `change-me`, `REPLACE_ME`, empty string | Real values where placeholder expected → FAIL |
+     | `.env.example` sync | when a new var is added to `.env` / `.env.local`, the same var name appears in `.env.example` | Missing → surface to Phase 7 (procedural, not load-bearing) |
+     | Naming convention | UPPER_SNAKE_CASE; consistent prefixes for grouped vars | Mixed case or no prefix when peers have one → surface to Phase 7 |
+     | `.env.local` not committed when ignored | `.env.local` typically in `.gitignore`; if it IS in the diff, confirm intentional | Staged + ignored → hard surface to Phase 7 |
+
+     If no `.env*` / `*.pem` / `*.key` files are in the diff, record `env-secrets=no-env-files` and skip the heuristic table.
 3. **Run each rule against the diff** between `origin/<BASE_BRANCH>` and `<head>`:
    ```powershell
    git diff --name-only origin/<BASE_BRANCH>...<head>
@@ -212,9 +222,10 @@ Apply the project's pre-commit-check rules (resolved from `PRE_COMMIT_RULES_PATH
 4. **Aggregate outcomes** as a per-rule table for the audit:
    ```
    rules-source=<path|defaults>, smoke=<pass|FAIL+counts>, lint=<pass|FAIL+files>,
-   protected=<none|<list>>, ownership=<ok|warn>, safety=<ok|FAIL>
+   protected=<none|<list>>, ownership=<ok|warn>, safety=<ok|FAIL>,
+   env-secrets=<no-env-files|pass|FAIL+files>
    ```
-5. Any rule failure → mark Phase 3 FAIL and surface to Phase 7.
+5. Any rule failure → mark Phase 3 FAIL and surface to Phase 7. Env-secret heuristic trips → `6-env-secret-committed` FAIL (counter retained from former Phase 6 — see Phase 8 FAIL detection rules).
 
 ## Phase 4 — Relevant-tests run (incl. live UI gate)
 
@@ -253,44 +264,26 @@ This is the principle-anchor — the skill cannot mark Phase 5 `pass` without an
 4b. **Tracker closure-pairing reconciliation**: for each path in `TRACKER_FILES`, diff the file against `origin/<BASE_BRANCH>`. If the diff *adds* a closure narrative (heuristic: a new paragraph mentioning a tracker ID like `W-*`, `V-*`, `SP-*`, `GAP-NNN` *and* outcome language such as "closed", "fixed", "resolved", "shipped"), confirm that the corresponding tracker row in the project's bug/gap tracker (typically the OTHER `TRACKER_FILE` — e.g. `BUGS_AND_GAPS.md` when `COMPLETED_STREAMS.md` got the closure narrative) was *removed* in the same diff. If the row is still present, surface to Phase 7 as a hard item with FAIL tag `5-tracker-closure-without-row-removal`. If `TRACKER_FILES` has fewer than 2 entries (so there's no "other" tracker to pair against), skip cleanly and record `"tracker closure-pairing skipped: needs >=2 TRACKER_FILES"`.
 5. Any new finding (especially severity ≥ medium) → mark Phase 5 FAIL and surface to Phase 7. The user — not the skill — decides whether to skip, fix, or track.
 
-## Phase 6 — `.env` / `.env.local` review
+## Phase 6 — (reserved — folded into Phase 3)
 
-Fires only when the diff touches `.env*` files. Otherwise: pass trivially with `env files in diff: no`.
+Phase 6 was previously a standalone `.env` / `.env.local` review. Empirically it produced "no env files in diff (trivial pass)" on every recorded run since 2026-05-07 (six consecutive runs across diverse branches; `6-env-secret-committed` counter never tripped). Per the 2026-05-15 observer convergence proposal, the env-secret heuristic was folded into Phase 3's safety sub-step (where protected-files, migration-number, and personal-file checks already live) so the audit no longer renders a separate phase row for what is almost always a no-op.
 
-1. **Detect env files in the diff**:
-   ```powershell
-   git diff --name-only origin/<BASE_BRANCH>...<head> | Select-String -Pattern '\.env(\.[a-z]+)?$'
-   ```
-2. **For each env file in the diff**, run all the checks below and capture outcomes verbatim:
+The load-bearing FAIL tag `6-env-secret-committed` is **preserved** for counter continuity — its detection logic now runs as part of Phase 3 step 2's env-file safety check, and Phase 8's audit row for Phase 3 reports `env-secrets=<no-env-files|pass|FAIL+files>`.
 
-   | Check | What to look for | Trip condition |
-   |---|---|---|
-   | Secret heuristic | values that look like real secrets (high-entropy ≥32 chars, hex/base64 strings, `password=` / `secret=` / `api_key=` with non-placeholder values) | Any value matches → `6-env-secret-committed` FAIL |
-   | Placeholder convention | placeholders use one of: `<your-key-here>`, `change-me`, `REPLACE_ME`, empty string | Real values present where placeholder expected → FAIL |
-   | `.env.example` sync | when a new var is added to `.env`/`.env.local`, the same var name appears in `.env.example` | Missing → surface to Phase 7 (procedural, not load-bearing) |
-   | Naming convention | UPPER_SNAKE_CASE; consistent prefixes for grouped vars | Mixed case or no prefix when peers have one → surface to Phase 7 |
-   | `.env.local` not committed when ignored | `.env.local` typically in `.gitignore`; if it IS in the diff, confirm intentional | Staged + ignored → hard surface to Phase 7 |
-
-3. **Summarize for the audit**:
-   ```
-   env files in diff: <list>
-   secrets heuristic: <pass|FAIL + offending file:line>
-   placeholder convention: <pass|FAIL>
-   .env.example sync: <ok|missing-vars: <list>>
-   ```
+This phase number is intentionally left as a reserved placeholder rather than re-numbered (Phase 7→6, etc.) to avoid breaking external references to Phase 7/8/9/10. Skip directly to Phase 7.
 
 ## Phase 7 — User resolution gate (HARD-STOP before audit)
 
-Before the audit can run, every unresolved item from Phases 1–6 must be addressed by an explicit user choice. The skill is bad at judging "fine to skip"; the user knows what they care about.
+Before the audit can run, every unresolved item from Phases 1–5 must be addressed by an explicit user choice. The skill is bad at judging "fine to skip"; the user knows what they care about.
 
-1. **List every unresolved item** in a numbered table. Sources: Phase 2 conflicts, Phase 3 rule failures, Phase 4 test failures or skipped tiers, Phase 5 diagnosis findings, Phase 6 env-review issues, plan deviations.
+1. **List every unresolved item** in a numbered table. Sources: Phase 2 conflicts, Phase 3 rule failures (incl. env-file safety / env-secret heuristic trips, folded from former Phase 6), Phase 4 test failures or skipped tiers, Phase 5 diagnosis findings, plan deviations.
 
    ```
    Unresolved items before verdict:
    1. [phase 2] merge conflict in services/orchestrator.py:142
    2. [phase 4] live UI tier skipped — diff touches routes.py:67
    3. [phase 5] code-diagnosis flagged unused import in tools/foo.py:1 (low)
-   4. [phase 6] .env.local has API_KEY=sk-real-looking-value (looks like secret)
+   4. [phase 3] .env.local has API_KEY=sk-real-looking-value (env-secret heuristic FAIL)
    ```
 
 2. **For each item, ask the user explicitly** for a choice from this set.
@@ -318,7 +311,7 @@ Before the audit can run, every unresolved item from Phases 1–6 must be addres
 
 3. **Loop until the user explicitly types "proceed to audit"** (or equivalent literal token). Silence, "looks good", "ok" do NOT advance.
 
-4. **Empty list is the only auto-pass.** If Phases 1–6 all reported `pass` with zero unresolved items, print "No unresolved items — proceeding to audit" and continue. Do not invent items; do not skip the print.
+4. **Empty list is the only auto-pass.** If Phases 1–5 all reported `pass` with zero unresolved items, print "No unresolved items — proceeding to audit" and continue. Do not invent items; do not skip the print.
 
 5. **Record the user's input verbatim** for the audit row. Quote literal strings, never paraphrase intent.
 
@@ -337,12 +330,13 @@ The audit runs **before** the print. Print cannot fire until the user explicitly
    |-------|--------|----------|
    | 1 | pass | input parsed: <mode> <target>; user input verbatim: "<literal quote>" |
    | 2 | pass | git merge-tree --write-tree --name-only origin/<BASE_BRANCH> <head>: exit=<code>; conflicts: <none\|<paths>> |
-   | 3 | pass\|FAIL | rules-source=<resolved PRE_COMMIT_RULES_PATH or "defaults">; outcomes: smoke=<...>, lint=<...>, protected=<...>, ownership=<...>, safety=<...> |
+   | 3 | pass\|FAIL | rules-source=<resolved PRE_COMMIT_RULES_PATH or "defaults">; outcomes: smoke=<...>, lint=<...>, protected=<...>, ownership=<...>, safety=<...>, env-secrets=<no-env-files\|pass\|FAIL+files> |
    | 4 | pass\|FAIL | tiers run: <list>; results: <pass/fail/skipped per tier>; test-cache: <verbatim lines or "not wired">; live UI: <ran\|skipped + reason> |
    | 5 | pass\|FAIL | claude-library:code-diagnosis Skill call observed: <yes/no>; findings: <count> at <file:line list> |
-   | 6 | pass\|FAIL | env files in diff: <yes/no>; if yes: secrets-heuristic=<...>, placeholder=<...>, .env.example sync=<...> |
    | 7 | pass\|FAIL | unresolved items: <N surfaced> / <M resolved-with-explicit-choice>; user input verbatim: "<literal quote>" |
    ```
+
+   Phase 6 is intentionally omitted from the audit table — the env-secret heuristic was folded into Phase 3's safety sub-step on 2026-05-16 (see Phase 6 reserved note). Its outcome appears as the `env-secrets=` segment of the Phase 3 row.
 
    Each row is a markdown-table row with three columns: `| Phase X | pass|FAIL | <evidence> |` where `<evidence>` is a literal command, output snippet, file:line reference, or quoted user input. Long evidence strings stay on a single logical line (the table cell) and the markdown renderer wraps them; bulleted line-wrapping in terminals breaks readability when evidence approaches 100+ chars.
 
@@ -359,7 +353,7 @@ The audit runs **before** the print. Print cannot fire until the user explicitly
    - **`4-live-test-skipped-without-justification` FAIL** (load-bearing, threshold=1): live UI test skipped AND any diff path matches a glob in `HIGH_BLAST_PATHS` AND `LIVE_UI_TEST_COMMAND` is non-null AND no user-provided skip reason recorded AND `DEV_STACK_PREFLIGHT_URL` preflight (when set) did NOT explicitly fail.
    - **`5-code-diagnosis-narration-only` FAIL** (load-bearing, threshold=1): Phase 5 narrated diagnosis findings without an observed `Skill(skill="claude-library:code-diagnosis", ...)` tool call in this session.
    - **`5-tracker-closure-without-row-removal` FAIL** (load-bearing, threshold=1): Phase 5 sub-step 4b detected a closure narrative added to one `TRACKER_FILE` without a matching row removal in the paired tracker. Load-bearing because it defeats the documentation-implementation pairing invariant.
-   - **`6-env-secret-committed` FAIL** (load-bearing, threshold=1): diff added a `.env*` line whose value matches the secret heuristic (high-entropy ≥32 chars, contains `password=`/`secret=`/`api_key=` with non-placeholder value, hex/base64 strings ≥32 chars) rather than a placeholder.
+   - **`6-env-secret-committed` FAIL** (load-bearing, threshold=1, evaluated within Phase 3 step 2's env-file safety sub-step): diff added a `.env*` line whose value matches the secret heuristic (high-entropy ≥32 chars, contains `password=`/`secret=`/`api_key=` with non-placeholder value, hex/base64 strings ≥32 chars, or known key prefixes such as AKIA / AIza / sk-) rather than a placeholder. Tag retained for counter continuity after the standalone Phase 6 was folded into Phase 3 on 2026-05-16.
    - **`7-implicit-skip-no-justification` FAIL** (load-bearing, threshold=1): `surfaced > resolved-with-explicit-choice`. Count = (surfaced − resolved).
    - **`7-recommendation-gate-not-applied` FAIL** (procedural, threshold=2): Phase 7 surfaced an item meeting all four `Fix it now (recommended)` preconditions but did NOT mark fix-now as recommended in the option block. Threshold=2 because a single occurrence may be a borderline precondition call; two means the gate logic is drifting.
 
@@ -529,7 +523,7 @@ This phase is OPTIONAL and was retrofitted to this skill from `library/templates
 
 1. **PR or branch resolves to base ≠ `dev`**: warn the user. The skill's load-bearing principle assumes `dev` is the merge target; allow override via explicit user confirmation, but require a quote for the audit.
 2. **Branch only exists locally (no remote)**: Phase 1 step 3 hard-stops; the skill needs `origin/<head>` for `git merge-tree`. User pushes the branch first or aborts.
-3. **No `.env*` files in diff**: Phase 6 passes trivially with one row in the audit (`env files in diff: no`). Do not invent issues to surface.
+3. **No `.env*` files in diff**: Phase 3's env-file safety sub-step (folded from former Phase 6) records `env-secrets=no-env-files` and the audit emits no separate phase row. Do not invent issues to surface.
 4. **No `claude-library:code-diagnosis` available** (e.g., plugin not loaded): hard-stop in Phase 5 with a clear message — the load-bearing principle CANNOT be satisfied without the call. Tell the user how to load the plugin.
 5. **User's project has its own pre-commit-check skill under a different name**: edit `PRE_COMMIT_RULES_PATH` in the config block to point at the project's actual rules file. Do NOT ask at runtime — the config is the single place to change this.
 6. **Live UI test infrastructure not present in the project**: Phase 4 step 2 records "no live UI test infrastructure found"; this is NOT a `4-live-test-skipped-without-justification` failure — the rule applies only when the test exists and was skipped.

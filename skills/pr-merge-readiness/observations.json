@@ -166,6 +166,50 @@
       "evidence": "After the Phase 7 fix-now resolution for item 2, `git status` showed: modified `conftest.py` + untracked `scripts/` (containing `pytest_test_cache.py`, `test_cache.py`, `__pycache__`). I had only edited `backend/intelligence_platform/services/business_case_orchestrator.py`. The conftest.py diff vendored the SHA-keyed pytest-cache plugin in-tree (removed CLAUDE_PLUGIN_ROOT env-var dependency, pointed at local `scripts/` directory). The `scripts/` directory contained two .py files plus a __pycache__ folder. Working tree at session start reported `Status: (clean)` per the system context snapshot. The vendoring changes appeared during the session — likely a side-effect of the first `pytest -m smoke` invocation auto-installing the test-cache plugin. These files are NOT part of feat/stream_n's commit history but ARE on the working tree at verdict time.",
       "interpretation": "The audit's pass condition implicitly assumes the working tree state at verdict time matches the branch's commit history. When uncommitted artifacts unrelated to the PR appear during the run (e.g. plugin self-vendor side-effects), the audit currently has no mechanical check that catches this — I noticed manually and flagged it in the verdict's action-items list. A Phase 8 audit-row should verify: `git diff origin/<BASE_BRANCH>...HEAD --name-only` (the PR scope) ⊇ `git status --porcelain --untracked-files=normal | <filenames>` (working tree state). If working tree has files not in the PR scope, surface to user before printing the verdict. First occurrence; below threshold.",
       "proposed_audit_tag": "8-uncommitted-working-tree-unrelated-to-pr"
+    },
+    {
+      "ts": "2026-05-15T18:00:00+02:00",
+      "run_ref": "2026-05-15T18:00:00+02:00",
+      "target": "merge this branch into dev (current=feat/cicd-pipeline; head=a0e6a007110b585755207e4a58b447d101037c04)",
+      "category": "redundant_phase",
+      "_theme_slug": "phase-6-env-review-trivially-passes",
+      "phase": "6",
+      "evidence": "User typed (via `suggest:` near-miss trigger prefix, captured as improvement_suggestions[] entry ts=2026-05-15T18:00:00+02:00, tag=6-phase-redundant): \"this step was used once 'Phase 6: .env / .env.local review' we should just remove it\". Cross-run history confirms: every recorded run since 2026-05-07 has Phase 6 evidence string containing 'no env files in diff (trivial pass)' or equivalent — 2026-05-08, 2026-05-11, 2026-05-12, 2026-05-13, 2026-05-15 (this run) all report Phase 6 as a no-op pass. Six consecutive runs, zero env-file diffs. The phase has fired in every run; the load-bearing FAIL rule `6-env-secret-committed` has never tripped (counter still at 0).",
+      "interpretation": "Convergence rule trips: ≥1 observer observation in `redundant_phase` (this one) + user-typed improvement_suggestions[] entry whose text matches the same theme (tag=`6-phase-redundant`). Two independent channels (the cross-run observer pattern and the user's explicit suggestion) agree that Phase 6 as a standalone phase is over-instrumented. Note: the load-bearing principle (no secret-in-.env-committed) still needs preserving — removal-without-replacement loses that protection. The proposal should suggest folding the env-secret check into Phase 3's safety sub-step (where it conceptually belongs alongside protected-files / migration-number / personal-files checks) so the audit no longer renders a phase row for what's almost always a trivial pass, while preserving the load-bearing FAIL rule when a `.env*` file actually appears in the diff. Proposal written to suggestions.md.",
+      "proposed_audit_tag": null
+    },
+    {
+      "ts": "2026-05-15T18:00:00+02:00",
+      "run_ref": "2026-05-15T18:00:00+02:00",
+      "target": "merge this branch into dev (current=feat/cicd-pipeline)",
+      "category": "missing_audit_category",
+      "_theme_slug": "trackerfiles-config-incomplete-for-project",
+      "phase": "5",
+      "evidence": "Phase 5 sub-step 4b (tracker closure-pairing reconciliation) was skipped this run with reason `tracker closure-pairing skipped: needs >=2 TRACKER_FILES`. The configured `TRACKER_FILES` list in SKILL.md has only one entry (`documentation/implementation_docs/BUGS_AND_GAPS.md`). However, this project actually has TWO paired tracker files — `BUGS_AND_GAPS.md` (active) and `documentation/archive/COMPLETED_STREAMS.md` (archive). The COMPLETED_STREAMS.md path is present, populated, and referenced by README.md (line 6) and BUGS_AND_GAPS.md (line 10: 'Resolved items move to COMPLETED_STREAMS.md in the same commit that flips status'). User verbatim mid-Phase-5: 'still confusing . youa re saying we dont have bugs and gaps , here it is : documentation\\implementation_docs\\BUGS_AND_GAPS.md' — flagged when I claimed the repo had no tracker (my Glob `documentation/**/BUGS_AND_GAPS*.md` returned empty due to a path-matching quirk; the file exists). Skill's existence-check before consuming TRACKER_FILES paths is not mechanical — relies on my Glob query, which can miss.",
+      "interpretation": "Two distinct issues compound: (a) the project's `TRACKER_FILES` config is incomplete — the operator (per-project owner) set only the active tracker, missing the archive file that pairs with it for the closure-pairing check; (b) the skill itself doesn't verify that each `TRACKER_FILES` path actually exists in the working tree before using it — when my Glob missed BUGS_AND_GAPS.md initially I asserted 'the repo doesn't have one' which was wrong, then revised when the user corrected me. Proposed audit step: at Phase 5 step 4 entry, do `Test-Path` (or `[ -f ]` / Glob with a single-path query) for each `TRACKER_FILES` entry; if any path exists in the repo at one of the standard locations (`documentation/`, `docs/`, `.tracker/`) but is NOT in `TRACKER_FILES`, surface as a Phase 7 procedural item recommending the operator extend the config. Below threshold for standalone proposal (first occurrence); proposed_audit_tag captured for cross-run clustering.",
+      "proposed_audit_tag": "5-trackerfiles-config-mismatch-with-repo-state"
+    },
+    {
+      "ts": "2026-05-15T18:00:00+02:00",
+      "run_ref": "2026-05-15T18:00:00+02:00",
+      "target": "merge this branch into dev (current=feat/cicd-pipeline)",
+      "category": "user_friction",
+      "_theme_slug": "cwd-not-at-repo-root-during-git-diff",
+      "phase": "3",
+      "evidence": "Phase 3 first `git diff origin/dev...feat/cicd-pipeline -- README.md` and the matching `implementation.md` invocation returned empty output. I commented 'Strange — empty output. But shortstat with three-dot showed insertions' and briefly entertained 'whether the diff really contained these files' before recognizing the cwd was `/c/.../intelligence-platform/backend/` (set by the test session bootstrap) while `git rev-parse --show-toplevel` reported `C:/.../intelligence-platform`. Re-ran with `git -C 'C:/.../intelligence-platform' diff ...` to capture the actual diffs (+11 / +33 lines). User noticed downstream: 'you previosuly said that this branch has not toched implemtation.md file but I see it has edited , which it should not be permitted in this branch base don principles . Clarify what happende here' (verbatim incl. typos). User-facing impression of inconsistency consumed two clarification turns to recover.",
+      "interpretation": "When the skill's cwd at session start is not the repo root, `git diff -- <relative-path>` silently resolves to `<cwd>/<relative-path>` and returns empty for paths that actually exist at the repo root. The skill's Phase 3 step 3 uses `git diff --name-only origin/<BASE_BRANCH>...<head>` (no `-- <path>` filter) which is cwd-tolerant, but downstream investigative diffs that DO filter by path are not. Two cheap remediations: (a) `git -C $(git rev-parse --show-toplevel) ...` for every git command in Phase 3+ — eliminates the cwd dependency; (b) Phase 1 step 3 could `Set-Location` (or `cd`) to repo root before the first git command so every subsequent call is anchored. First occurrence in this skill's observations.json; recorded for cross-run clustering. Below threshold for a standalone proposal.",
+      "proposed_audit_tag": null
+    },
+    {
+      "ts": "2026-05-15T18:00:00+02:00",
+      "run_ref": "2026-05-15T18:00:00+02:00",
+      "target": "merge this branch into dev (current=feat/cicd-pipeline)",
+      "category": "output_format_quality",
+      "_theme_slug": "askuserquestion-options-rejected-multiple-times",
+      "phase": "5",
+      "evidence": "Three consecutive `AskUserQuestion` invocations during Phases 5+7 were rejected by the user with 'The user wants to clarify these questions': (1) Phase 5 scope-of-code-diagnosis question — user verbatim follow-up: 'I dont understand what you are flagging . I am aware there are 128 changes , are you recommending to run this skill ? claude-library:code-diagnosis ?'; (2) Phase 7 trio (H1 + smells + audit-phrasing) — user took only H1, asked clarification on the rest; (3) Phase 7 H1 re-ask — user took H1 only, deferred smells question. Each rejection forced a clarification turn (avg ~3 messages) before the question could be re-issued in a form the user would answer. Total `AskUserQuestion` invocations this session: 5; rejected: 3; answered first try: 2. Same shape as the 2026-05-12 phase-7-item-label observation.",
+      "interpretation": "When the user's mental model doesn't match the AskUserQuestion option block's framing (e.g. they want to ask 'what does this even mean' before picking, or the options bundle decisions they want to evaluate separately), the rejection turn costs ~3 messages of clarification. Pattern: my AskUserQuestion option block tends to bundle 'fix it now / skip / block / abort' uniformly even when the user's prior verbatim signals only one of those is on the table. Cheap remediation: when a surfaced item already has a partial user signal in prior conversation, omit the options that contradict it (e.g. when user said 'this is fine', drop 'block the merge' as an option) so the menu reflects only live choices. First occurrence in this skill's observations.json with this exact framing; recorded for cross-run clustering. Below threshold.",
+      "proposed_audit_tag": null
     }
   ],
   "review_log": [
@@ -214,6 +258,21 @@
       "suggestion_written_to": "skills/pr-merge-readiness/suggestions.md",
       "applied_at": "2026-05-13T19:30:00+02:00",
       "applied_via": "Replaced Phase 8 step 1 bulleted self-audit template with a three-column markdown table (`| Phase | Status | Evidence |`) and rewrote the row-format sentence accordingly. Pipe characters inside the `Status` and `Evidence` cells are escaped as `\\|` for renderer correctness. No FAIL counter changes — purely presentational, the verbatim-quote rule still applies inside cells."
+    },
+    {
+      "ts": "2026-05-15T18:00:00+02:00",
+      "trigger": "convergence",
+      "clustered_theme": "phase-6-env-review-trivially-passes (every recorded run since 2026-05-07 reports Phase 6 as a no-op pass — six consecutive runs, zero env-file diffs; user has now explicitly asked to remove the phase as a standalone step)",
+      "category": "redundant_phase",
+      "observations_referenced": [
+        "2026-05-15T18:00:00+02:00"
+      ],
+      "improvement_suggestions_referenced": [
+        "2026-05-15T18:00:00+02:00 (tag=6-phase-redundant)"
+      ],
+      "suggestion_written_to": "skills/pr-merge-readiness/suggestions.md",
+      "applied_at": "2026-05-16T00:00:00+02:00",
+      "applied_via": "Implemented option A from suggestions.md. Folded env-secret heuristic (5 checks) into Phase 3 step 2's env-file safety sub-bullet; extended Phase 3 step 4 aggregate-outcomes row with `env-secrets=<no-env-files|pass|FAIL+files>`; replaced standalone Phase 6 section with a reserved placeholder (kept current numbering to preserve external references to Phase 7/8/9/10); dropped Phase 6 row from Phase 8 audit table; retained FAIL tag `6-env-secret-committed` (load-bearing, threshold=1) for counter continuity in run_history.json:fail_counters with rule description updated to note evaluation within Phase 3. Opening principle changed from `six gates` to `five gates`; Phase 7 sources list, Phase 7 example item, and Edge cases item 3 updated."
     }
   ]
 }
