@@ -205,4 +205,69 @@ No FAIL detection rule needs to change — this is pure presentation. The load-b
 **Applied at**: 2026-05-16T00:00:00+02:00
 **Applied via**: Implemented option A. Folded the env-secret heuristic table (5 checks: secret heuristic, placeholder convention, .env.example sync, naming convention, .env.local-when-ignored) into Phase 3 step 2's default checks as an env-file safety sub-bullet. Extended Phase 3 step 4 aggregate-outcomes row with `env-secrets=<no-env-files|pass|FAIL+files>`. Replaced standalone Phase 6 section with a reserved placeholder pointing at Phase 3 (kept phase numbering to avoid breaking Phase 7/8/9/10 external references). Dropped Phase 6 row from the Phase 8 audit table and folded its outcome into the Phase 3 row's `env-secrets=` segment. Retained FAIL tag `6-env-secret-committed` (load-bearing, threshold=1) for counter continuity in `run_history.json:fail_counters`; rule description updated to note evaluation now happens within Phase 3 step 2. Updated opening principle ("six gates" → "five gates"), Phase 7 sources list, Phase 7 example-item phase tag (`[phase 6]` → `[phase 3]`), "Phases 1–6" → "Phases 1–5" in Phase 7 auto-pass clause, and Edge cases item 3 accordingly.
 
+---
+
+## 2026-05-18 — Theme: phase-5-findings-need-severity-and-provenance (Phase 5 surfaces code-diagnosis findings in the sub-skill's native Bugs/Smells/Opportunities triage shape; user must explicitly ask whether smells = potential issues or just refactoring before being able to decide what blocks merge)
+
+**Pattern observed**: standalone-threshold trip — three observations of the same theme across three runs (2026-05-11, 2026-05-12, 2026-05-18), each from a different branch (`feat/gap_bugs_fixer`, `feat/gap_bugs_fixer`, `feat/stream_n`). Each occurrence cost 2–3 conversation turns to clarify merge-relevance after the Phase 5 report landed. Three independent run-level evidence points, no convergence required.
+
+- **Observation #1** (`observations.json` ts=`2026-05-11T17:00:00+02:00`, phase=`5`, category=`output_format_quality`): User verbatim mid-Phase-5: 'I need to understand whcich are the issues we have that must be fixed now (high , medium , low prio) before merging and why these issues were not discored in this brach , be brief dont over explain . I need to dunerstand if these issues were already existen issues or we introdued them in this branch , and why there are not regifreted as issue ?' (transcribed verbatim incl. typos).
+
+- **Observation #2** (`observations.json` ts=`2026-05-12T16:30:00+02:00`, phase=`7`, category=`output_format_quality`): User verbatim mid-Phase-7 after I surfaced 3 medium smells from `claude-library:code-diagnosis`: 'I need to undertand if this is something we have introduced or pre existen , how bad it is ? epxlian it in 2 setneces max' (transcribed verbatim incl. typos).
+
+- **Observation #3** (`observations.json` ts=`2026-05-18T18:00:00+02:00`, phase=`5`, category=`output_format_quality`): User verbatim after I delivered the Phase 5 code-diagnosis report (0 bugs / 4 smells / 3 opportunities): 'So you are saying everything looks good , we have not introduced new bugs and there are not potential issues . Youa re just suggesting refactring opportunities ? is that correct ? Because I get a summary at the beginning , a a lot of information that is hard to diggest quickly' (transcribed verbatim incl. typos).
+
+**Interpretation**: three independent user-typed signals across three runs and three different branches agree on the same root pain: Phase 5 reports findings using the sub-skill's native triage shape (Bugs / Smells / Opportunities) without leading with a decision-grade TL;DR that tells the user, in one line, *what blocks merge and what doesn't*. The user's framings vary (`high/med/low priority`, `introduced vs pre-existing`, `bugs vs refactoring`) but the underlying ask is constant: a merge-decision-grade summary up front, not the sub-skill's exploratory taxonomy. The current Phase 5 step 2 ("Surface findings") instructs `For each finding: severity, file:line, one-line description` but does not require a TL;DR header that classifies findings by merge-impact. Three runs of evidence that this is insufficient is enough to warrant a structural fix.
+
+**Proposed change to SKILL.md**:
+
+Augment Phase 5 step 2 ("Surface findings") with a mandatory TL;DR header that classifies findings by *merge-impact*, separate from the sub-skill's triage shape. Insert after the existing "Surface findings in a 'Sweep results' block" sentence:
+
+```
+2a. **Lead with a one-line merge-impact TL;DR** before the per-finding
+detail. The TL;DR must answer, in a single sentence: "<N1> items block
+merge / <N2> items track as follow-up / <N3> items are pure refactoring."
+Mapping rule from the sub-skill's triage shape:
+  - "blocks merge" = bugs (any severity) + smells severity ≥ medium that
+    cite NEW behavior introduced by THIS branch (verify via
+    `git blame <file>:<line>` — was the cited line added in
+    `origin/<BASE_BRANCH>...<head>`?).
+  - "track as follow-up" = smells that cite pre-existing code OR smells
+    severity = low.
+  - "pure refactoring" = opportunities.
+
+Example TL;DR (verbatim format the user can scan in one second):
+  "TL;DR — 0 items block merge, 2 items track as follow-up (filed as
+   <tracker-IDs> if accepted), 3 items are pure refactoring."
+
+After the TL;DR, render the existing per-finding table — but order
+sections by merge-impact (blocks-merge first, follow-ups second,
+refactoring last), NOT by the sub-skill's bug/smell/opportunity order.
+```
+
+Augment Phase 5 step 5 ("Any new finding…") to reference the TL;DR:
+
+```
+5. Any item in the "blocks merge" bucket of the TL;DR → mark Phase 5
+   FAIL and surface to Phase 7. Items in "track as follow-up" or "pure
+   refactoring" do NOT auto-route to Phase 7 — they're informational
+   unless the user explicitly asks to fix-now or to register as a gap.
+```
+
+Add the corresponding entry to Phase 8 FAIL detection rules (procedural, not load-bearing — UX failure mode, not a safety failure):
+
+```
+- **`5-findings-table-needs-severity-provenance-columns` FAIL**
+  (procedural, threshold=2): Phase 5 surfaced code-diagnosis findings
+  without a one-line merge-impact TL;DR header (the "<N1> blocks merge /
+  <N2> track as follow-up / <N3> pure refactoring" sentence) preceding
+  the per-finding table. Threshold=2 because a single occurrence may be
+  the skill's first run on a new project; two means the TL;DR rule is
+  drifting.
+```
+
+**Status**: applied
+**Applied at**: 2026-05-18T19:00:00+02:00
+**Applied via**: Inserted Phase 5 step 2a (merge-impact TL;DR header with mapping rule blocks-merge/track-as-follow-up/pure-refactoring and bucket-ordered per-finding table) verbatim from the proposal. Rewrote Phase 5 step 5 to route only the "blocks merge" bucket to Phase 7 (follow-ups and refactoring stay informational unless the user explicitly fix-nows or registers as a gap). Added `5-findings-table-needs-severity-provenance-columns` (procedural, threshold=2) to Phase 8 FAIL detection rules and seeded the matching counter in `run_history.json:fail_counters`.
+
 

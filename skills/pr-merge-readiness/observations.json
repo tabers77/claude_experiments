@@ -201,6 +201,39 @@
       "proposed_audit_tag": null
     },
     {
+      "ts": "2026-05-18T18:00:00+02:00",
+      "run_ref": "2026-05-18T18:00:00+02:00",
+      "target": "this branch into dev (current=feat/stream_n; head=e58fb0b)",
+      "category": "output_format_quality",
+      "_theme_slug": "phase-5-findings-need-severity-and-provenance",
+      "phase": "5",
+      "evidence": "User verbatim after I delivered the Phase 5 code-diagnosis report (0 bugs / 4 smells / 3 opportunities, formatted with the sub-skill's native triage shape): 'So you are saying everything looks good , we have not introduced new bugs and there are not potential issues . Youa re just suggesting refactring opportunities ? is that correct ? Because I get a summary at the beginning , a a lot of information that is hard to diggest quickly' (transcribed verbatim incl. typos). My initial Phase 5 output led with the sub-skill's `### Summary`, then a table of Bugs (empty), then a table of Smells (4 rows), then a table of Opportunities (3 rows), then `### What's Actually Fine`. The user had to explicitly ask whether smells = potential issues or just refactoring before they could decide whether anything blocked merge.",
+      "interpretation": "Third occurrence of the same theme in this skill (cumulative 3 of threshold 3). Prior occurrences: 2026-05-11 (`I need to understand whcich are the issues we have that must be fixed now (high , medium , low prio) before merging`) and 2026-05-12 (`I need to undertand if this is something we have introduced or pre existen , how bad it is ? epxlian it in 2 setneces max`). Threshold tripped on the standalone-cluster count (3≥3) AND convergence trip from improvement_suggestions[] tag=output_format_quality (2026-05-13) is independently applicable. The user's framing this run reframes the same root pain: when Phase 5 surfaces sub-skill findings without a decision-grade TL;DR (`X bugs / Y smells / Z opportunities — N items block merge / N items track-as-followup`) leading the report, every run wastes 2-3 turns clarifying merge-relevance. Proposal written to suggestions.md.",
+      "proposed_audit_tag": "5-findings-table-needs-severity-provenance-columns"
+    },
+    {
+      "ts": "2026-05-18T18:00:00+02:00",
+      "run_ref": "2026-05-18T18:00:00+02:00",
+      "target": "this branch into dev (current=feat/stream_n)",
+      "category": "user_friction",
+      "_theme_slug": "askuserquestion-option-description-too-terse-for-workflow-consequence",
+      "phase": "7",
+      "evidence": "Phase 7 surfaced item #1 (`implementation.md` on feature branch). AskUserQuestion option `Skip with logged justification` had description: 'Intentional: bundling Stream N close-out (status flips for steps 86–92) into this merge commit. Verdict stays GREEN; reason recorded in audit + ledger.' User selected this option but then asked TWO clarifying questions before being willing to proceed: (1) 'I did not understand how we are handling implemtation md , will we need to mark streams as don in dev ?' (transcribed verbatim incl. typos); (2) 'confirm : So I will change to dev , merge this branch and I will be able to push directly without marking anything in implemtation .md ?' (transcribed verbatim). Each clarification consumed one full response turn. The option `description` field communicated the *audit consequence* (GREEN verdict, recorded reason) but did NOT communicate the *post-merge workflow consequence* (no follow-up commit needed on dev — the status flips land with the merge itself).",
+      "interpretation": "AskUserQuestion's `description` field is often used to explain what choosing the option means for the audit, but users care more about what it means for their downstream workflow. When the surfaced item involves a documented workflow rule (here: CLAUDE.md Documentation Sync Rule + shared-pre-commit-check protected files), the option `description` should explicitly state: (a) what the user will do AFTER the verdict-print as a consequence of this choice, and (b) whether any follow-up action is required on the base branch (e.g. 'no follow-up commit needed on dev — the changes land with the merge'). First occurrence in this skill's observations.json with this framing; below threshold for a standalone proposal. Distinct from the 2026-05-12 observation (`phase-7-item-label-not-self-explanatory`) which was about audit-row labels losing context — this is about the AskUserQuestion option description not covering workflow downstream-consequence. Recorded for cross-run clustering.",
+      "proposed_audit_tag": null
+    },
+    {
+      "ts": "2026-05-18T18:00:00+02:00",
+      "run_ref": "2026-05-18T18:00:00+02:00",
+      "target": "this branch into dev (current=feat/stream_n)",
+      "category": "missing_audit_category",
+      "_theme_slug": "code-diagnosis-claim-not-verified-before-surfacing",
+      "phase": "5",
+      "evidence": "Initial Phase 5 code-diagnosis report listed smell #1 as: '_extract_chart_urls_from_sub_tasks regex-scans `result_preview`, which is truncated to **200 chars** in `orchestrator.py:1196` / `orchestrator.py:1198`'. Quoted the 200-char number with confidence as the basis for the latent-fragility claim. When the user asked me to file the smell as a gap, I traced the actual data flow by grep'ing for `tool_call_log.append` (which is what feeds `sub.result['tool_calls']` consumed by the extractor), and found the truncation site is actually `orchestrator.py:1244-1250` with `tool_result_text[:500]` — NOT the 200-char on_event/logger sites I'd cited. My follow-up message verbatim: 'Quick correction first: I traced the actual data source. ... So the budget is 500 chars, not 200. The coupling still exists but the risk is much weaker than I first framed.' The gap was filed with corrected facts (500-char budget, materially weaker risk) but the original Phase 5 report had asserted a number the audit row could have been pinned to.",
+      "interpretation": "When `claude-library:code-diagnosis` surfaces a smell whose risk argument cites a specific number/limit/file:line as the basis for the concern, the Phase 5 audit row currently treats the citation as evidence — but a follow-up grep to verify the data-flow path can show the citation refers to the wrong site. In this run the error was caught only because the user asked to file as a gap (which forced a re-trace); had the user said 'skip — track as follow-up' the gap row would have shipped with the wrong number and shaped future fix work incorrectly. Proposed remediation: when a code-diagnosis finding cites a specific line number / truncation budget / limit value as the *basis for the risk* (not just a location reference), Phase 5 step 2 should re-verify the data-flow path before listing the finding — grep for the cited symbol's actual consumers and confirm the citation matches the consumer site, not just any-occurrence site. Falsifiable check, mechanical. First occurrence; below threshold (count=1).",
+      "proposed_audit_tag": "5-code-diagnosis-citation-not-trace-verified"
+    },
+    {
       "ts": "2026-05-15T18:00:00+02:00",
       "run_ref": "2026-05-15T18:00:00+02:00",
       "target": "merge this branch into dev (current=feat/cicd-pipeline)",
@@ -258,6 +291,21 @@
       "suggestion_written_to": "skills/pr-merge-readiness/suggestions.md",
       "applied_at": "2026-05-13T19:30:00+02:00",
       "applied_via": "Replaced Phase 8 step 1 bulleted self-audit template with a three-column markdown table (`| Phase | Status | Evidence |`) and rewrote the row-format sentence accordingly. Pipe characters inside the `Status` and `Evidence` cells are escaped as `\\|` for renderer correctness. No FAIL counter changes — purely presentational, the verbatim-quote rule still applies inside cells."
+    },
+    {
+      "ts": "2026-05-18T18:00:00+02:00",
+      "trigger": "threshold",
+      "clustered_theme": "phase-5-findings-need-severity-and-provenance (Phase 5 surfaces code-diagnosis findings in the sub-skill's native Bugs/Smells/Opportunities triage shape without a decision-grade TL;DR — users have asked across 3 runs whether smells = potential issues or just refactoring before being able to decide what blocks merge)",
+      "category": "output_format_quality",
+      "observations_referenced": [
+        "2026-05-11T17:00:00+02:00",
+        "2026-05-12T16:30:00+02:00",
+        "2026-05-18T18:00:00+02:00"
+      ],
+      "improvement_suggestions_referenced": [],
+      "suggestion_written_to": "skills/pr-merge-readiness/suggestions.md",
+      "applied_at": "2026-05-18T19:00:00+02:00",
+      "applied_via": "Inserted Phase 5 step 2a (merge-impact TL;DR header with mapping rule blocks-merge/track-as-follow-up/pure-refactoring and bucket-ordered per-finding table) verbatim from the proposal. Rewrote Phase 5 step 5 to route only the `blocks merge` bucket to Phase 7 (follow-ups and refactoring stay informational unless the user explicitly fix-nows or registers as a gap). Added `5-findings-table-needs-severity-provenance-columns` (procedural, threshold=2) to Phase 8 FAIL detection rules and seeded the matching counter in `run_history.json:fail_counters`."
     },
     {
       "ts": "2026-05-15T18:00:00+02:00",

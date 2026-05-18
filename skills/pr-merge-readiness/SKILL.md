@@ -259,10 +259,25 @@ This is the principle-anchor — the skill cannot mark Phase 5 `pass` without an
    ```
 
 2. **Surface findings** in a "Sweep results" block. For each finding: severity, file:line, one-line description.
+
+2a. **Lead with a one-line merge-impact TL;DR** before the per-finding detail. The TL;DR must answer, in a single sentence: `"<N1> items block merge / <N2> items track as follow-up / <N3> items are pure refactoring."` Mapping rule from the sub-skill's triage shape:
+
+   - **"blocks merge"** = bugs (any severity) + smells severity ≥ medium that cite NEW behavior introduced by THIS branch (verify via `git blame <file>:<line>` — was the cited line added in `origin/<BASE_BRANCH>...<head>`?).
+   - **"track as follow-up"** = smells that cite pre-existing code OR smells severity = low.
+   - **"pure refactoring"** = opportunities.
+
+   Example TL;DR (verbatim format the user can scan in one second):
+
+   ```
+   TL;DR — 0 items block merge, 2 items track as follow-up (filed as <tracker-IDs> if accepted), 3 items are pure refactoring.
+   ```
+
+   After the TL;DR, render the existing per-finding table — but order sections by merge-impact (blocks-merge first, follow-ups second, refactoring last), NOT by the sub-skill's bug/smell/opportunity order.
+
 3. **Optional**: when Phase 4 step 3 flagged the change as high-blast, also invoke `claude-library:quality-bug-sweep` for the comprehensive scan. Default: skip unless high-blast.
 4. **Diff-anomaly check**: for each path in `TRACKER_FILES`, `git diff origin/<BASE_BRANCH>...<head> -- <tracker-path>`. Confirm only expected rows changed; unexpected diffs are surfaced to Phase 7. If `TRACKER_FILES` is empty, skip this step and record `"diff-anomaly check skipped: no TRACKER_FILES configured"`.
 4b. **Tracker closure-pairing reconciliation**: for each path in `TRACKER_FILES`, diff the file against `origin/<BASE_BRANCH>`. If the diff *adds* a closure narrative (heuristic: a new paragraph mentioning a tracker ID like `W-*`, `V-*`, `SP-*`, `GAP-NNN` *and* outcome language such as "closed", "fixed", "resolved", "shipped"), confirm that the corresponding tracker row in the project's bug/gap tracker (typically the OTHER `TRACKER_FILE` — e.g. `BUGS_AND_GAPS.md` when `COMPLETED_STREAMS.md` got the closure narrative) was *removed* in the same diff. If the row is still present, surface to Phase 7 as a hard item with FAIL tag `5-tracker-closure-without-row-removal`. If `TRACKER_FILES` has fewer than 2 entries (so there's no "other" tracker to pair against), skip cleanly and record `"tracker closure-pairing skipped: needs >=2 TRACKER_FILES"`.
-5. Any new finding (especially severity ≥ medium) → mark Phase 5 FAIL and surface to Phase 7. The user — not the skill — decides whether to skip, fix, or track.
+5. Any item in the **"blocks merge"** bucket of the TL;DR → mark Phase 5 FAIL and surface to Phase 7. Items in **"track as follow-up"** or **"pure refactoring"** do NOT auto-route to Phase 7 — they are informational unless the user explicitly asks to fix-now or to register as a gap.
 
 ## Phase 6 — (reserved — folded into Phase 3)
 
@@ -353,6 +368,7 @@ The audit runs **before** the print. Print cannot fire until the user explicitly
    - **`4-live-test-skipped-without-justification` FAIL** (load-bearing, threshold=1): live UI test skipped AND any diff path matches a glob in `HIGH_BLAST_PATHS` AND `LIVE_UI_TEST_COMMAND` is non-null AND no user-provided skip reason recorded AND `DEV_STACK_PREFLIGHT_URL` preflight (when set) did NOT explicitly fail.
    - **`5-code-diagnosis-narration-only` FAIL** (load-bearing, threshold=1): Phase 5 narrated diagnosis findings without an observed `Skill(skill="claude-library:code-diagnosis", ...)` tool call in this session.
    - **`5-tracker-closure-without-row-removal` FAIL** (load-bearing, threshold=1): Phase 5 sub-step 4b detected a closure narrative added to one `TRACKER_FILE` without a matching row removal in the paired tracker. Load-bearing because it defeats the documentation-implementation pairing invariant.
+   - **`5-findings-table-needs-severity-provenance-columns` FAIL** (procedural, threshold=2): Phase 5 surfaced code-diagnosis findings without a one-line merge-impact TL;DR header (the `"<N1> blocks merge / <N2> track as follow-up / <N3> pure refactoring"` sentence) preceding the per-finding table. Threshold=2 because a single occurrence may be the skill's first run on a new project; two means the TL;DR rule is drifting.
    - **`6-env-secret-committed` FAIL** (load-bearing, threshold=1, evaluated within Phase 3 step 2's env-file safety sub-step): diff added a `.env*` line whose value matches the secret heuristic (high-entropy ≥32 chars, contains `password=`/`secret=`/`api_key=` with non-placeholder value, hex/base64 strings ≥32 chars, or known key prefixes such as AKIA / AIza / sk-) rather than a placeholder. Tag retained for counter continuity after the standalone Phase 6 was folded into Phase 3 on 2026-05-16.
    - **`7-implicit-skip-no-justification` FAIL** (load-bearing, threshold=1): `surfaced > resolved-with-explicit-choice`. Count = (surfaced − resolved).
    - **`7-recommendation-gate-not-applied` FAIL** (procedural, threshold=2): Phase 7 surfaced an item meeting all four `Fix it now (recommended)` preconditions but did NOT mark fix-now as recommended in the option block. Threshold=2 because a single occurrence may be a borderline precondition call; two means the gate logic is drifting.
