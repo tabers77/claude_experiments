@@ -256,6 +256,29 @@
       "proposed_audit_tag": null
     }
   ],
+    {
+      "ts": "2026-05-19T17:00:00+02:00",
+      "run_ref": "2026-05-19T17:00:00+02:00",
+      "target": "merge this branch into dev (current=feat/auth-closeout; base=dev)",
+      "category": "dev_env_friction",
+      "_theme_slug": "test-container-no-db-credentials",
+      "phase": "4",
+      "evidence": "Phase 4 first test run returned `psycopg2.OperationalError: connection to server on socket \"/var/run/postgresql/.s.PGSQL.5432\" failed: No such file or directory` — the backend service fell back to a Unix-socket attempt because `PG_DATABASE_CONNECTION_STRING` was empty. Root cause: `docker-compose.test.yml` backend.environment block contained only `DEBUG=false`; `backend/.env` (consumed via `env_file:`) is intentionally an empty placeholder. `PG_DATABASE_CONNECTION_STRING` is a `@computed_field` derived from 4 component fields (`PG_DATABASE_SERVER`, `PG_DATABASE_USERNAME`, `PG_DATABASE_PASSWORD`, `PG_DATABASE_NAME`) — setting it as a raw env var does nothing. Fix applied during run: 4 component env vars added to `docker-compose.test.yml` backend.environment block pointing at the `db` service in the test network; migrations run via `docker compose run --rm backend python -m intelligence_platform.db.run_migrations`. Distinct from the 2026-05-13 `test-container-cannot-reach-host-localhost` friction (that was a Docker networking topology issue on the live-UI tier; this is a missing-credentials issue on the standard smoke/unit/integration tier).",
+      "interpretation": "The docker-compose.test.yml file was set up without the 4 PG component env vars, so any developer spinning up the test stack would hit the same Unix-socket failure. The fix is a one-time project-side edit (already applied). Per the observer's narrow exception for dev_env_friction, this is recorded here but does NOT warrant a SKILL.md edit — the skill already instructs operators to ensure the test container can reach the DB; the gap was in the project's compose file, not in the skill's Phase 4 instructions. If the same class of issue recurs (new developer, new CI host, new compose file) it should be appended to run_history.json:friction_log[] rather than proposed in suggestions.md.",
+      "proposed_audit_tag": null
+    },
+    {
+      "ts": "2026-05-19T17:00:00+02:00",
+      "run_ref": "2026-05-19T17:00:00+02:00",
+      "target": "merge this branch into dev (current=feat/auth-closeout; base=dev)",
+      "category": "output_format_quality",
+      "_theme_slug": "verdict-next-steps-not-easily-scannable",
+      "phase": "8",
+      "evidence": "User typed (captured as improvement_suggestions[] entry ts=2026-05-19T17:00:00+02:00, phase=audit, no tag): 'when giving suggestion of next steps it should be easier to digest and clear for the user which are the best options'. The Phase 8 verdict print in this run included a standard post-merge next-steps block enumerating follow-up actions (step 69 defer justification, tracker pairing, implementation.md status flip, merge command). User's feedback — arriving at the conclusion of the audit — suggests the next-steps section presents options in a way that makes it hard to distinguish recommended actions from optional ones, or high-urgency from low-urgency.",
+      "interpretation": "First occurrence of this theme. The verdict print currently renders all post-merge actions as a flat list with no priority or clarity signal. When the user's only remaining decision is 'which of these do I need to do right now vs. later vs. never', a flat list forces them to parse the semantics of each item. A simple improvement: group next-steps into two buckets — (a) 'Before you merge' (any uncommitted working-tree items, any unresolved Phase 7 items) and (b) 'After you merge' (documentation syncs, tracker updates, follow-up PRs) — ordered by urgency. The current format mixes these without a clear visual boundary. Count = 1 (this run), no prior observation of this theme, improvement_suggestion count = 1 (also this run) — no prior-run convergence basis. Below threshold; record for cross-run clustering. If a second run generates a similar user signal, the convergence rule would fire.",
+      "proposed_audit_tag": null
+    }
+  ],
   "review_log": [
     {
       "ts": "2026-05-11T17:00:00+02:00",
