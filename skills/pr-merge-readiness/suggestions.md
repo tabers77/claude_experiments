@@ -270,4 +270,109 @@ Add the corresponding entry to Phase 8 FAIL detection rules (procedural, not loa
 **Applied at**: 2026-05-18T19:00:00+02:00
 **Applied via**: Inserted Phase 5 step 2a (merge-impact TL;DR header with mapping rule blocks-merge/track-as-follow-up/pure-refactoring and bucket-ordered per-finding table) verbatim from the proposal. Rewrote Phase 5 step 5 to route only the "blocks merge" bucket to Phase 7 (follow-ups and refactoring stay informational unless the user explicitly fix-nows or registers as a gap). Added `5-findings-table-needs-severity-provenance-columns` (procedural, threshold=2) to Phase 8 FAIL detection rules and seeded the matching counter in `run_history.json:fail_counters`.
 
+## 2026-05-19 — Theme: scale-skill-ceremony-to-pr-scope (full 9-phase ceremony fires verbatim for low-stakes diffs — docs+infra+1-conftest, ≤10 files, no production code — and the user perceives the process as "extreme long time")
+
+**Pattern observed:**
+
+- 2026-05-19T19:00:00+02:00 (this run, `feat-pytest_chache_test → dev`, 7 files / +102/-0, zero production code): user verbatim mid-run after the Phase 5 code-diagnosis report landed — *"I dont udnerstand what I need to fix now , what is bad , can I actually continue ? Also the process should adapt to the case , this case : we have documentation files , md file the docker compose test and a skill that chahged and this process is taking extreme long time"* (transcribed verbatim incl. typos). The full ceremony ran: Phase 1 mode-detect, Phase 2 fast-forward probe, Phase 3 rules sweep, Phase 4 smoke run, Phase 5 code-diagnosis (1 bug + 5 smells + 2 opportunities surfaced via the sub-skill's native triage shape — 70 lines of markdown for one actionable bug), Phase 7 surfaced 1 item via AskUserQuestion, Phase 8 audit table with 7 rows, Phase 9 ledger write, Phase 10 observer. All prior brevity remediations (2026-05-13 audit-table format, 2026-05-16 Phase 6 fold-into-3, 2026-05-18 Phase 5 TL;DR) were in effect.
+
+- 2026-05-19T17:00:00+02:00 (`feat/auth-closeout → dev`, prior run, captured as `improvement_suggestions[]`, `applied_at=null`): user verbatim — *"when giving suggestion of next steps it should be easier to digest and clear for the user which are the best options"* — citing the same meta-pain from the next-steps-clarity angle. The suggestion remained unapplied at this observer's run time, providing the convergence-rule second channel.
+
+**Interpretation:**
+
+All three prior remediations in the brevity / output-quality theme (2026-05-13 audit-table conversion, 2026-05-16 Phase 6 fold, 2026-05-18 Phase 5 TL;DR) targeted output *format* — making each phase's individual output more scannable. None targeted whether the *full ceremony* should fire for low-stakes diffs. For a 7-file docs+infra change with zero production code paths, every phase still walks verbatim: Phase 1 introspection, Phase 2 probe, Phase 3 rules sweep with 7-line aggregate, Phase 4 smoke (~46s), Phase 5 Skill+sub-skill report, Phase 7 menu, Phase 8 audit, Phase 9 ledger, Phase 10 observer. The user's "extreme long time" reaction is not about any single phase's verbosity — it's about the *gestalt* of 9 phases each producing 5-30 lines of output for a change whose load-bearing surface is one container env-var. Convergence rule basis: 1 observer observation (`scope_drift / scale-skill-ceremony-to-pr-scope`) + 1 matching unapplied `improvement_suggestions[]` entry (2026-05-19T17:00:00, same theme from the next-steps-clarity angle).
+
+**Proposed change to SKILL.md:**
+
+Introduce a Phase 1 sub-step (1.5) that classifies the diff scope and chooses a "lite" vs. "full" execution mode for the rest of the ceremony. The classifier and the lite-mode budget are mechanical and falsifiable, so the gate trips deterministically.
+
+`Phase 1 step 5 — Scope classifier (NEW)`:
+
+```
+5. **Diff-scope classifier**. Compute the diff scope from
+   `git diff --name-only origin/<BASE_BRANCH>...<head>`:
+
+   - **Lite-eligible** when ALL of:
+     - Total changed files ≤ 10
+     - No diff path matches any glob in `HIGH_BLAST_PATHS`
+     - No diff path matches `**/db/migrations/**` or `**/alembic/versions/**`
+     - No diff path matches `**/auth/**`, `**/authz/**`, or `**/security/**`
+     - No `.env*` / `*.pem` / `*.key` / `id_rsa` files in diff
+     - Diff is dominated by docs / infra / config / test-fixtures /
+       skill-files (production-code .py / .ts / .tsx file count ≤ 2)
+
+   - **Full-mode** otherwise.
+
+   Record the classifier outcome verbatim in the Phase 1 audit row
+   evidence: `scope=lite|full; reason=<the matching condition>`.
+
+   Lite-mode is informational, NOT a permission to skip load-bearing
+   gates. Phase 2 (clean-merge), Phase 5 (no-new-bugs sweep with the
+   Skill call), and Phase 7 (user-resolution gate) ALWAYS fire verbatim
+   — the lite-mode budget applies only to OUTPUT VERBOSITY in Phases
+   3, 4, 5 reporting, and 8.
+```
+
+`Phase 8 step 1 — Lite-mode audit row format (NEW sub-rule)`:
+
+```
+When `scope=lite` from Phase 1, render the audit table with a
+condensed Evidence column: 1-2 sentences per row, NOT verbatim command
+output. The verbatim-quote rule for user input is preserved
+(`audit-paraphrased-user-input` still trips). Specifically:
+
+  - Phase 3 evidence may collapse the 7-field aggregate to one line:
+    `rules=<source>; lint=<status>; protected=<count>; safety=<status>; env-secrets=<status>`
+  - Phase 4 evidence may collapse to one line per tier:
+    `smoke=<pass/fail/skip counts in Ns>; <other tiers> not run (reason)`
+  - Phase 5 evidence may collapse to TL;DR-only:
+    `Skill(code-diagnosis) observed; TL;DR: <N1> blocks merge / <N2> follow-up / <N3> refactoring`
+
+When `scope=full`, the audit row format remains the current verbose form.
+```
+
+`Phase 5 step 2a — Lite-mode TL;DR-first rendering`:
+
+```
+When `scope=lite`, render only the TL;DR sentence + the "blocks merge"
+bucket detail rows. The "track as follow-up" and "pure refactoring"
+buckets are mentioned by count only, expandable on user request
+(e.g., "show me the smells"). The full Phase 5 table renders only
+when `scope=full` OR the user asks for it explicitly.
+```
+
+`Phase 8 step 2 — Add FAIL rule:`
+
+```
+- **`1-scope-classifier-not-applied`** (procedural, threshold=2):
+  Phase 1 audit row missing the `scope=lite|full; reason=<...>`
+  evidence segment. Threshold=2 because a single occurrence may be
+  the skill's first run on a new project before the operator has
+  internalized the classifier; two means the gate logic is drifting.
+```
+
+`Phase 9 ledger schema — Add fail_counter:`
+
+```json
+"1-scope-classifier-not-applied": {
+  "count": 0,
+  "threshold": 2,
+  "phase": "1",
+  "description": "Phase 1 audit row missing the `scope=lite|full; reason=<...>` evidence segment introduced by the 2026-05-19 scope-classifier remediation.",
+  "occurrences": [],
+  "remediation_hint": "Phase 1 step 5 must run the diff-scope classifier and emit `scope=lite|full; reason=<matching condition>` into the Phase 1 audit row evidence. The classifier is mechanical: 6 conditions, all-of for lite-eligibility. The audit row format change in Phase 8 step 1 enforces shorter evidence when scope=lite.",
+  "applied_at": null
+}
+```
+
+**Why this remediation rather than the alternatives:**
+
+- (a) "Skip phases for small PRs": rejected — load-bearing gates (clean-merge probe, code-diagnosis Skill call, user-resolution) must always fire. Skipping them defeats the principle anchor.
+- (b) "Brevity-mode flag controlled by user": rejected — the user shouldn't have to remember to flip a flag; the skill should classify the diff and choose.
+- (c) Adopted approach: classify-first, then condense OUTPUT VERBOSITY in non-load-bearing phases. Keeps all gates honest, just stops reporting them at full verbosity when the surface is small.
+
+**Status:** applied
+**Applied at:** 2026-05-20T00:00:00+02:00
+**Applied via:** Implemented the adopted approach (classify-first, condense output verbosity in non-load-bearing phases). Phase 1 step 5 (diff-scope classifier with 6 all-of preconditions for lite-eligibility) inserted verbatim from the proposal; Phase 5 step 2a augmented with a "Lite-mode rendering" paragraph (TL;DR + blocks-merge bucket only when `scope=lite`; follow-up/refactoring buckets mentioned by count, expandable on user request); Phase 8 step 1 augmented with a "Lite-mode audit row format" sub-rule (condensed Evidence column for Phases 3/4/5 when `scope=lite`; verbatim-quote rule preserved inside cells); Phase 8 step 2 FAIL rule `1-scope-classifier-not-applied` (procedural, threshold=2) added alongside the existing domain FAIL rules. Counter seeded in `run_history.json:fail_counters` with the documented `remediation_hint`. Matching unapplied `improvement_suggestions[]` entry (2026-05-19T17:00:00) marked applied with the same applied_via summary.
+
 

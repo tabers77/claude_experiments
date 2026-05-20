@@ -177,6 +177,21 @@ If you are an LLM/agent running this skill: treat `observations.json` and `sugge
    If either fails, hard-stop and ask the user how to proceed (push the branch, switch context, abort).
 4. **Record the input verbatim** for the audit row — never paraphrase.
 
+5. **Diff-scope classifier**. Compute the diff scope from `git diff --name-only origin/<BASE_BRANCH>...<head>`:
+
+   - **Lite-eligible** when ALL of:
+     - Total changed files ≤ 10 AND
+     - No diff path matches any glob in `HIGH_BLAST_PATHS` AND
+     - No diff path matches `**/db/migrations/**` or `**/alembic/versions/**` AND
+     - No diff path matches `**/auth/**`, `**/authz/**`, or `**/security/**` AND
+     - No `.env*` / `*.pem` / `*.key` / `id_rsa` files in diff AND
+     - Diff is dominated by docs / infra / config / test-fixtures / skill-files (production-code `.py` / `.ts` / `.tsx` file count ≤ 2).
+   - **Full-mode** otherwise.
+
+   Record the classifier outcome verbatim in the Phase 1 audit row evidence: `scope=lite|full; reason=<the matching condition>`.
+
+   Lite-mode is informational, NOT a permission to skip load-bearing gates. Phase 2 (clean-merge), Phase 5 (no-new-bugs sweep with the Skill call), and Phase 7 (user-resolution gate) ALWAYS fire verbatim — the lite-mode budget applies only to OUTPUT VERBOSITY in Phases 3, 4, 5 reporting, and 8.
+
 ## Phase 2 — Clean-merge probe
 
 Verify the feature branch will merge cleanly into `BASE_BRANCH` *as it stands right now*. The probe is read-only — it does NOT touch the working tree or create commits.
@@ -274,6 +289,8 @@ This is the principle-anchor — the skill cannot mark Phase 5 `pass` without an
 
    After the TL;DR, render the existing per-finding table — but order sections by merge-impact (blocks-merge first, follow-ups second, refactoring last), NOT by the sub-skill's bug/smell/opportunity order.
 
+   **Lite-mode rendering** (when Phase 1 step 5 classified `scope=lite`): render only the TL;DR sentence + the "blocks merge" bucket detail rows. The "track as follow-up" and "pure refactoring" buckets are mentioned by count only, expandable on user request (e.g., "show me the smells"). The full per-finding table renders only when `scope=full` OR the user asks for it explicitly.
+
 3. **Optional**: when Phase 4 step 3 flagged the change as high-blast, also invoke `claude-library:quality-bug-sweep` for the comprehensive scan. Default: skip unless high-blast.
 4. **Diff-anomaly check**: for each path in `TRACKER_FILES`, `git diff origin/<BASE_BRANCH>...<head> -- <tracker-path>`. Confirm only expected rows changed; unexpected diffs are surfaced to Phase 7. If `TRACKER_FILES` is empty, skip this step and record `"diff-anomaly check skipped: no TRACKER_FILES configured"`.
 4b. **Tracker closure-pairing reconciliation**: for each path in `TRACKER_FILES`, diff the file against `origin/<BASE_BRANCH>`. If the diff *adds* a closure narrative (heuristic: a new paragraph mentioning a tracker ID like `W-*`, `V-*`, `SP-*`, `GAP-NNN` *and* outcome language such as "closed", "fixed", "resolved", "shipped"), confirm that the corresponding tracker row in the project's bug/gap tracker (typically the OTHER `TRACKER_FILE` — e.g. `BUGS_AND_GAPS.md` when `COMPLETED_STREAMS.md` got the closure narrative) was *removed* in the same diff. If the row is still present, surface to Phase 7 as a hard item with FAIL tag `5-tracker-closure-without-row-removal`. If `TRACKER_FILES` has fewer than 2 entries (so there's no "other" tracker to pair against), skip cleanly and record `"tracker closure-pairing skipped: needs >=2 TRACKER_FILES"`.
@@ -355,6 +372,14 @@ The audit runs **before** the print. Print cannot fire until the user explicitly
 
    Each row is a markdown-table row with three columns: `| Phase X | pass|FAIL | <evidence> |` where `<evidence>` is a literal command, output snippet, file:line reference, or quoted user input. Long evidence strings stay on a single logical line (the table cell) and the markdown renderer wraps them; bulleted line-wrapping in terminals breaks readability when evidence approaches 100+ chars.
 
+   **Lite-mode audit row format** (when Phase 1 step 5 classified `scope=lite`): render the audit table with a condensed Evidence column — 1-2 sentences per row, NOT verbatim command output. The verbatim-quote rule for user input is preserved (`audit-paraphrased-user-input` still trips inside cells). Specifically:
+
+   - Phase 3 evidence may collapse the 7-field aggregate to one line: `rules=<source>; lint=<status>; protected=<count>; safety=<status>; env-secrets=<status>`.
+   - Phase 4 evidence may collapse to one line per tier: `smoke=<pass/fail/skip counts in Ns>; <other tiers> not run (reason)`.
+   - Phase 5 evidence may collapse to TL;DR-only: `Skill(code-diagnosis) observed; TL;DR: <N1> blocks merge / <N2> follow-up / <N3> refactoring`.
+
+   When `scope=full`, the audit row format remains the current verbose form.
+
 2. **FAIL detection rules** — these trigger automatically; the skill cannot mark `pass` without satisfying them:
 
    **Universal FAIL rules** (every self-learning skill inherits these):
@@ -372,6 +397,7 @@ The audit runs **before** the print. Print cannot fire until the user explicitly
    - **`6-env-secret-committed` FAIL** (load-bearing, threshold=1, evaluated within Phase 3 step 2's env-file safety sub-step): diff added a `.env*` line whose value matches the secret heuristic (high-entropy ≥32 chars, contains `password=`/`secret=`/`api_key=` with non-placeholder value, hex/base64 strings ≥32 chars, or known key prefixes such as AKIA / AIza / sk-) rather than a placeholder. Tag retained for counter continuity after the standalone Phase 6 was folded into Phase 3 on 2026-05-16.
    - **`7-implicit-skip-no-justification` FAIL** (load-bearing, threshold=1): `surfaced > resolved-with-explicit-choice`. Count = (surfaced − resolved).
    - **`7-recommendation-gate-not-applied` FAIL** (procedural, threshold=2): Phase 7 surfaced an item meeting all four `Fix it now (recommended)` preconditions but did NOT mark fix-now as recommended in the option block. Threshold=2 because a single occurrence may be a borderline precondition call; two means the gate logic is drifting.
+   - **`1-scope-classifier-not-applied` FAIL** (procedural, threshold=2): Phase 1 audit row missing the `scope=lite|full; reason=<...>` evidence segment introduced by the 2026-05-19 scope-classifier remediation. Threshold=2 because a single occurrence may be the skill's first run on a new project before the operator has internalized the classifier; two means the gate logic is drifting.
 
 3. **Show the audit and ask the user to confirm OR correct every row.** The audit is NOT approved on silence or partial answer. The skill must wait for the user to:
    - **confirm** each row as written, OR
