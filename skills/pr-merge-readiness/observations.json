@@ -298,6 +298,39 @@
       "evidence": "After Phase 5 / Phase 7 wrapped and the user's `.git` fix landed (commit `bf8cf48`), I printed a GREEN verdict block (3-column markdown table of 7 gates) BEFORE rendering the Phase 8 audit table and BEFORE waiting for the literal 'merge approved' token. Verbatim self-report in the Phase 8 audit row that ran AFTER the verdict-print: 'Honest skill-flow violation to call out: I printed the green verdict BEFORE rendering this audit and BEFORE waiting for the literal merge approved token.' SKILL.md Phase 8 step 4 explicitly states: 'the print phase cannot fire until the user explicitly types merge approved (case-insensitive). Silence, looks good, ok, proceed, or partial responses are NOT approval.' I treated the user's 'I will push but finish the process of the skill' as implicit approval and printed the verdict, then walked the audit after. Per SKILL.md Phase 8 step 2 universal FAIL rules, `audit-no-explicit-approval-wait` is procedural threshold=2 (this is occurrence 1).",
       "interpretation": "The flow violation has a load-bearing FAIL rule already covering it (`audit-no-explicit-approval-wait`). The pattern of violation is not a missing rule — it's a sequencing error where the verdict-table felt natural to print at the moment the GREEN gate was complete, before the formal audit walk. Possible structural remediation: rename 'verdict' to 'audit-walk' for the body, and reserve the word 'verdict' exclusively for the final post-approval print. The naming overlap makes the early-print slip plausible. Observer records this for cross-run clustering — if a second occurrence lands within a few runs, a remediation proposal becomes warranted. First occurrence at observer time; count=1. No standalone proposal written.",
       "proposed_audit_tag": null
+    },
+    {
+      "ts": "2026-05-20T17:30:00+02:00",
+      "run_ref": "2026-05-20T17:00:00+02:00",
+      "target": "this branch into dev (current=feat/bug-bot-pipeline; head=a74beed; base=dev)",
+      "category": "missing_audit_category",
+      "_theme_slug": "phase-content-relevance-prefilter",
+      "phase": "cross-phase",
+      "evidence": "User typed two suggestions via the trigger prefix during Phase 8 final-call (captured as `improvement_suggestions[]` entries ts=2026-05-20T17:00:00+02:00): (i) tag=`3-relevance-prefilter` — 'In Phase 3 — Pre-commit-check rules, we should be able to identify which parts of this check is relevant for the operation, like smoke tests are not always relevant, so we should be able to quickly identify which stages from pre-commit is relevant so we can save time'; (ii) tag=`5-relevance-prefilter` — 'Also when running operations like Phase 5 — No-new-bugs sweep .. we should first identify if the process/step is relevant for the case'. Both target within-phase sub-step suppression (e.g. skip smoke when no platform code touched; skip code-diagnosis on irrelevant scopes), distinct from the just-applied (2026-05-20) lite-mode scope classifier which only condenses OUTPUT VERBOSITY in Phases 3/4/5 reporting. This run's smoke tier ran for 37.44s (418 passed) despite zero `intelligence_platform/` or `backend/` paths in the 13-file diff (3 bot scripts under scripts/bot/, 1 ADO YAML, 1 SKILL.md + 1 run_history.json under .claude/skills/shared-bug-gap-fix-ci/, 2 docs MDs, 1 .bot-skiplist, 4 JSON fixtures) — smoke verified the dev-merge regression baseline only, exercising nothing the branch itself changed.",
+      "interpretation": "User's mental model has evolved past the 2026-05-19 lite-mode remediation (output verbosity only) and now asks for within-phase CONTENT suppression — skip the sub-check entirely when not applicable to the diff. The right pattern: at each phase's entry, evaluate a per-sub-check relevance predicate against the diff before doing work. Examples: (1) Phase 3 smoke — skip when no `intelligence_platform/` or `backend/` paths in diff (just save 30-60s); (2) Phase 4 unit/integration tiers — already routed by HIGH_BLAST_PATHS (correct); (3) Phase 5 code-diagnosis — already scoped to changed files, but the sub-skill's category scan (Bugs/Smells/Opportunities/Performance/Security) could be scoped to applicable categories (e.g. skip Security when no auth/authz/security paths in diff). Convergence rule trips: 1 observer observation (this one) + 2 matching user-typed improvement_suggestions[] entries (same theme, same run). Proposal will be written to suggestions.md.",
+      "proposed_audit_tag": "3-or-5-relevance-prefilter-not-applied"
+    },
+    {
+      "ts": "2026-05-20T17:30:00+02:00",
+      "run_ref": "2026-05-20T17:00:00+02:00",
+      "target": "this branch into dev (current=feat/bug-bot-pipeline; head=a74beed; base=dev)",
+      "category": "missing_audit_category",
+      "_theme_slug": "lite-mode-threshold-too-strict-for-docs-infra-dominated-diffs",
+      "phase": "1",
+      "evidence": "Phase 1 step 5 (scope classifier, applied 2026-05-20) emitted `scope=full; reason=13 changed files > 10-file lite threshold`. Per the diff inspection: 13 files = 3 .py scripts under scripts/bot/ (CI/automation under scripts/, NOT under backend/intelligence_platform/) + 1 .azuredevops/ YAML + 1 SKILL.md + 1 run_history.json + 2 docs MDs + 1 .bot-skiplist + 4 JSON fixtures. The classifier's first all-of condition `Total changed files ≤ 10` failed; the other 5 conditions (no HIGH_BLAST match, no db/migrations, no auth/authz/security, no .env*/*.pem/*.key, production-code .py/.ts/.tsx file count ≤ 2) ALL passed — production-code count was 0 (the bot scripts under scripts/bot/ are not platform production code). User MEMORY.md feedback (saved 2026-05-19): 'Scale skill output to scope — small PRs (docs/infra/skill-file only, no production code) get a 2-3 sentence TL;DR up front, not the full phase-by-phase ceremony.' I gave a TL;DR-up-front voluntarily this run despite scope=full, and the user did not push back.",
+      "interpretation": "The lite-mode classifier's file-count threshold (≤10) is a crude proxy that contradicts the other 5 content-based criteria when a diff is large in file count but trivial in production-code content (this run: 13 files, 0 production-code files, 0 HIGH_BLAST paths). Proposed refinements: (a) drop the strict file-count threshold and rely on the content-based criteria alone; (b) raise the threshold to ≤20; (c) make the file-count check conditional — apply only when production-code count is > 0; (d) keep the file count as a soft tie-breaker but make the content-based criteria sufficient on their own. First occurrence post-2026-05-20 application; below threshold for standalone proposal. Recording for cross-run clustering. proposed_audit_tag captures the remediation direction.",
+      "proposed_audit_tag": "1-scope-classifier-threshold-content-vs-count"
+    },
+    {
+      "ts": "2026-05-20T17:30:00+02:00",
+      "run_ref": "2026-05-20T17:00:00+02:00",
+      "target": "this branch into dev (current=feat/bug-bot-pipeline; head=a74beed; base=dev)",
+      "category": "missing_audit_category",
+      "_theme_slug": "git-version-compat-not-handled-in-skill",
+      "phase": "2",
+      "evidence": "Phase 2 step 2 invoked `git merge-tree --write-tree --name-only origin/dev feat/bug-bot-pipeline` and got exit 129 with stderr 'usage: git merge-tree <base-tree> <branch1> <branch2>'. `git --version` returned `git version 2.37.0.windows.1` — the `--write-tree` form requires git 2.38+. Fell back to legacy 3-arg form: `BASE=$(git merge-base origin/dev feat/bug-bot-pipeline); git merge-tree $BASE origin/dev feat/bug-bot-pipeline` exited 0 with 1993 lines of merge-tree output; grep'd for both `^\\+<{7}|^\\+={7}|^\\+>{7}` (conflict markers) and `^(changed in both|added in both|removed in both)` sections — both returned 0 → clean. Same pattern as the 2026-05-11 seed observation (theme `git-version-compat-not-handled-in-skill`, proposed_audit_tag `2-git-version-fallback-not-automatic`, count=1). Run-history notes from 2026-05-08 / 2026-05-13 / 2026-05-18 / 2026-05-19 each recorded the same fallback ad-hoc. Observations.json count now 2 (this + seed); cross-run count counting run-history notes is 5+.",
+      "interpretation": "Sixth-or-later real-world occurrence of the same git-version compat pattern; second observation in observations.json (count 1→2). The remediation would be a Phase 2 step 2 sub-step that detects git version (`git --version | parse → if >=2.38 use --write-tree; else use legacy 3-arg with grep'd conflict-marker check`) and selects the right invocation automatically. Below standalone threshold (count=2, threshold=3); no matching improvement_suggestions[] entry yet so convergence rule doesn't apply. Recording for clustering — one more observation OR one matching user suggestion flips this to a proposal. Future-proofing note: the legacy 3-arg form is also being phased out (git 2.42+ deprecates without --write-tree); the eventual fix should pick the modern form on modern git and not the legacy form forever.",
+      "proposed_audit_tag": "2-git-version-fallback-not-automatic"
     }
   ],
   "review_log": [
@@ -391,6 +424,22 @@
       "suggestion_written_to": "skills/pr-merge-readiness/suggestions.md",
       "applied_at": "2026-05-20T00:00:00+02:00",
       "applied_via": "Implemented the proposed scope-classifier remediation. Phase 1 step 5 (diff-scope classifier with 6 all-of preconditions for lite-eligibility) added; Phase 5 step 2a augmented with lite-mode rendering (TL;DR + blocks-merge bucket only when scope=lite); Phase 8 step 1 augmented with lite-mode audit row format (condensed Evidence column for Phases 3/4/5; verbatim-quote rule preserved); Phase 8 step 2 FAIL rule `1-scope-classifier-not-applied` (procedural, threshold=2) added and counter seeded in run_history.json:fail_counters. Matching improvement_suggestions[] entry (2026-05-19T17:00:00, no tag) marked applied."
+    },
+    {
+      "ts": "2026-05-20T17:30:00+02:00",
+      "trigger": "convergence",
+      "clustered_theme": "phase-content-relevance-prefilter (user has asked for within-phase sub-step suppression beyond the just-applied lite-mode OUTPUT-verbosity remediation — skip the sub-check entirely when not applicable to the diff, not just condense its report)",
+      "category": "missing_audit_category",
+      "observations_referenced": [
+        "2026-05-20T17:30:00+02:00"
+      ],
+      "improvement_suggestions_referenced": [
+        "2026-05-20T17:00:00+02:00 (tag=3-relevance-prefilter)",
+        "2026-05-20T17:00:00+02:00 (tag=5-relevance-prefilter)"
+      ],
+      "suggestion_written_to": "skills/pr-merge-readiness/suggestions.md",
+      "applied_at": "2026-05-20T20:00:00+02:00",
+      "applied_via": "Implemented the proposed per-sub-check relevance prefilter remediation. Added RELEVANCE_PREDICATES config block (phase3_smoke / phase3_lint_python / phase3_lint_frontend / phase5_code_diagnosis_categories) with CRITICAL downstream-tuning note; Phase 3 step 1a (per-sub-check prefilter) added with load-bearing exemptions; Phase 3 step 4 aggregate row extended with `relevance-skipped=...` field; Phase 5 step 1a (per-category prefilter; Skill call itself remains load-bearing) added; Phase 8 step 1 Phase 3 row format updated; Phase 8 step 2 FAIL rule `3-or-5-relevance-prefilter-not-applied` (procedural, threshold=2) added; counter seeded in run_history.json:fail_counters. Two reviewer-flagged caveats applied beyond the verbatim proposal: (1) config-block comment requiring downstream projects to tune the globs; (2) phase3_smoke triggers extended to include pyproject.toml / poetry.lock / requirements*.txt / Dockerfile* / docker-compose*.yml so dependency-only diffs still run smoke. Both matching improvement_suggestions[] entries (tag=3-relevance-prefilter + tag=5-relevance-prefilter) marked applied."
     }
   ]
 }

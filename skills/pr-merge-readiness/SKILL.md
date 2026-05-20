@@ -77,12 +77,83 @@ DEFAULT_TEST_COMMANDS:
   lint_python: ruff check .
   lint_frontend: npm run lint
   typecheck_frontend: npm run typecheck
+
+RELEVANCE_PREDICATES:
+  # Per-sub-check diff-path globs that determine whether the sub-check runs.
+  # If no path in the diff matches any glob in the predicate's `triggers`,
+  # the sub-check is skipped with the documented `skip_note`. Conservative
+  # default: when uncertain, leave a predicate's triggers list empty
+  # (matches nothing → never trips skip → always runs).
+  #
+  # CRITICAL: the example globs below are tuned to this project's layout.
+  # Downstream projects MUST replace them with their own production-code,
+  # frontend, auth, and dependency paths. Failing to tune them either
+  # (a) silently skips nothing (predicate trigger globs never match the
+  # project's real paths) or (b) silently skips everything (predicate
+  # trigger globs are too narrow). Verify with one dry-run pre-adoption.
+
+  phase3_smoke:
+    # Smoke tier covers platform Python regression baseline. Skip when no
+    # platform paths AND no dependency/build/Docker files in diff —
+    # dependency or Dockerfile changes can break smoke even without
+    # platform-code touched, so they MUST also trigger smoke.
+    triggers:
+      - "**/intelligence_platform/**"
+      - "**/backend/tests/**"
+      - "**/pyproject.toml"
+      - "**/poetry.lock"
+      - "**/requirements*.txt"
+      - "**/Dockerfile*"
+      - "**/docker-compose*.yml"
+    skip_note: "no platform Python paths nor dependency/Docker changes in diff (smoke would exercise dev-merge baseline only)"
+
+  phase3_lint_python:
+    # Ruff already scoped to changed Python files internally; this predicate
+    # only avoids invoking the tool when no Python files changed at all.
+    triggers:
+      - "**/*.py"
+    skip_note: "no .py files in diff"
+
+  phase3_lint_frontend:
+    triggers:
+      - "**/frontend/**"
+      - "**/*.ts"
+      - "**/*.tsx"
+      - "**/*.js"
+      - "**/*.jsx"
+    skip_note: "no frontend paths in diff"
+
+  phase5_code_diagnosis_categories:
+    # Code-diagnosis Skill call itself remains LOAD-BEARING (no-new-bugs
+    # principle anchor). The predicates here apply only to the sub-skill's
+    # category-level scans, not to the Skill invocation. Skipped categories
+    # are passed as instructions in the Skill call's args.
+    skip_security_category:
+      # Security category scans for input validation / injection / hardcoded
+      # secrets / unsafe deserialization / missing access control. Skip when
+      # no auth/security/routes paths in diff.
+      triggers:
+        - "**/auth/**"
+        - "**/authz/**"
+        - "**/security/**"
+        - "**/routes.py"
+        - "**/dependencies.py"
+      skip_note: "no auth/security/routes paths in diff (security category not applicable)"
+    skip_performance_category:
+      # Performance category scans for N+1, blocking calls in async, missing
+      # caching. Skip when no Python service code in diff.
+      triggers:
+        - "**/services/**"
+        - "**/tools/**"
+        - "**/registry/**"
+        - "**/mcp/**"
+      skip_note: "no service/tool/registry/mcp paths in diff (performance category not applicable)"
 ```
 
 **How configuration is consumed**:
-- Phase 3 reads `PRE_COMMIT_RULES_PATH` (first existing file) before falling back to defaults.
+- Phase 3 reads `PRE_COMMIT_RULES_PATH` (first existing file) before falling back to defaults; Phase 3 step 1a evaluates `RELEVANCE_PREDICATES.phase3_*` against the diff before running each sub-check.
 - Phase 4 routes test tiers using `HIGH_BLAST_PATHS` (mandatory live tier trigger), `LIVE_UI_TEST_COMMAND` (the actual command to run), `DEV_STACK_PREFLIGHT_URL` (preflight gate), and `DEFAULT_TEST_COMMANDS` (per-tier commands).
-- Phase 5 reads `TRACKER_FILES` to bound the diff-anomaly check.
+- Phase 5 reads `TRACKER_FILES` to bound the diff-anomaly check; Phase 5 step 1a evaluates `RELEVANCE_PREDICATES.phase5_code_diagnosis_categories.skip_*` to instruct the sub-skill which categories to skip (the Skill call itself remains load-bearing and always fires).
 - Phase 8 audit rows cite the resolved values verbatim, not the placeholder names.
 
 **What you should NOT do**:
@@ -214,6 +285,16 @@ Verify the feature branch will merge cleanly into `BASE_BRANCH` *as it stands ri
 Apply the project's pre-commit-check rules (resolved from `PRE_COMMIT_RULES_PATH`) to the diff between `origin/<BASE_BRANCH>` and `<head>`. The skill does NOT re-define the rules — it consumes whichever rules file the config points at so updates flow through automatically.
 
 1. **Locate the rules**: walk `PRE_COMMIT_RULES_PATH` in order; `Read` the first existing file. Capture which path was used. If `PRE_COMMIT_RULES_PATH` is empty OR none of the listed paths exist, surface a clear note in the verdict (`"no pre-commit-check rules file found at configured paths; falling back to default checks"`) and run the default checks below.
+
+1a. **Per-sub-check relevance prefilter**: for each sub-check defined in `RELEVANCE_PREDICATES.phase3_*`, evaluate the predicate against the diff path list (`git diff --name-only origin/<BASE_BRANCH>...<head>`). If no diff path matches any glob in the predicate's `triggers`, mark the sub-check as `skipped (irrelevant)` and record the `skip_note` verbatim for the Phase 3 step 4 aggregate row. Do NOT run the sub-check.
+
+   The relevance prefilter NEVER applies to:
+   - Phase 2 clean-merge probe (load-bearing).
+   - Phase 5 code-diagnosis Skill call itself (load-bearing — the prefilter inside Phase 5 only suppresses sub-skill CATEGORY scans, not the Skill invocation).
+   - Phase 7 user-resolution gate (load-bearing — any item already surfaced by an earlier phase still requires explicit choice; only the prefilter suppression is recorded as evidence).
+
+   Conservative-by-default: when a predicate's `triggers` list is empty, the predicate matches nothing and the sub-check always runs. Tune predicates per project — see the config block's CRITICAL note.
+
 2. **Default checks** (when no rules file is found):
    - Smoke tests pass (`DEFAULT_TEST_COMMANDS.smoke`).
    - Lint clean on changed files (`DEFAULT_TEST_COMMANDS.lint_python` and/or `DEFAULT_TEST_COMMANDS.lint_frontend`, depending on which file types are in the diff).
@@ -236,10 +317,14 @@ Apply the project's pre-commit-check rules (resolved from `PRE_COMMIT_RULES_PATH
    For each rule, capture the command run + its output verbatim.
 4. **Aggregate outcomes** as a per-rule table for the audit:
    ```
-   rules-source=<path|defaults>, smoke=<pass|FAIL+counts>, lint=<pass|FAIL+files>,
-   protected=<none|<list>>, ownership=<ok|warn>, safety=<ok|FAIL>,
-   env-secrets=<no-env-files|pass|FAIL+files>
+   rules-source=<path|defaults>, smoke=<pass|skipped:<note>|FAIL+counts>,
+   lint=<pass|skipped:<note>|FAIL+files>, protected=<none|<list>>,
+   ownership=<ok|warn>, safety=<ok|FAIL>,
+   env-secrets=<no-env-files|pass|FAIL+files>,
+   relevance-skipped=<none|<comma-list of "<sub-check>:<skip_note>">>
    ```
+
+   `relevance-skipped` lists every sub-check the Phase 3 step 1a prefilter suppressed, citing the `skip_note` verbatim. If the prefilter suppressed nothing this run, emit `relevance-skipped=none` (do NOT omit the field — its presence is what the FAIL counter checks).
 5. Any rule failure → mark Phase 3 FAIL and surface to Phase 7. Env-secret heuristic trips → `6-env-secret-committed` FAIL (counter retained from former Phase 6 — see Phase 8 FAIL detection rules).
 
 ## Phase 4 — Relevant-tests run (incl. live UI gate)
@@ -272,6 +357,8 @@ This is the principle-anchor — the skill cannot mark Phase 5 `pass` without an
    ```
    Skill(skill="claude-library:code-diagnosis", paths=<list-of-changed-files>)
    ```
+
+1a. **Per-category relevance prefilter**: the Skill call above is load-bearing and ALWAYS fires. Within the Skill call's args, evaluate each `RELEVANCE_PREDICATES.phase5_code_diagnosis_categories.skip_*` predicate against the diff path list. For each tripped predicate (no diff path matches any glob in `triggers`), include an explicit `skip_categories=[...]` instruction in the Skill call's prompt so the sub-skill suppresses that category's scan, and record the `skip_note` verbatim. Skipped categories appear as one-line skip notes in the Phase 5 report (and in the Phase 8 audit row's Phase 5 evidence string). Categories not listed in `RELEVANCE_PREDICATES` (e.g. Bugs, Smells, Opportunities) always run — those are the principle-anchor categories.
 
 2. **Surface findings** in a "Sweep results" block. For each finding: severity, file:line, one-line description.
 
@@ -362,7 +449,7 @@ The audit runs **before** the print. Print cannot fire until the user explicitly
    |-------|--------|----------|
    | 1 | pass | input parsed: <mode> <target>; user input verbatim: "<literal quote>" |
    | 2 | pass | git merge-tree --write-tree --name-only origin/<BASE_BRANCH> <head>: exit=<code>; conflicts: <none\|<paths>> |
-   | 3 | pass\|FAIL | rules-source=<resolved PRE_COMMIT_RULES_PATH or "defaults">; outcomes: smoke=<...>, lint=<...>, protected=<...>, ownership=<...>, safety=<...>, env-secrets=<no-env-files\|pass\|FAIL+files> |
+   | 3 | pass\|FAIL | rules-source=<resolved PRE_COMMIT_RULES_PATH or "defaults">; outcomes: smoke=<...>, lint=<...>, protected=<...>, ownership=<...>, safety=<...>, env-secrets=<no-env-files\|pass\|FAIL+files>, relevance-skipped=<none\|<sub-check>:<skip_note>; ...> |
    | 4 | pass\|FAIL | tiers run: <list>; results: <pass/fail/skipped per tier>; test-cache: <verbatim lines or "not wired">; live UI: <ran\|skipped + reason> |
    | 5 | pass\|FAIL | claude-library:code-diagnosis Skill call observed: <yes/no>; findings: <count> at <file:line list> |
    | 7 | pass\|FAIL | unresolved items: <N surfaced> / <M resolved-with-explicit-choice>; user input verbatim: "<literal quote>" |
@@ -398,6 +485,7 @@ The audit runs **before** the print. Print cannot fire until the user explicitly
    - **`7-implicit-skip-no-justification` FAIL** (load-bearing, threshold=1): `surfaced > resolved-with-explicit-choice`. Count = (surfaced − resolved).
    - **`7-recommendation-gate-not-applied` FAIL** (procedural, threshold=2): Phase 7 surfaced an item meeting all four `Fix it now (recommended)` preconditions but did NOT mark fix-now as recommended in the option block. Threshold=2 because a single occurrence may be a borderline precondition call; two means the gate logic is drifting.
    - **`1-scope-classifier-not-applied` FAIL** (procedural, threshold=2): Phase 1 audit row missing the `scope=lite|full; reason=<...>` evidence segment introduced by the 2026-05-19 scope-classifier remediation. Threshold=2 because a single occurrence may be the skill's first run on a new project before the operator has internalized the classifier; two means the gate logic is drifting.
+   - **`3-or-5-relevance-prefilter-not-applied` FAIL** (procedural, threshold=2): Phase 3 or Phase 5 ran a sub-check whose `RELEVANCE_PREDICATES` predicate would have tripped given the diff content, but the prefilter step (Phase 3 step 1a or Phase 5 step 1a) was not invoked — i.e. the Phase 3 aggregate row is missing the `relevance-skipped=...` field entirely (not just `relevance-skipped=none`), OR Phase 5 evidence does not mention category skips when a predicate's triggers had zero diff-path matches. Threshold=2 because a single occurrence may be the skill's first run on a project before the predicates are tuned; two means the prefilter step is being bypassed.
 
 3. **Show the audit and ask the user to confirm OR correct every row.** The audit is NOT approved on silence or partial answer. The skill must wait for the user to:
    - **confirm** each row as written, OR

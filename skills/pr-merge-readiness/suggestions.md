@@ -375,4 +375,171 @@ when `scope=full` OR the user asks for it explicitly.
 **Applied at:** 2026-05-20T00:00:00+02:00
 **Applied via:** Implemented the adopted approach (classify-first, condense output verbosity in non-load-bearing phases). Phase 1 step 5 (diff-scope classifier with 6 all-of preconditions for lite-eligibility) inserted verbatim from the proposal; Phase 5 step 2a augmented with a "Lite-mode rendering" paragraph (TL;DR + blocks-merge bucket only when `scope=lite`; follow-up/refactoring buckets mentioned by count, expandable on user request); Phase 8 step 1 augmented with a "Lite-mode audit row format" sub-rule (condensed Evidence column for Phases 3/4/5 when `scope=lite`; verbatim-quote rule preserved inside cells); Phase 8 step 2 FAIL rule `1-scope-classifier-not-applied` (procedural, threshold=2) added alongside the existing domain FAIL rules. Counter seeded in `run_history.json:fail_counters` with the documented `remediation_hint`. Matching unapplied `improvement_suggestions[]` entry (2026-05-19T17:00:00) marked applied with the same applied_via summary.
 
+---
+
+## 2026-05-20 — Theme: phase-content-relevance-prefilter (user asks the skill to identify per-sub-step relevance before doing the work — skip the sub-check entirely when not applicable, not just condense its report)
+
+**Pattern observed**: convergence trip — one observer observation (this run) + TWO matching user-typed improvement-suggestions (same run, sister suggestions for Phase 3 and Phase 5). Per the convergence rule, this fires as a proposal regardless of count, and the same-run paired suggestions strengthen the case (the user thought through it enough to file two phase-specific instances).
+
+- **Observation** (`observations.json` ts=`2026-05-20T17:30:00+02:00`, target=`this branch into dev (current=feat/bug-bot-pipeline; head=a74beed; base=dev)`, phase=`cross-phase`, category=`missing_audit_category`, theme=`phase-content-relevance-prefilter`): verbatim evidence — "This run's smoke tier ran for 37.44s (418 passed) despite zero `intelligence_platform/` or `backend/` paths in the 13-file diff (3 bot scripts under scripts/bot/, 1 ADO YAML, 1 SKILL.md + 1 run_history.json under .claude/skills/shared-bug-gap-fix-ci/, 2 docs MDs, 1 .bot-skiplist, 4 JSON fixtures) — smoke verified the dev-merge regression baseline only, exercising nothing the branch itself changed."
+
+- **Matching user-typed improvement-suggestion #1** (`run_history.json:improvement_suggestions[]` ts=`2026-05-20T17:00:00+02:00`, phase=`audit`, tag=`3-relevance-prefilter`): verbatim text — "In Phase 3 — Pre-commit-check rules, we should be able to identify which parts of this check is relevant for the operation, like smoke tests are not always relevant, so we should be able to quickly identify which stages from pre-commit is relevant so we can save time"
+
+- **Matching user-typed improvement-suggestion #2** (`run_history.json:improvement_suggestions[]` ts=`2026-05-20T17:00:00+02:00`, phase=`audit`, tag=`5-relevance-prefilter`): verbatim text — "Also when running operations like Phase 5 — No-new-bugs sweep .. we should first identify if the process/step is relevant for the case"
+
+**Interpretation**: The 2026-05-19 lite-mode remediation classified diff scope and condensed OUTPUT VERBOSITY for non-load-bearing phases (Phases 3, 4, 5 reporting, and 8 audit cells when `scope=lite`). It did NOT change what work gets done — every phase still runs its sub-checks verbatim. The user has now spotted the next-level inefficiency: when the diff demonstrably does not exercise a sub-check's surface (e.g. smoke covers platform Python code; no platform Python in diff → smoke is exercising nothing the branch changed), the sub-check is providing zero branch-specific signal and could be skipped entirely. The two paired suggestions name the pattern in two concrete phases (Phase 3 pre-commit sub-checks; Phase 5 code-diagnosis scope), and the underlying ask is general: every phase that does work should have a per-sub-check relevance predicate evaluated against the diff before doing the work.
+
+Important distinction from the 2026-05-19 lite-mode remediation:
+- **Lite-mode (already applied)**: `scope=lite` condenses *what's shown to the user*; all sub-checks still run.
+- **Relevance prefilter (this proposal)**: each sub-check has a diff-content predicate that determines whether the sub-check runs at all.
+
+These compose: a diff with `scope=lite` AND a sub-check that the relevance prefilter skips would produce a one-line "Phase 3 smoke=skipped (no platform code in diff)" audit row instead of running 37s of tests and emitting a verbose `smoke=418/1` line.
+
+Load-bearing principle preserved: the relevance predicate is conservative-by-default. When in doubt, the sub-check runs. The predicate trips skip only when the diff is verifiably orthogonal to the sub-check's surface (e.g. smoke covers Python code in `intelligence_platform/` and `backend/tests/`; if those paths are ABSENT from the diff, smoke would be exercising orthogonal code that the branch didn't change — skip is safe). Conservative defaults mean the predicate is a positive whitelist of paths-that-trigger, not a blacklist of paths-that-skip.
+
+**Proposed change to SKILL.md**:
+
+Augment each phase that does meaningful work with a per-sub-check relevance predicate. Define the predicates in the config block alongside `HIGH_BLAST_PATHS` and `DEFAULT_TEST_COMMANDS`, so projects can tune them per repo:
+
+```yaml
+RELEVANCE_PREDICATES:
+  # Per-sub-check diff-path globs that determine whether the sub-check runs.
+  # If no path in the diff matches any glob in the predicate's triggers,
+  # the sub-check is skipped with the documented skip_note. Conservative
+  # default: when uncertain, leave the predicate empty (matches nothing →
+  # always run).
+
+  phase3_smoke:
+    # Smoke tier covers platform Python. Skip when no platform paths in diff.
+    triggers:
+      - "**/intelligence_platform/**"
+      - "**/backend/tests/**"
+    skip_note: "no platform Python paths in diff (smoke would exercise dev-merge baseline only)"
+
+  phase3_lint_python:
+    # Ruff already scoped to changed Python files internally; this predicate
+    # only avoids invoking the tool when no Python files changed at all.
+    triggers:
+      - "**/*.py"
+    skip_note: "no .py files in diff"
+
+  phase3_lint_frontend:
+    triggers:
+      - "**/frontend/**"
+      - "**/*.ts"
+      - "**/*.tsx"
+      - "**/*.js"
+      - "**/*.jsx"
+    skip_note: "no frontend paths in diff"
+
+  phase5_code_diagnosis_categories:
+    # Code-diagnosis Skill call itself remains LOAD-BEARING (no-new-bugs
+    # principle anchor). The relevance predicate here applies only to the
+    # sub-skill's CATEGORY scan, not to the Skill invocation.
+    # Categories: Bugs, Smells, Opportunities, Performance, Security.
+    skip_security_category:
+      # Security category scans for input validation / injection / hardcoded
+      # secrets / unsafe deserialization / missing access control. Skip when
+      # no auth/security/routes paths in diff.
+      triggers:
+        - "**/auth/**"
+        - "**/authz/**"
+        - "**/security/**"
+        - "**/routes.py"
+        - "**/dependencies.py"
+      skip_note: "no auth/security/routes paths in diff (security category not applicable)"
+    skip_performance_category:
+      # Performance category scans for N+1, blocking calls in async, missing
+      # caching. Skip when no Python service code in diff.
+      triggers:
+        - "**/services/**"
+        - "**/tools/**"
+        - "**/registry/**"
+        - "**/mcp/**"
+      skip_note: "no service/tool/registry/mcp paths in diff (performance category not applicable)"
+```
+
+Augment Phase 3 step 1 ("Locate the rules"), inserting a new sub-step BEFORE the sub-checks run:
+
+```
+1a. **Per-sub-check relevance prefilter** (NEW): for each sub-check defined
+   in `RELEVANCE_PREDICATES`, evaluate the predicate against the diff
+   path list. If no diff path matches any glob in the predicate's
+   `triggers`, mark the sub-check as `skipped (irrelevant)` and record
+   the `skip_note` verbatim into the Phase 3 step 4 aggregate row. Do
+   NOT run the sub-check.
+
+   The relevance prefilter NEVER applies to:
+     - Phase 2 clean-merge probe (load-bearing)
+     - Phase 5 code-diagnosis Skill call itself (load-bearing — the
+       relevance prefilter inside Phase 5 only suppresses sub-skill
+       CATEGORY scans, not the Skill invocation)
+     - Phase 7 user-resolution gate (load-bearing — any item already
+       surfaced by an earlier phase still requires explicit choice;
+       only the prefilter suppression is recorded as evidence)
+```
+
+Augment Phase 5 step 1 ("Run `claude-library:code-diagnosis`"):
+
+```
+1a. **Per-category relevance prefilter** (NEW): the Skill call is
+   load-bearing and ALWAYS fires. Within the Skill call, evaluate each
+   sub-category predicate in `RELEVANCE_PREDICATES.phase5_code_diagnosis_categories.skip_*`
+   against the diff. For each tripped predicate, instruct the sub-skill
+   to skip that category's scan and record the `skip_note`. The output
+   continues to list the categories that DID run; skipped categories
+   appear as one-line skip notes in the Phase 5 report (and in the
+   Phase 8 audit row's Phase 5 evidence string).
+```
+
+Augment Phase 3 step 4 (aggregate-outcomes row), adding a new field:
+
+```
+Aggregate row may now include a `relevance-skipped=<comma-list>` field
+listing any sub-checks suppressed by the relevance prefilter, with the
+verbatim `skip_note` for each. Example:
+
+  rules-source=<path|defaults>, smoke=<pass|skipped:no-platform-paths|FAIL+counts>,
+  lint=<pass|skipped:no-py-files|FAIL+files>, protected=<...>, ownership=<...>,
+  safety=<...>, env-secrets=<...>, relevance-skipped=<phase3_smoke:no-platform-Python-paths;phase3_lint_frontend:no-frontend-paths>
+```
+
+Augment Phase 8 step 2 (FAIL detection rules) with a new procedural rule:
+
+```
+- **`3-or-5-relevance-prefilter-not-applied`** (procedural, threshold=2):
+  Phase 3 or Phase 5 ran a sub-check whose `RELEVANCE_PREDICATES`
+  predicate would have tripped given the diff content, but the
+  prefilter step was not invoked (audit row shows the sub-check ran but
+  `relevance-skipped` is absent or empty when it should contain the
+  sub-check). Threshold=2 because a single occurrence may be the
+  skill's first run on a project before the predicates are tuned; two
+  means the prefilter step is being bypassed.
+```
+
+Add the corresponding counter to `run_history.json:fail_counters`:
+
+```json
+"3-or-5-relevance-prefilter-not-applied": {
+  "count": 0,
+  "threshold": 2,
+  "phase": "3 or 5",
+  "description": "Phase 3 or Phase 5 ran a sub-check whose RELEVANCE_PREDICATES predicate would have tripped given the diff content, but the prefilter step was not invoked.",
+  "occurrences": [],
+  "remediation_hint": "At Phase 3 step 1 entry and Phase 5 step 1 entry, evaluate each sub-check's predicate against the diff path list. If predicate.triggers contains zero matches, mark the sub-check as skipped with the predicate's skip_note. Record the suppression in the Phase 3 step 4 aggregate row's `relevance-skipped=...` segment. The audit row must show either the sub-check's outcome OR a non-empty `relevance-skipped=...` listing it.",
+  "applied_at": null
+}
+```
+
+**Why this approach over alternatives**:
+
+- (a) "User-toggle to skip individual sub-checks": rejected — same anti-pattern as a brevity-mode flag; the user shouldn't have to remember which sub-checks to skip per diff.
+- (b) "Compute everything, suppress reports in output": rejected — that's what the 2026-05-19 lite-mode already does; the user is explicitly asking for the work to be skipped, not just hidden.
+- (c) "Hard-code the predicates in SKILL.md": rejected — paths are project-specific; configuration belongs in the config block.
+- (d) Adopted approach: declarative per-sub-check predicates in the config block; mechanically evaluated against the diff path list; conservative defaults; load-bearing gates exempt.
+
+**Status**: applied
+**Applied at**: 2026-05-20T20:00:00+02:00
+**Applied via**: Implemented the adopted approach (declarative per-sub-check predicates in the config block; mechanically evaluated against the diff path list; conservative defaults; load-bearing gates exempt) with two reviewer-flagged caveats: (1) the config block carries a CRITICAL note that downstream projects MUST tune the example globs (intelligence_platform / backend/tests / frontend / auth / etc.) for their own layout, otherwise the prefilter silently skips nothing or everything; (2) `phase3_smoke.triggers` was extended beyond the proposed list to include `pyproject.toml`, `poetry.lock`, `requirements*.txt`, `Dockerfile*`, and `docker-compose*.yml`, because dependency or build-image changes can break smoke even without platform-code touched and the proposal's narrower trigger list would have silently skipped smoke on env-only branches. Concrete edits: RELEVANCE_PREDICATES config block added; Phase 3 step 1a (per-sub-check relevance prefilter with load-bearing exemptions for Phase 2 / Phase 5 Skill call / Phase 7) added; Phase 3 step 4 aggregate row extended with `relevance-skipped=<none|<sub-check>:<skip_note>; ...>`; Phase 5 step 1a (per-category relevance prefilter — Skill call itself remains load-bearing, only sub-skill category scans like Security / Performance can skip via Skill-call args); Phase 8 step 1 audit-table Phase 3 row updated with the new `relevance-skipped=...` segment; Phase 8 step 2 FAIL rule `3-or-5-relevance-prefilter-not-applied` (procedural, threshold=2) added; counter seeded in `run_history.json:fail_counters` with `remediation_hint` citing the smoke-trigger safety net. Both matching `improvement_suggestions[]` entries (2026-05-20T17:00:00 tag=`3-relevance-prefilter` + tag=`5-relevance-prefilter`) marked applied with mirroring summaries.
+
 
