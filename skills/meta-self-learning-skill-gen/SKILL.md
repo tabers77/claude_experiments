@@ -23,6 +23,7 @@ description: Generate a self-learning Claude Code skill through interactive inte
 - `library/templates/self-learning-skill/audit-phase.md` — audit body (Phase N-1)
 - `library/templates/self-learning-skill/ledger-phase.md` — ledger body (Phase N)
 - `library/templates/self-learning-skill/run_history_schema_v1.md` — schema + bootstrap JSON
+- `library/templates/self-learning-skill/freshness-phase.md` — freshness body (Phase 0, default opt-in, consumed in Step 5.4 / 8a.4)
 - `library/templates/self-learning-skill/suggestion-capture.md` — mid-run user-suggestion capture block (consumed in Step 5.5 / 8a.5)
 - `library/templates/self-learning-skill/observer-phase.md` — observer body (Phase N+1, OPTIONAL, consumed in Step 5.6 / 8a.7)
 - `library/templates/self-learning-skill/observations_schema_v1.md` — observer schema + bootstrap JSON for `observations.json` and `suggestions.md`
@@ -47,11 +48,12 @@ The interview is the value. Resist the urge to skip questions; each one correspo
    - If the user passed `convert <path-to-skill-dir-or-SKILL.md>`: jump to the **Convert Mode** section below (Steps C1–C8). Greenfield Steps 2–10 do NOT run.
    - If the user passed `improve <skill-name>`: respond "Improve mode is not yet supported in v1. To modify an existing self-learning skill, open its SKILL.md directly." and stop.
    - Otherwise: continue with greenfield generation (Steps 2–10).
-2. **Read the templates** (you'll substitute from them later). The first four are mandatory; the last three are loaded on demand based on Step 5.5 / 5.6 toggles:
+2. **Read the templates** (you'll substitute from them later). The first four are mandatory; the rest are loaded on demand based on Step 5.4 / 5.5 / 5.6 toggles:
    - `library/templates/self-learning-skill/SKILL.md.tpl`
    - `library/templates/self-learning-skill/audit-phase.md`
    - `library/templates/self-learning-skill/ledger-phase.md`
    - `library/templates/self-learning-skill/run_history_schema_v1.md`
+   - `library/templates/self-learning-skill/freshness-phase.md` (read when Step 5.4 enables the freshness check — default y)
    - `library/templates/self-learning-skill/suggestion-capture.md` (read when Step 5.5 enables suggestion-capture)
    - `library/templates/self-learning-skill/observer-phase.md` (read when Step 5.6 enables observer)
    - `library/templates/self-learning-skill/observations_schema_v1.md` (read when Step 5.6 enables observer)
@@ -167,6 +169,40 @@ Confirm? [y/n]
 ```
 
 If `n`, allow the user to edit phase names/tiers/flags before proceeding. Loop until `y`.
+
+### Step 5.4 — Interview: Phase 0 freshness check
+
+```
+Should this skill include the Phase 0 freshness check? (y/n, default y)
+  When enabled, the skill runs a non-blocking Phase 0 that prints a one-line
+  nudge if the skill is both old (>= 21 days since last validated) and well-used
+  (>= 10 runs since last validated). The nudge points the user at:
+    /meta-discover-claude-features  — research improvements in the skill's domain
+    /meta-skill-audit               — overlap check vs. other skills
+  Silence is the success state — the phase prints nothing when fresh and never
+  blocks Phase 1.
+
+  Default y. Opt-out only when:
+    - The skill has a deliberately frozen surface (e.g. one-shot generator that
+      shouldn't be evolving its design).
+    - The skill is internal scaffolding the user never invokes directly.
+```
+
+If `y`, also ask:
+
+```
+Override default thresholds? (y/n, default n — keeps runs=10, days=21)
+  Tune lower for hot skills run multiple times per day; raise the days threshold
+  for quiet skills with stable surfaces. Both numbers must be positive integers.
+```
+
+If the user opts to override, capture:
+- `freshness_threshold_runs: <int>` (default 10)
+- `freshness_threshold_days: <int>` (default 21)
+
+Otherwise carry the defaults forward.
+
+Carry `freshness_enabled: <true|false>` and the two threshold values forward to Steps 7, 8a, 8b, 8c, and 9.
 
 ### Step 5.5 — Interview: mid-run suggestion capture
 
@@ -365,6 +401,8 @@ Frontmatter:
   description: <description> <keywords>
 
 Phase structure:
+  <only if freshness_enabled is true:>
+  Phase 0   — Freshness check (non-blocking, runs/days thresholds=<runs>/<days>)
   Phase 1 — <name>  (<tier>)
   Phase 2 — <name>  (<tier>)
   ...
@@ -380,6 +418,12 @@ Phase structure:
     Writes to: <target_dir>/<name>/observations.json + suggestions.md
     Cluster threshold: <cluster_threshold>
     Convergence rule active: <true if suggestion_capture_enabled else false>
+
+Freshness check (Phase 0): <enabled|disabled>
+  When enabled, the SKILL.md gets a non-blocking Phase 0 that nudges the user
+  to revalidate (research + overlap check) when the skill has been used >= 10
+  times AND >= 21 days have passed since last validation. run_history.json
+  gets a `validation_freshness` block initialized to defaults.
 
 Mid-run suggestion capture: <enabled|disabled>
   When enabled, the SKILL.md gets a "Mid-run suggestion capture" block after the
@@ -430,6 +474,12 @@ When `generate` is received:
    - `{{INPUT_FALLBACK_BEHAVIOR}}` → from Step 4
    - `{{N_MINUS_1}}` → audit phase number (= total domain phases + 1)
    - `{{N}}` → ledger phase number (= total domain phases + 2)
+
+1.4. **Inline the Phase 0 freshness check** if `freshness_enabled` is true (Step 5.4). Replace the `## Phase 0 — Freshness check (non-blocking)` placeholder block in the template (the one with the "Insert here" comment) with the body of `library/templates/self-learning-skill/freshness-phase.md` — the section that starts with `## Phase 0 — Freshness check (non-blocking)` and ends just before the next `---` horizontal rule (do NOT include the "Authoring notes" tail). Apply substitutions in the inlined text:
+   - `{{SKILL_NAME}}` → from Step 2
+   - `{{SKILL_PATH}}` → `<target_dir>/<name>` resolved to a relative path from the project root
+
+   If `freshness_enabled` is false, remove the entire Phase 0 placeholder block (heading + "Insert here" callout) so Phase 1 becomes the first phase. Also remove the surrounding `<!-- PHASE 0 ... -->` comment block above the placeholder.
 
 1.5. **Inline the Mid-run suggestion capture block** if `suggestion_capture_enabled` is true (Step 5.5). Insert the body of `library/templates/self-learning-skill/suggestion-capture.md` — the section that starts with `## Mid-run suggestion capture` and ends just before the next `---` horizontal rule — between the `## Inputs` section and the first domain phase (i.e., right before the `---` divider that precedes Phase 1). Apply substitutions:
    - `{{SKILL_NAME}}` → from Step 2
@@ -499,6 +549,10 @@ When `generate` is received:
 2. **Apply suggestion-capture toggle** (from Step 5.5):
    - If `suggestion_capture_enabled` is `true`: keep the `"improvement_suggestions": []` line as it appears in the canonical Initial state.
    - If `suggestion_capture_enabled` is `false`: drop the `"improvement_suggestions": []` line entirely AND remove the trailing comma from the previous line so the JSON stays valid.
+
+2a. **Apply freshness toggle** (from Step 5.4):
+   - If `freshness_enabled` is `true`: keep the `"validation_freshness": { ... }` block. Substitute `created_at` and `last_validated_at` with the current ISO 8601 UTC timestamp. Substitute `thresholds.runs` with `freshness_threshold_runs` (default 10) and `thresholds.days` with `freshness_threshold_days` (default 21).
+   - If `freshness_enabled` is `false`: drop the `"validation_freshness": { ... }` block entirely AND remove the trailing comma from the previous line so the JSON stays valid.
 3. If Step 6 added domain FAIL rules, append each to the `fail_counters` object with:
    ```json
    "<tag>": {
@@ -583,9 +637,14 @@ Run these mechanical checks. Fail loudly on any miss — DO NOT silently proceed
    - If false: the note SHOULD acknowledge that the convergence rule cannot fire for this skill (it's allowed but should be marked).
    Mismatch is a soft warning, not a hard fail.
 
+10a. **Freshness-phase consistency**: confirm SKILL.md and run_history.json agree on the freshness toggle.
+   - If `freshness_enabled` is true: SKILL.md MUST contain a `## Phase 0 — Freshness check` heading placed BEFORE the first domain phase, AND `run_history.json` MUST contain a `validation_freshness` block with `runs_since_validation: 0`, the correct threshold values, and ISO 8601 timestamps for `created_at`/`last_validated_at`. The ledger phase body MUST contain the increment step (search for `runs_since_validation` in the ledger section).
+   - If false: SKILL.md MUST NOT contain a Phase 0 freshness heading AND `run_history.json` MUST NOT contain `validation_freshness`.
+   Mismatch → fail loudly and report which side disagrees.
+
 10. **Composition table well-formed**: when `composed_skills` (Step 6.5.4) is non-empty, the generated SKILL.md MUST contain a `Plugin skills composed by this skill` table with exactly one row per `composed_skills` entry. Each row must have a non-empty Skill, Phase, and Trigger cell. When `not_composed` (Step 6.5.5) is non-empty, the generated SKILL.md MUST contain a `Plugin skills NOT composed` bullet list with exactly one bullet per entry. Empty `composed_skills` and `not_composed` are valid: the composition table is rendered with the "(none — populate by hand if/when you discover compositions on first runs)" placeholder row; the not-composed block is omitted entirely. Mismatch (declared in interview but missing in file, or vice versa) → fail loudly and report which side disagrees.
 
-If all checks (1–7 always; 8–9 when observer_enabled; 10 when `composed_skills` or `not_composed` is non-empty) pass, print:
+If all checks (1–7 always; 8–9 when observer_enabled; 10a always (toggle-symmetric); 10 when `composed_skills` or `not_composed` is non-empty) pass, print:
 
 ```
 ✓ Generation validated. Skill ready to invoke.
@@ -675,6 +734,8 @@ Ask only what extraction couldn't unambiguously cover:
 4. **For each input-consuming phase, confirm verbatim-quote enforcement.** If a phase currently summarizes user input rather than quoting it, the audit row will fail `audit-paraphrased-user-input` on first run. Flag this so the user understands the audit is INTENTIONALLY going to bite — it's the system working.
 5. **Optional domain FAIL rules** — same as greenfield Step 6. Recommended default: skip and let the ledger accumulate from real runs.
 6. **Heading-prefix sanity check** — if existing skill uses `## Step` instead of `## Phase`, ask: keep `Step` (default — preserves byte-identical existing content) or normalize to `Phase`.
+6a. **Phase 0 freshness toggle** — same as greenfield Step 5.4. Default y. Carry `freshness_enabled` and the two threshold values forward. For convert mode, the freshness phase is inserted as a new Phase 0 ahead of the existing Phase 1; no existing phase numbering changes.
+
 7. **Mid-run suggestion capture toggle** — same as greenfield Step 5.5. Default y. Carry `suggestion_capture_enabled` forward.
 8. **Observer phase toggle** — same as greenfield Step 5.6. Default n. Carry `observer_enabled` and `cluster_threshold` forward. Apply the same warning if observer is enabled but suggestion-capture is disabled.
 9. **Retrospective seeding for observer** — only ask when `observer_enabled` is true AND the existing skill has prior runs in `run_history.json`. Offer: "Pre-populate `observations.json` with seed observations derived from a paper retrospective on the existing `runs[]`? [y/n, default y]". When `y`, the conversion plan in C5 will include a retrospective seeding step that creates back-dated observation entries; when `n`, the file is initialized empty.
@@ -705,6 +766,9 @@ Frontmatter changes:
   (name, description, and any other existing fields unchanged)
 
 Phase additions (existing <N> domain phases preserved BYTE-IDENTICAL):
+  <only if freshness_enabled is true:>
+  + Phase 0   — Freshness check (non-blocking, inserted BEFORE existing Phase 1)
+      Thresholds: runs=<runs>, days=<days>
   + Phase <N+1> — Pre-action self-audit (CHECKPOINT, blocking)
       Approval token: `<token>`
       Audit rows: <N> (one per existing domain phase)
@@ -720,6 +784,11 @@ Phase additions (existing <N> domain phases preserved BYTE-IDENTICAL):
       Cluster threshold: <cluster_threshold>
       Convergence rule active: <true if suggestion_capture_enabled else false>
       Retrospective seed: <enabled|disabled> (from C4 step 9)
+
+Freshness check (Phase 0): <enabled|disabled>
+  When enabled, the SKILL.md gets a non-blocking Phase 0 inserted BEFORE the
+  existing Phase 1 (existing phases keep their numbering). run_history.json
+  gets a `validation_freshness` block initialized to defaults.
 
 Mid-run suggestion capture: <enabled|disabled>
   When enabled, the SKILL.md gets a "Mid-run suggestion capture" block inserted
@@ -772,6 +841,8 @@ Type `convert` to apply. Anything else aborts.
 When `convert` is received:
 
 1. **Edit the SKILL.md frontmatter** with `Edit` to add the `metadata` block. Preserve every other field exactly.
+1a. **Insert the Phase 0 freshness check** if `freshness_enabled` is true. Use `Edit` to insert the body of `library/templates/self-learning-skill/freshness-phase.md` (the section starting with `## Phase 0 — Freshness check (non-blocking)` and ending just before the next `---`) ABOVE the existing first domain phase. Apply `{{SKILL_NAME}}` and `{{SKILL_PATH}}` substitutions. Existing phase headings are NOT renumbered — the freshness phase takes the previously-unused Phase 0 slot. Skip if disabled.
+
 2. **Insert the Mid-run suggestion capture block** if `suggestion_capture_enabled` is true. Use `Edit` to insert the body of `library/templates/self-learning-skill/suggestion-capture.md` (the `## Mid-run suggestion capture` section, before the next `---`) between the existing `## Inputs` section and the first existing domain phase. Apply `{{SKILL_NAME}}` and `{{SKILL_PATH}}` substitutions. Skip if disabled.
 3. **Append the audit phase** after the last existing domain phase. Use the body of `library/templates/self-learning-skill/audit-phase.md` with substitutions from C3/C4. Audit row count must equal the number of existing domain phases; rows for input-consuming phases include the verbatim-quote slot. Use the chosen heading prefix (`Phase` or `Step`) consistently. Include the suggestion-review final-call sub-step when `suggestion_capture_enabled` is true; omit when disabled.
 4. **Append the ledger phase** after the audit phase. Use `ledger-phase.md` with `{{SKILL_PATH}} → skills/<name>` substitution. Include the "Persist captured suggestions" step + suggestions line in run-end summary when `suggestion_capture_enabled` is true.
@@ -785,7 +856,7 @@ When `convert` is received:
    - Append each `new_not_composed` entry to the existing `Plugin skills NOT composed` bullet list (or create it if missing).
    - Existing rows and bullets are preserved byte-identical — convert mode is additive only.
 7. **Append the "Self-learning checklist" section** at the bottom of the SKILL.md if it isn't already present (copy from `SKILL.md.tpl`'s tail).
-8. **Write `skills/<name>/run_history.json`** from the schema v1 "Initial state" snippet, plus any domain FAIL rules from C4. Include the `improvement_suggestions: []` field when `suggestion_capture_enabled` is true; omit otherwise.
+8. **Write `skills/<name>/run_history.json`** from the schema v1 "Initial state" snippet, plus any domain FAIL rules from C4. Include the `improvement_suggestions: []` field when `suggestion_capture_enabled` is true; omit otherwise. Include the `validation_freshness` block when `freshness_enabled` is true (substituting `created_at`/`last_validated_at` with the current ISO 8601 UTC timestamp and applying the chosen thresholds); omit otherwise.
 9. **Write `skills/<name>/observations.json`** if `observer_enabled` is true:
    - **Empty** (per `observations_schema_v1.md` "Initial state") when retrospective seeding is disabled OR the existing `run_history.json` has no `runs[]` entries.
    - **Seeded** when retrospective seeding is enabled AND `runs[]` has entries: do a paper retrospective on each `runs[].notes`, `friction_log[]`, and any `improvement_suggestions[]` entries; produce 1+ seed `observations[]` entries with back-dated `ts` matching original run timestamps, verbatim evidence (no paraphrase), and category slugs from the standard table. `review_log[]` stays empty so the first live observer run can naturally trigger clustering against the seeded data.
@@ -801,6 +872,8 @@ Run the same checks as greenfield Step 9 (1–7 always; 8–9 when observer_enab
 11. **Frontmatter still parses** — confirm the new `metadata` block didn't break any existing field. Every key from the pre-conversion frontmatter must still resolve to the same value.
 
 Note: in convert mode, the observer phase (when enabled) becomes Phase `<existing_N + 3>` — i.e., one higher than the new ledger which is itself `<existing_N + 2>`. Validation check 5 ("ledger is the last phase") is replaced with "observer is the last phase if observer_enabled, else ledger is the last phase" — convert mode uses whichever is final based on the toggle.
+
+Note: in convert mode, the freshness phase (when enabled) takes the previously-unused Phase 0 slot — existing Phase 1 keeps its number. Validation check 10a fires here too: SKILL.md and `run_history.json` must agree on the freshness toggle.
 
 If all applicable checks pass, print:
 

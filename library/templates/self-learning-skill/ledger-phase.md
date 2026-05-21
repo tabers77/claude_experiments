@@ -35,6 +35,11 @@ Persist the audit so failure patterns become evidence over time.
 
 4. **Persist captured suggestions** (skip if the skill does NOT include the Mid-run suggestion capture block). Any entries added to `improvement_suggestions[]` during this run — mid-run captures plus audit-phase final-call entries — are written to the ledger as part of the same `Write` call. The array is append-only — never overwrite or drop existing entries.
 
+4a. **Update `validation_freshness`** (skip if the skill does NOT include the Phase 0 freshness check). This is the ONLY phase that writes to `validation_freshness`:
+   - If the block is missing, initialize it with the Phase 0 default shape (see `library/templates/self-learning-skill/freshness-phase.md` step 1).
+   - Increment `validation_freshness.runs_since_validation` by 1.
+   - Do NOT modify `last_validated_at`, `last_research_at`, `last_overlap_check_at`, `thresholds`, or `review_log[]` — those are user-owned. The skill never self-certifies freshness; only the user does, by appending a `review_log[]` entry and resetting the counter manually.
+
 5. **Write the file** with the `Write` tool. Stage and commit it as part of the {{TERMINAL_ACTION}} commit if that phase already ran; otherwise leave it unstaged for the next closure to pick up.
 
 6. **Print run-end summary** including suggestions when the block is in use:

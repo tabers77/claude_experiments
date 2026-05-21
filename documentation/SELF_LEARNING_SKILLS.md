@@ -81,6 +81,45 @@ The observer is currently bolted into the host skill as Phase N+1 — a delibera
 
 Authors should treat the observer body as **movable, not load-bearing in its current location**. The schema (`observations.json` + `suggestions.md`) is the load-bearing contract — the phase body is just the prototype carrier.
 
+## The freshness check (Phase 0, optional, non-blocking)
+
+The audit + ledger catch mechanical drift *inside* a run. They don't catch the slower, quieter failure where the **skill's own design** falls behind — Claude Code adds features the skill never adopts, a peer skill grows into overlapping territory, the domain it automates evolves. That kind of rot has no per-run signal; it only becomes visible when someone deliberately steps back and looks.
+
+Phase 0 surfaces that signal automatically.
+
+**Premise**: a skill that has been **both well-used and unreviewed** for a while is overdue for revalidation. Phase 0 prints a one-line nudge when both conditions trip simultaneously, and is silent otherwise.
+
+### Behavior
+
+1. Phase 0 reads `validation_freshness` from `run_history.json`. It does not write.
+2. It computes `days_since_validated` and `runs_since` from the block.
+3. The nudge fires **only when both** `days_since_validated >= thresholds.days` (default 21, ≈3 weeks) **AND** `runs_since >= thresholds.runs` (default 10).
+4. When the nudge fires, the skill prints a one-line pointer to `/meta-discover-claude-features` and `/meta-skill-audit`, then continues to Phase 1.
+5. When the nudge does not fire, Phase 0 prints **nothing**. Silence is the success state; affirmations would erode the nudge's signal value over time.
+6. Phase 9 (ledger) increments `runs_since_validation` by 1 every run. The user resets it manually by appending a `review_log[]` entry — the skill never self-certifies freshness.
+
+### Why AND-gated (not OR)
+
+`OR` would nudge cold skills (lots of days, no usage → no load) and hot-recent skills (lots of runs, already validated last week → no new signal). `AND` keeps the nudge tied to **skills the user actually relies on AND has had time to drift away from** — exactly the population where rot causes harm.
+
+### Why non-blocking
+
+A hard gate would teach users to disable the check. Revalidation is a deliberate review activity, not something to steal 30 seconds for mid-incident. The signal comes from accumulating staleness pressure across runs, not from one forced stop.
+
+### What "validation" means
+
+When the user appends a `review_log[]` entry, they certify they:
+1. Considered whether the skill's design still matches current Claude Code features / community patterns (`type: "research"`, e.g. via `/meta-discover-claude-features`).
+2. Confirmed the skill isn't silently overlapping a peer skill (`type: "overlap"`, e.g. via `/meta-skill-audit`).
+
+Either alone is partial; both is `type: "both"`. Any non-empty review resets the counter — a partial pass is better than none.
+
+### Coupling with the rest of the pattern
+
+The freshness check is **structurally independent** of the audit, ledger, suggestion capture, and observer. It only requires `run_history.json` and a Phase 0 slot. The ledger phase writes the counter increment; everything else about freshness is user-driven via manual JSON edits to `review_log[]`.
+
+The freshness body is **movable** in the same sense as the observer: a future `meta-skill-freshness-sweep` skill could read every `run_history.json` in the plugin and report all stale skills at once. The schema (`validation_freshness` block) is the load-bearing contract; the per-skill Phase 0 body is the current prototype carrier.
+
 ## The schema
 
 `run_history.json` is the persistent ledger. Full schema documented at:
@@ -208,6 +247,7 @@ These don't block v1. Surface them when they matter.
 ## Templates in this repo
 
 - `library/templates/self-learning-skill/SKILL.md.tpl` — full SKILL.md template
+- `library/templates/self-learning-skill/freshness-phase.md` — freshness boilerplate (Phase 0, OPTIONAL, default opt-in)
 - `library/templates/self-learning-skill/audit-phase.md` — audit boilerplate (Phase N-1)
 - `library/templates/self-learning-skill/ledger-phase.md` — ledger boilerplate (Phase N)
 - `library/templates/self-learning-skill/observer-phase.md` — observer boilerplate (Phase N+1, OPTIONAL)

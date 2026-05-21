@@ -10,11 +10,14 @@ The persistent ledger backing a self-learning skill. One file per skill, located
   "fail_counters": { },
   "runs": [ ],
   "friction_log": [ ],
-  "improvement_suggestions": [ ]
+  "improvement_suggestions": [ ],
+  "validation_freshness": { }
 }
 ```
 
 The `improvement_suggestions` array is OPTIONAL — it appears only when the skill includes the Mid-run suggestion capture block (see `library/templates/self-learning-skill/suggestion-capture.md`). Skills without that block omit the field entirely; readers must tolerate either shape.
+
+The `validation_freshness` object is OPTIONAL — it appears only when the skill includes the Phase 0 freshness check (see `library/templates/self-learning-skill/freshness-phase.md`). Skills without that phase omit the field entirely; readers must tolerate either shape.
 
 ## `version` (integer)
 
@@ -118,6 +121,60 @@ Present only when the skill includes the Mid-run suggestion capture block (see `
 
 Skills WITHOUT the suggestion-capture block omit this field entirely. Readers must tolerate either shape (present or absent) — never reject a v1 JSON because `improvement_suggestions` is missing.
 
+## `validation_freshness` (object, OPTIONAL)
+
+Present only when the skill includes the Phase 0 freshness check (see `library/templates/self-learning-skill/freshness-phase.md`). Tracks how long it has been since the skill was last validated — i.e., since the user last ran an improvement-research pass + an overlap-vs-other-skills check — so the skill can nudge the user to revalidate when it has accumulated significant usage without a freshness review.
+
+```json
+{
+  "created_at": "<iso8601>",
+  "last_validated_at": "<iso8601>",
+  "last_research_at": "<iso8601> | null",
+  "last_overlap_check_at": "<iso8601> | null",
+  "runs_since_validation": 0,
+  "thresholds": {
+    "runs": 10,
+    "days": 21
+  },
+  "review_log": [
+    {
+      "ts": "<iso8601>",
+      "type": "research | overlap | both",
+      "summary": "<one line — what was checked, what changed>",
+      "outcome": "no-change | skill-edited | skill-retired | other"
+    }
+  ]
+}
+```
+
+| Field | Type | Meaning |
+|---|---|---|
+| `created_at` | ISO 8601 | Timestamp when this block was first written (typically first run of the freshness phase). |
+| `last_validated_at` | ISO 8601 | Timestamp of the most recent completed validation (research + overlap). Bumped when the user appends a `review_log[]` entry. |
+| `last_research_at` | ISO 8601 \| null | Timestamp of the most recent improvement-research pass (e.g. `/meta-discover-claude-features` on the skill's domain). Null until first pass. |
+| `last_overlap_check_at` | ISO 8601 \| null | Timestamp of the most recent overlap check vs. other skills (e.g. `/meta-skill-audit`). Null until first check. |
+| `runs_since_validation` | int | Monotonic counter incremented by the ledger phase every run. Reset to 0 when the user appends a `review_log[]` entry and updates `last_validated_at`. |
+| `thresholds.runs` | int | Run count above which (combined with the days threshold) the freshness phase nudges. Default 10. |
+| `thresholds.days` | int | Days elapsed above which (combined with the runs threshold) the freshness phase nudges. Default 21 (≈3 weeks). |
+| `review_log[]` | array | Append-only audit of validation events. Each entry records what was checked and what changed. |
+
+### Nudge condition
+
+The Phase 0 freshness check prints the nudge only when **BOTH** are true (AND, not OR):
+- `now - last_validated_at >= thresholds.days`
+- `runs_since_validation >= thresholds.runs`
+
+This avoids nudging cold skills (lots of days but no usage → not load-bearing) and avoids nudging hot-but-recent skills (lots of runs but already validated last week).
+
+### Manual editing
+
+The user is expected to hand-edit this block:
+- After running `/meta-discover-claude-features` and `/meta-skill-audit`, append a `review_log[]` entry, set `last_validated_at` (and `last_research_at` / `last_overlap_check_at` as applicable), and reset `runs_since_validation` to 0.
+- Adjust `thresholds.runs` / `thresholds.days` per skill cadence — lower for very hot skills, higher for skills with stable surfaces.
+- Append a `review_log[]` entry with `outcome: skill-retired` when retiring a skill, so future archaeologists understand why the counter froze.
+
+Skills WITHOUT the freshness phase omit this block entirely. Readers must tolerate either shape — never reject a v1 JSON because `validation_freshness` is missing.
+
 ## Auto-apply behavior (Mode B)
 
 When a counter reaches `count >= threshold`:
@@ -180,8 +237,22 @@ For a freshly-generated skill, initialize with the **universal seed FAIL rules**
   },
   "runs": [],
   "friction_log": [],
-  "improvement_suggestions": []
+  "improvement_suggestions": [],
+  "validation_freshness": {
+    "created_at": "<iso8601 at generation time>",
+    "last_validated_at": "<iso8601 at generation time>",
+    "last_research_at": null,
+    "last_overlap_check_at": null,
+    "runs_since_validation": 0,
+    "thresholds": {
+      "runs": 10,
+      "days": 21
+    },
+    "review_log": []
+  }
 }
 ```
 
 Omit the trailing `"improvement_suggestions": []` line when the generated skill opts OUT of the Mid-run suggestion capture block. The default for `meta-self-learning-skill-gen` is to include it; opt-out is reserved for skills that don't fit the pattern (single-phase, pure-interview, one-shot generators).
+
+Omit the trailing `"validation_freshness": { ... }` block when the generated skill opts OUT of the Phase 0 freshness check. The default for `meta-self-learning-skill-gen` is to include it (every skill benefits from periodic revalidation); opt-out is reserved for skills with deliberately frozen surfaces. When both `improvement_suggestions` and `validation_freshness` are omitted, also drop the trailing comma from `friction_log` so the JSON stays valid.

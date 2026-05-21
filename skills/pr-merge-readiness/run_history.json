@@ -292,5 +292,24 @@
       "applied_at": "2026-05-20T20:00:00+02:00",
       "applied_via": "Folded into the same 2026-05-20 phase-content-relevance-prefilter convergence remediation. Phase 5 step 1a (per-category relevance prefilter) added: the Skill call itself remains load-bearing and always fires, but skip_security_category / skip_performance_category predicates suppress the corresponding sub-skill category scans when the diff has no auth/security/routes paths or no service/tool/registry/mcp paths respectively. Skipped categories appear as one-line skip notes in the Phase 5 report and the Phase 8 Phase 5 evidence string."
     }
-  ]
+  ],
+  "validation_freshness": {
+    "created_at": "2026-05-21T00:00:00+02:00",
+    "last_validated_at": "2026-05-21T00:00:00+02:00",
+    "last_research_at": null,
+    "last_overlap_check_at": null,
+    "runs_since_validation": 0,
+    "thresholds": {
+      "runs": 10,
+      "days": 21
+    },
+    "review_log": [
+      {
+        "ts": "2026-05-21T00:00:00+02:00",
+        "type": "both",
+        "summary": "Bootstrap entry — freshness phase retrofitted into pr-merge-readiness. The retrofit itself is treated as a validation touch (Phase 0 wiring + Phase 9 increment + this block reviewed by the user before commit).",
+        "outcome": "skill-edited"
+      }
+    ]
+  }
 }

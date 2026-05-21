@@ -215,7 +215,7 @@ improvement: [6-secret-detection] add Stora Enso internal token regex
 
 ## Observer file boundary
 
-This skill includes an observer phase (Phase 10) that writes to `observations.json` and `suggestions.md`. **All other phases (1 through 9) MUST NOT read those files.**
+This skill includes an observer phase (Phase 10) that writes to `observations.json` and `suggestions.md`. **All other phases (0 through 9) MUST NOT read those files.**
 
 The two files are owned by the observer phase exclusively and exist for cross-run pattern analysis + human review. They are *descriptive* (record what happened across prior runs), not *prescriptive* (do not encode what should happen on this run).
 
@@ -230,6 +230,50 @@ The only legitimate path for an observation to change skill behavior is: observe
 If you are an LLM/agent running this skill: treat `observations.json` and `suggestions.md` as if they did not exist until you reach Phase 10. Reading them earlier is a load-bearing violation, and there is no FAIL tag for it because the file content is silent — the only safeguard is this rule.
 
 ---
+
+## Phase 0 — Freshness check (non-blocking)
+
+Before running any domain work, briefly check how stale this skill has gotten. The check is **informational only** — it never blocks a run, and Phase 1 always proceeds after it.
+
+The premise: a skill that gets used heavily but never reviewed against the current state of Claude Code, peer skills, or its own domain will silently rot. The audit + ledger catch mechanical drift inside a run; this phase catches **the skill's own design** falling behind across runs.
+
+1. **Read** `skills/pr-merge-readiness/run_history.json` → `validation_freshness`.
+   - If the file is missing or the block is missing, initialize the block in-memory with:
+     ```json
+     {
+       "created_at": "<now-iso8601>",
+       "last_validated_at": "<now-iso8601>",
+       "last_research_at": null,
+       "last_overlap_check_at": null,
+       "runs_since_validation": 0,
+       "thresholds": { "runs": 10, "days": 21 },
+       "review_log": []
+     }
+     ```
+   - Phase 9 (ledger) will persist this on first write. Phase 0 itself does NOT write to disk.
+
+2. **Compute staleness**:
+   - `days_since_validated = floor((now - last_validated_at) / 86400)` (in days).
+   - `runs_since = validation_freshness.runs_since_validation`.
+
+3. **Nudge condition — both must be true (AND, not OR)**:
+   - `days_since_validated >= thresholds.days` (default 21), AND
+   - `runs_since >= thresholds.runs` (default 10).
+
+4. **When the nudge fires**, print exactly this one-line block at the top of the run (before Phase 1's first output), then continue to Phase 1:
+
+   ```
+   ⚠ Freshness: `pr-merge-readiness` last validated <days_since_validated>d ago, <runs_since> runs since.
+     Consider running, when you have a moment:
+       /meta-discover-claude-features  — research improvements in this skill's domain
+       /meta-skill-audit               — overlap check vs. other skills
+     Then append a review_log[] entry to skills/pr-merge-readiness/run_history.json → validation_freshness
+     and bump last_validated_at + reset runs_since_validation to 0.
+   ```
+
+   **When the nudge does NOT fire** (one or both conditions false), print nothing at all. Silence is the success state — do NOT print "freshness OK" or any other affirmation.
+
+5. **Proceed to Phase 1 unconditionally.** The freshness check is never a hard gate. Even if the user has ignored the nudge for 100 runs, Phase 1 still runs. The user owns the decision to revalidate; this phase only surfaces the signal.
 
 ## Phase 1 — Parse input + identify target
 
@@ -533,6 +577,11 @@ Persist the audit so failure patterns become evidence over time.
      - **Cosmetic phase** → threshold = **5** (low cost; wait for a clear pattern).
 
 4. **Persist captured suggestions**. Any entries added to `improvement_suggestions[]` during this run (mid-run captures + Phase 8 step 5 final-call entries) are written to the ledger as part of the same `Write` call. The array is append-only — never overwrite or drop existing entries.
+
+4a. **Update `validation_freshness`**. This is the ONLY phase that writes to `validation_freshness`:
+   - If the block is missing, initialize it with the Phase 0 default shape (see Phase 0 step 1).
+   - Increment `validation_freshness.runs_since_validation` by 1.
+   - Do NOT modify `last_validated_at`, `last_research_at`, `last_overlap_check_at`, `thresholds`, or `review_log[]` — those are user-owned. The skill never self-certifies freshness; only the user does, by appending a `review_log[]` entry and resetting the counter manually.
 
 5. **Write the file** with the `Write` tool. The verdict-print already happened in Phase 8 — leave the ledger update unstaged for the user to commit alongside any manual cleanup.
 

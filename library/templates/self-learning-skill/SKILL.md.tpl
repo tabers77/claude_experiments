@@ -26,6 +26,31 @@ If the input is none of the above, {{INPUT_FALLBACK_BEHAVIOR}}.
 
 <!--
 ================================================================================
+PHASE 0 — Freshness check (OPTIONAL, non-blocking)
+================================================================================
+Insert the body of `library/templates/self-learning-skill/freshness-phase.md`
+here when the skill opts in (default: opt-in). The phase prints a one-line nudge
+when both staleness conditions trip (days_since_validated >= 21 AND
+runs_since_validation >= 10) and is silent otherwise. It never blocks Phase 1.
+
+Substitutions:
+  - `{{SKILL_NAME}}` → this skill's name
+  - `{{SKILL_PATH}}` → e.g. `skills/{{SKILL_NAME}}`
+
+Omit the entire phase block when the skill opts OUT of the freshness check.
+In that case, also drop `validation_freshness` from `run_history.json`.
+================================================================================
+-->
+
+## Phase 0 — Freshness check (non-blocking)
+
+> **Insert here**: the body of `library/templates/self-learning-skill/freshness-phase.md`
+> with these substitutions:
+>   - `{{SKILL_NAME}}` → this skill's name
+>   - `{{SKILL_PATH}}` → this skill's root path (e.g. `skills/{{SKILL_NAME}}`)
+
+<!--
+================================================================================
 DOMAIN PHASES (1 through N-2)
 ================================================================================
 Replace this section with your skill's domain phases. Each phase should have:
@@ -128,3 +153,6 @@ Before the first invocation of a generated skill, verify:
 - [ ] At least one domain FAIL rule exists OR the rules section explicitly says "no domain rules yet — accumulating from runs."
 - [ ] Threshold tiers match phase severity: load-bearing=1, procedural=2, cosmetic=5.
 - [ ] The ledger phase (`Phase {{N}}`) is the last phase. No phase fires after it.
+- [ ] (Freshness opt-in only) `Phase 0 — Freshness check` is present as the FIRST phase, before Phase 1. It is non-blocking and prints nothing when fresh.
+- [ ] (Freshness opt-in only) `run_history.json` contains a `validation_freshness` block initialized to the schema's "Initial state" defaults (thresholds runs=10, days=21).
+- [ ] (Freshness opt-in only) The ledger phase contains the `validation_freshness.runs_since_validation` increment step. The skill MUST NOT self-certify freshness — only the user appends `review_log[]` entries.
