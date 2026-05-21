@@ -195,13 +195,25 @@ improvement: [6-secret-detection] add Stora Enso internal token regex
      "phase": "<current phase number when the user spoke up>",
      "tag": "<optional, parsed from [brackets]>",
      "text": "<everything after the prefix and optional tag>",
+     "sentiment": "<negative | aspirational | neutral>",
      "applied_at": null,
      "applied_via": null
    }
    ```
+
+   **Sentiment classification** — apply this keyword heuristic at capture time (case-insensitive substring match on the suggestion text). The classification feeds `quality_derived` at ledger time:
+
+   | Sentiment | Trigger keywords (any match wins) | What it means |
+   |---|---|---|
+   | `negative` | `broken`, `wrong`, `incorrect`, `missed`, `failed`, `bug`, `doesn't`, `does not`, `should not`, `shouldn't`, `regression`, `flaw`, `error`, `mistake` | User is flagging a problem with this run. Counts against `quality_derived`. |
+   | `aspirational` | `would be nice`, `consider`, `could also`, `enhancement`, `add`, `nice to have`, `idea:`, `it would be cool`, `we should also`, `extend`, `support` | User is suggesting an enhancement. Does NOT count against `quality_derived`. |
+   | `neutral` | none of the above, OR matches in both lists | Default fallback. Does NOT count against `quality_derived`. |
+
+   Resolution rule: if both lists match, classify as `neutral` (cancels out). **Negative wins only when no aspirational keyword also matches** — keeps the heuristic conservative. The user may hand-edit `sentiment` in `run_history.json` later if misclassified; never re-evaluated by the skill.
+
 3. **Acknowledge** in one line:
    ```
-   ✓ suggestion captured (phase 4, tag=4-test-routing): "run targeted unit tests on changed modules"
+   ✓ suggestion captured (phase 4, tag=4-test-routing, sentiment=aspirational): "run targeted unit tests on changed modules"
    ```
 4. **Resume** the current phase from where it was. The capture does NOT alter the current run — it only records the suggestion for future review at the audit and threshold-based aggregation later.
 
@@ -231,9 +243,13 @@ If you are an LLM/agent running this skill: treat `observations.json` and `sugge
 
 ---
 
-## Phase 0 — Freshness check (non-blocking)
+## Phase 0 — Freshness check (non-blocking) + run-start instrumentation
 
-Before running any domain work, briefly check how stale this skill has gotten. The check is **informational only** — it never blocks a run, and Phase 1 always proceeds after it.
+Before running any domain work, briefly check how stale this skill has gotten AND stamp the run's `started_at` timestamp for efficiency tracking. Both are non-blocking.
+
+**Stamp `started_at` first** (before anything else): record the current ISO 8601 timestamp into in-memory run state. Phase 9 (ledger) will read it back and write it to `runs[].started_at` along with the rest of the timing fields. Do NOT persist it to disk here — Phase 9 owns the write.
+
+Then the freshness check below proceeds.
 
 The premise: a skill that gets used heavily but never reviewed against the current state of Claude Code, peer skills, or its own domain will silently rot. The audit + ledger catch mechanical drift inside a run; this phase catches **the skill's own design** falling behind across runs.
 
@@ -274,6 +290,22 @@ The premise: a skill that gets used heavily but never reviewed against the curre
    **When the nudge does NOT fire** (one or both conditions false), print nothing at all. Silence is the success state — do NOT print "freshness OK" or any other affirmation.
 
 5. **Proceed to Phase 1 unconditionally.** The freshness check is never a hard gate. Even if the user has ignored the nudge for 100 runs, Phase 1 still runs. The user owns the decision to revalidate; this phase only surfaces the signal.
+
+---
+
+## Per-phase timing instrumentation (global rule)
+
+Every domain phase (1 through 8) AND the observer phase (10) is responsible for stamping its own elapsed time as it exits:
+
+- At the **start** of each phase, record `phase_start = now`.
+- At the **end** of each phase, record `phase_durations[<phase-id>] = floor((now - phase_start) seconds)`. Half-numbered sub-phases (e.g. `5.5`) record under their literal id; do NOT roll them up into the parent.
+- Keep `phase_durations` in in-memory run state alongside `started_at`. Phase 9 (ledger) reads the full map and writes it to `runs[].phase_durations`.
+
+This is **mechanical, not load-bearing** — no FAIL tag covers a missed stamp, and absent timing data simply excludes the run from the observer's efficiency comparison. But it is the input to every speed-vs-quality observation, so the skill should stamp them faithfully.
+
+The ledger phase (9) does NOT stamp its own duration — Phase 9 IS the ledger write; timing the writer creates a circular dependency. Its time is folded into the gap between Phase 8's end stamp and `ended_at`.
+
+---
 
 ## Phase 1 — Parse input + identify target
 
@@ -601,10 +633,28 @@ Persist the audit so failure patterns become evidence over time.
 
 1. **Read** `skills/pr-merge-readiness/run_history.json`. Initialize if missing per the schema in `library/templates/self-learning-skill/run_history_schema_v1.md`. Use the seed FAIL rules from that schema doc as the starting `fail_counters`.
 
-2. **Append** the run summary to `runs[]`:
+2. **Append** the run summary to `runs[]` with full timing + quality fields:
    ```json
-   {"ts": "<iso8601>", "target": "<input>", "outcome": "<closed|paused|aborted|in-progress>", "phases_failed": ["<tag>", ...]}
+   {
+     "ts": "<iso8601-now>",
+     "target": "<input>",
+     "outcome": "<closed|paused|aborted|in-progress>",
+     "phases_failed": ["<tag>", ...],
+     "started_at": "<from in-memory state, stamped by Phase 0>",
+     "ended_at": "<iso8601-now>",
+     "duration_seconds": <ended_at - started_at, integer seconds>,
+     "phase_durations": {"1": <s>, "2": <s>, "...": "..."},
+     "quality_derived": "<clean|partial|failed|incomplete>"
+   }
    ```
+
+   **`quality_derived` is computed mechanically** — no user prompt:
+   - `clean` ← `outcome == "closed"` AND `phases_failed` is empty AND **no `improvement_suggestions[]` entry** with `sentiment == "negative"` exists whose `target == <this run's input>` AND whose `ts` falls within `[started_at, ended_at]`.
+   - `partial` ← `outcome == "closed"` AND (`phases_failed` non-empty OR at least one matching negative suggestion exists).
+   - `failed` ← `outcome == "aborted"`.
+   - `incomplete` ← `outcome == "paused"` OR `"in-progress"`.
+
+   If `started_at` is missing (run was launched before this instrumentation existed), omit all five timing/quality fields for this run — the observer will skip it from efficiency comparison. Do NOT fabricate timing data.
 
 3. **For each FAIL tag** observed in this run:
    - Increment `fail_counters[<tag>].count` by 1.
@@ -658,7 +708,25 @@ This phase is OPTIONAL and was retrofitted to this skill from `library/templates
    | `dev_env_friction` | environmental setup pain that recurs across runs | "stale container missing dep" mentioned in two runs' notes |
    | `output_format_quality` | UX-only signal: format/readability of the skill's output | audit row evidence string too long to scan visually |
    | `cross_phase_redundancy` | two phases share evidence the user only had to provide once | Phase 1 and Phase 3 both quoted the same user input |
-   | `boundary_violation` | a domain phase (1–9) referenced or used content from `observations.json` / `suggestions.md` (which it must not read) | Phase 2's user prompt framing visibly originated in observer-file content; the skill cited a prior observation in-flight to justify a recommendation |
+   | `boundary_violation` | a domain phase (0–9) referenced or used content from `observations.json` / `suggestions.md` (which it must not read) | Phase 2's user prompt framing visibly originated in observer-file content; the skill cited a prior observation in-flight to justify a recommendation |
+   | `phase_scope_too_broad_for_input` | a phase ran a full-scope routine when the input class would have justified a narrower scope (e.g. lite-mode existed but wasn't taken) | Phase 5 ran the full no-new-bugs sweep on a docs-only diff that Phase 1 had already classified `scope=lite` |
+   | `serializable_as_parallel` | two phases ran sequentially that have no data dependency on each other and could parallelize | Phase 3 (pre-commit-check sweep) and Phase 4 (relevant-tests run) ran back-to-back, neither using the other's output |
+   | `redundant_work_with_prior_phase` | a phase recomputed something an earlier phase already produced; the second phase's evidence cites the same fact the first one captured | Phase 5's evidence row quotes the same diff path set that Phase 1 already classified |
+   | `over_thorough_for_input_class` | a long-running phase fired on a tiny input where its full pass isn't load-bearing; skill lacks input-class dispatch | Phase 4 ran 8 tiers of tests on a single-line README change |
+   | `missed_cached_result` | a phase did work whose exact result is already recorded in `runs[]` for the same target / commit / input shape | Phase 2 (clean-merge probe) re-ran `git merge-tree` for a target whose result was identical in the run 30 minutes earlier |
+
+2a. **Efficiency trade-off detector** — runs only when this run has `duration_seconds` and `quality_derived` populated. Skip entirely otherwise (no fabricated signal on pre-instrumentation runs).
+
+   1. Group prior runs in `runs[]` by **input-class similarity** to this run's target. For pr-merge-readiness, use `scope=lite` vs `scope=full` from the Phase 1 classifier as the cohort split. Within each scope cohort, cluster by `outcome` AND `quality_derived` tier.
+   2. Compute the median `duration_seconds` of the matching cohort (need ≥ 3 prior cohort members — otherwise skip; one prior run is not a baseline).
+   3. **File an observation** under `phase_scope_too_broad_for_input` (or a more specific category if evidence points clearly at one — e.g. `redundant_work_with_prior_phase` if a phase clearly re-ran work captured earlier) when **both** are true:
+      - `this_run.duration_seconds > 1.5 × cohort_median`
+      - `this_run.quality_derived` is NOT strictly better than `cohort_median_quality` (ordering: `clean > partial > failed > incomplete`).
+   4. **Also file an observation** when **both** are true (inverse failure — fast at the cost of quality):
+      - `this_run.duration_seconds < 0.5 × cohort_median`
+      - `this_run.quality_derived` is strictly worse than `cohort_median_quality`.
+
+   Each filed observation's `evidence` field MUST include the exact numbers: this run's duration, cohort median, this run's `quality_derived`, cohort median's `quality_derived`, and the cohort size. No paraphrase. The trade-off detector exists specifically to prevent "race to fast trash" — every speed delta is tied to a quality delta before observation.
 
 3. **Append observations** to `observations.json`. Each observation MUST cite verbatim evidence — never paraphrase user input. **Zero observations is a valid output.** Do NOT invent signals to demonstrate the observer is doing work.
 

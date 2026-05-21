@@ -267,7 +267,8 @@
       "tag": "5-impl-vs-tracker-check",
       "text": "before surfacing actions in Phase 7, verify what was actually implemented in the branch matches the documentation tracker (BUGS_AND_GAPS.md). This implementation-vs-docs check should run by default as part of Phase 5, not be skipped.",
       "applied_at": "2026-05-12T18:00:00+02:00",
-      "applied_via": "Inserted Phase 5 step 4b (tracker closure-pairing reconciliation) per convergence-trip proposal in suggestions.md (2026-05-11). Added `5-tracker-closure-without-row-removal` FAIL rule (load-bearing, threshold=1) to Phase 8 and seeded the counter in fail_counters."
+      "applied_via": "Inserted Phase 5 step 4b (tracker closure-pairing reconciliation) per convergence-trip proposal in suggestions.md (2026-05-11). Added `5-tracker-closure-without-row-removal` FAIL rule (load-bearing, threshold=1) to Phase 8 and seeded the counter in fail_counters.",
+      "sentiment": "negative"
     },
     {
       "ts": "2026-05-08T00:00:00+02:00",
@@ -276,7 +277,8 @@
       "tag": "8-audit-table-format",
       "text": "render the Phase 8 audit rows as a markdown table (columns: Phase, Status, Evidence) instead of a bulleted 'Phase X [pass] | <evidence>' list — much more readable when evidence strings are long (e.g. full git merge-tree commit hashes).",
       "applied_at": null,
-      "applied_via": null
+      "applied_via": null,
+      "sentiment": "neutral"
     },
     {
       "ts": "2026-05-12T16:30:00+02:00",
@@ -285,7 +287,8 @@
       "tag": null,
       "text": "if fixes are small and we are 100% sure they wont introduce new bugs then we should prefer to suggest to solve this in the same session",
       "applied_at": "2026-05-12T18:00:00+02:00",
-      "applied_via": "Augmented Phase 7 step 2 with the Recommendation gate (four preconditions: <=15 lines, code/docs only, smoke re-run <=60s, fix matches canonical small-fix categories) plus the reordered option block (`Fix it now (recommended)` listed first when the gate fires). Added `7-recommendation-gate-not-applied` FAIL rule (procedural, threshold=2) to Phase 8 and seeded the counter in fail_counters."
+      "applied_via": "Augmented Phase 7 step 2 with the Recommendation gate (four preconditions: <=15 lines, code/docs only, smoke re-run <=60s, fix matches canonical small-fix categories) plus the reordered option block (`Fix it now (recommended)` listed first when the gate fires). Added `7-recommendation-gate-not-applied` FAIL rule (procedural, threshold=2) to Phase 8 and seeded the counter in fail_counters.",
+      "sentiment": "negative"
     },
     {
       "ts": "2026-05-13T19:00:00+02:00",
@@ -294,7 +297,8 @@
       "tag": "output_format_quality",
       "text": "this part is unredable : - Phase 1 [pass] | input parsed: current mode, head=feat/stream_n, base=dev; user input verbatim: \"this branch into dev\" - Phase 2 [pass] | git 2.37.0 lacks `merge-tree --write-tree`; fell back to `git merge-base origin/dev feat/stream_n` → d38c48c (equal to origin/dev HEAD) ⇒ branch is 11 commits ahead, 0 behind, strict fast-forward possible, zero conflicts. Exit 0.",
       "applied_at": null,
-      "applied_via": null
+      "applied_via": null,
+      "sentiment": "neutral"
     },
     {
       "ts": "2026-05-15T18:00:00+02:00",
@@ -303,7 +307,8 @@
       "tag": "6-phase-redundant",
       "text": "this step was used once 'Phase 6: .env / .env.local review' we should just remove it",
       "applied_at": "2026-05-16T00:00:00+02:00",
-      "applied_via": "Implemented option A from suggestions.md (2026-05-15 proposal). Folded env-secret heuristic into Phase 3 step 2's env-file safety sub-bullet; replaced standalone Phase 6 section with a reserved placeholder; dropped Phase 6 row from the Phase 8 audit table (outcome now lives in Phase 3 row's `env-secrets=` segment). Retained `6-env-secret-committed` FAIL tag (load-bearing, threshold=1) for counter continuity; rule description updated to note evaluation now happens within Phase 3."
+      "applied_via": "Implemented option A from suggestions.md (2026-05-15 proposal). Folded env-secret heuristic into Phase 3 step 2's env-file safety sub-bullet; replaced standalone Phase 6 section with a reserved placeholder; dropped Phase 6 row from the Phase 8 audit table (outcome now lives in Phase 3 row's `env-secrets=` segment). Retained `6-env-secret-committed` FAIL tag (load-bearing, threshold=1) for counter continuity; rule description updated to note evaluation now happens within Phase 3.",
+      "sentiment": "neutral"
     },
     {
       "ts": "2026-05-19T17:00:00+02:00",
@@ -312,7 +317,8 @@
       "tag": null,
       "text": "when giving suggestion of next steps it should be easier to digest and clear for the user which are the best options",
       "applied_at": "2026-05-20T00:00:00+02:00",
-      "applied_via": "Folded into the 2026-05-19 scope-classifier convergence remediation in suggestions.md. Phase 1 step 5 (diff-scope classifier with 6 lite-eligibility preconditions) added; Phase 5 step 2a lite-mode rendering (TL;DR + blocks-merge bucket only; follow-up/refactoring buckets by count, expandable on request); Phase 8 step 1 lite-mode audit row format (condensed Evidence column for Phases 3/4/5 when scope=lite); Phase 8 step 2 FAIL rule `1-scope-classifier-not-applied` (procedural, threshold=2) added and counter seeded in fail_counters."
+      "applied_via": "Folded into the 2026-05-19 scope-classifier convergence remediation in suggestions.md. Phase 1 step 5 (diff-scope classifier with 6 lite-eligibility preconditions) added; Phase 5 step 2a lite-mode rendering (TL;DR + blocks-merge bucket only; follow-up/refactoring buckets by count, expandable on request); Phase 8 step 1 lite-mode audit row format (condensed Evidence column for Phases 3/4/5 when scope=lite); Phase 8 step 2 FAIL rule `1-scope-classifier-not-applied` (procedural, threshold=2) added and counter seeded in fail_counters.",
+      "sentiment": "neutral"
     },
     {
       "ts": "2026-05-20T17:00:00+02:00",
@@ -321,7 +327,8 @@
       "tag": "3-relevance-prefilter",
       "text": "In Phase 3 — Pre-commit-check rules, we should be able to identify which parts of this check is relevant for the operation, like smoke tests are not always relevant, so we should be able to quickly identify which stages from pre-commit is relevant so we can save time",
       "applied_at": "2026-05-20T20:00:00+02:00",
-      "applied_via": "Folded into the 2026-05-20 phase-content-relevance-prefilter convergence remediation in suggestions.md. Added RELEVANCE_PREDICATES config block (phase3_smoke / phase3_lint_python / phase3_lint_frontend / phase5_code_diagnosis_categories) with downstream-tuning note; Phase 3 step 1a (per-sub-check relevance prefilter) added with load-bearing exemptions (Phase 2, Phase 5 Skill call itself, Phase 7); Phase 3 step 4 aggregate row extended with `relevance-skipped=...` field; Phase 8 audit-table Phase 3 row format updated; new FAIL rule `3-or-5-relevance-prefilter-not-applied` (procedural, threshold=2) seeded in fail_counters. Extra caveat applied per user direction: phase3_smoke triggers now include pyproject.toml / poetry.lock / requirements*.txt / Dockerfile* / docker-compose*.yml so dependency-only diffs still run smoke."
+      "applied_via": "Folded into the 2026-05-20 phase-content-relevance-prefilter convergence remediation in suggestions.md. Added RELEVANCE_PREDICATES config block (phase3_smoke / phase3_lint_python / phase3_lint_frontend / phase5_code_diagnosis_categories) with downstream-tuning note; Phase 3 step 1a (per-sub-check relevance prefilter) added with load-bearing exemptions (Phase 2, Phase 5 Skill call itself, Phase 7); Phase 3 step 4 aggregate row extended with `relevance-skipped=...` field; Phase 8 audit-table Phase 3 row format updated; new FAIL rule `3-or-5-relevance-prefilter-not-applied` (procedural, threshold=2) seeded in fail_counters. Extra caveat applied per user direction: phase3_smoke triggers now include pyproject.toml / poetry.lock / requirements*.txt / Dockerfile* / docker-compose*.yml so dependency-only diffs still run smoke.",
+      "sentiment": "neutral"
     },
     {
       "ts": "2026-05-20T17:00:00+02:00",
@@ -330,7 +337,8 @@
       "tag": "5-relevance-prefilter",
       "text": "Also when running operations like Phase 5 — No-new-bugs sweep .. we should first identify if the process/step is relevant for the case",
       "applied_at": "2026-05-20T20:00:00+02:00",
-      "applied_via": "Folded into the same 2026-05-20 phase-content-relevance-prefilter convergence remediation. Phase 5 step 1a (per-category relevance prefilter) added: the Skill call itself remains load-bearing and always fires, but skip_security_category / skip_performance_category predicates suppress the corresponding sub-skill category scans when the diff has no auth/security/routes paths or no service/tool/registry/mcp paths respectively. Skipped categories appear as one-line skip notes in the Phase 5 report and the Phase 8 Phase 5 evidence string."
+      "applied_via": "Folded into the same 2026-05-20 phase-content-relevance-prefilter convergence remediation. Phase 5 step 1a (per-category relevance prefilter) added: the Skill call itself remains load-bearing and always fires, but skip_security_category / skip_performance_category predicates suppress the corresponding sub-skill category scans when the diff has no auth/security/routes paths or no service/tool/registry/mcp paths respectively. Skipped categories appear as one-line skip notes in the Phase 5 report and the Phase 8 Phase 5 evidence string.",
+      "sentiment": "negative"
     },
     {
       "ts": "2026-05-21T10:50:00+02:00",
@@ -339,7 +347,8 @@
       "tag": "2-shallow-clone-check",
       "text": "you gave fail red flags regarding the dev branch and this brnach miss match",
       "applied_at": "2026-05-21T12:00:00+02:00",
-      "applied_via": "Folded into the 2026-05-21 shallow-clone-not-detected convergence remediation in suggestions.md. Phase 1 step 2a (shallow-clone defensive check via `git rev-parse --is-shallow-repository` → `git fetch --unshallow origin`) added; Phase 8 step 1 Phase 1 audit-row template extended with `shallow-clone=<yes-unshallowed|no>` evidence segment; Phase 8 step 2 FAIL rule `1-shallow-clone-not-unshallowed` (procedural, threshold=2) added and counter seeded in fail_counters."
+      "applied_via": "Folded into the 2026-05-21 shallow-clone-not-detected convergence remediation in suggestions.md. Phase 1 step 2a (shallow-clone defensive check via `git rev-parse --is-shallow-repository` → `git fetch --unshallow origin`) added; Phase 8 step 1 Phase 1 audit-row template extended with `shallow-clone=<yes-unshallowed|no>` evidence segment; Phase 8 step 2 FAIL rule `1-shallow-clone-not-unshallowed` (procedural, threshold=2) added and counter seeded in fail_counters.",
+      "sentiment": "neutral"
     },
     {
       "ts": "2026-05-21T10:50:00+02:00",
@@ -348,7 +357,8 @@
       "tag": "7-always-recommend-with-rationale",
       "text": "when you give options you should give a recommendation of which is the best option and why",
       "applied_at": "2026-05-21T12:00:00+02:00",
-      "applied_via": "Folded into the 2026-05-21 options-without-recommendation convergence remediation in suggestions.md. Broadened Phase 7 step 2's recommendation rule — every multi-option Phase 7 prompt now marks exactly one option as `(recommended)` with a one-line rationale; softer-heuristic fallback documented (smallest blast-radius → PR-intent alignment → past-run tie-break). Added `7-recommendation-default-on-all-multi-option-prompts` FAIL rule (procedural, threshold=2) to Phase 8 step 2 and seeded the counter in fail_counters."
+      "applied_via": "Folded into the 2026-05-21 options-without-recommendation convergence remediation in suggestions.md. Broadened Phase 7 step 2's recommendation rule — every multi-option Phase 7 prompt now marks exactly one option as `(recommended)` with a one-line rationale; softer-heuristic fallback documented (smallest blast-radius → PR-intent alignment → past-run tie-break). Added `7-recommendation-default-on-all-multi-option-prompts` FAIL rule (procedural, threshold=2) to Phase 8 step 2 and seeded the counter in fail_counters.",
+      "sentiment": "neutral"
     },
     {
       "ts": "2026-05-21T10:50:00+02:00",
@@ -357,7 +367,8 @@
       "tag": "skill-vs-prior-claim-reconciliation",
       "text": "first in this branch we introduced all the changes related to mcp, we ran all tests, we confirmed everything was correct, later when I invoke pre merge readiness branch you discover that some tests don't pass — very confusing and making me lose a lot of time and tokens",
       "applied_at": "2026-05-21T12:00:00+02:00",
-      "applied_via": "Folded into the 2026-05-21 prior-closure-narrative-vs-actual-state-not-reconciled convergence remediation in suggestions.md. Phase 5 step 4c (closure-narrative falsifiable-claim reconciliation) added with regex candidates for tests-pass / no-regressions / tier-clean phrases; contradictions vs Phase 4 actuals surface to Phase 7 as load-bearing FAIL, tier-missing claims surface as unresolved items demanding re-run or verbatim user acceptance. Added `5-closure-narrative-falsifiable-claims-not-reconciled` FAIL rule (load-bearing, threshold=1) to Phase 8 step 2 and seeded the counter in fail_counters."
+      "applied_via": "Folded into the 2026-05-21 prior-closure-narrative-vs-actual-state-not-reconciled convergence remediation in suggestions.md. Phase 5 step 4c (closure-narrative falsifiable-claim reconciliation) added with regex candidates for tests-pass / no-regressions / tier-clean phrases; contradictions vs Phase 4 actuals surface to Phase 7 as load-bearing FAIL, tier-missing claims surface as unresolved items demanding re-run or verbatim user acceptance. Added `5-closure-narrative-falsifiable-claims-not-reconciled` FAIL rule (load-bearing, threshold=1) to Phase 8 step 2 and seeded the counter in fail_counters.",
+      "sentiment": "neutral"
     }
   ],
   "validation_freshness": {

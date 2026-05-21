@@ -70,11 +70,50 @@ Append-only log, one entry per invocation:
   "ts": "2026-05-07T09:00:00Z",
   "target": "<input>",
   "outcome": "closed | paused | aborted | in-progress",
-  "phases_failed": ["<tag>", ...]
+  "phases_failed": ["<tag>", ...],
+  "started_at": "<iso8601>",
+  "ended_at": "<iso8601>",
+  "duration_seconds": 142,
+  "phase_durations": {
+    "1": 3,
+    "2": 14,
+    "3": 47,
+    "...": "..."
+  },
+  "quality_derived": "clean | partial | failed | incomplete"
 }
 ```
 
-Used to compute trends ("what fraction of runs aborted?") and correlate FAIL tags across targets.
+Used to compute trends ("what fraction of runs aborted?"), correlate FAIL tags across targets, and feed the observer's efficiency-detection logic.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `ts` | ISO 8601 | Wall-clock timestamp when the run was recorded by the ledger. Kept for backward compatibility. Identical to `ended_at` for new runs. |
+| `target` | string | Verbatim run input. |
+| `outcome` | enum | `closed` (terminal action fired), `paused` (user paused mid-flow), `aborted` (skill stopped on error or user abort), `in-progress` (rare — only when the ledger writes mid-run for crash recovery). |
+| `phases_failed` | array | List of FAIL tags tripped during this run. |
+| `started_at` | ISO 8601 | OPTIONAL. Timestamp when Phase 0 (or Phase 1 if no Phase 0) first observed input. Absent on pre-instrumentation runs. |
+| `ended_at` | ISO 8601 | OPTIONAL. Timestamp when the ledger phase wrote this entry. Absent on pre-instrumentation runs. |
+| `duration_seconds` | int | OPTIONAL. `ended_at - started_at` in seconds. Absent on pre-instrumentation runs. |
+| `phase_durations` | object | OPTIONAL. Map of phase id (string) → seconds elapsed in that phase. Each phase stamps its own duration as it exits. Absent on pre-instrumentation runs. |
+| `quality_derived` | enum | OPTIONAL. Roll-up of `outcome` + `phases_failed` + sentiment-of-this-run's-suggestions. See "Quality derivation" below. Absent on pre-instrumentation runs. |
+
+### Quality derivation
+
+`quality_derived` is computed by the ledger phase from existing signals at run-end. No new user prompt is required:
+
+| Value | Condition |
+|---|---|
+| `clean` | `outcome == "closed"` AND `phases_failed[]` is empty AND no `improvement_suggestions[]` entry with `sentiment == "negative"` exists whose `target` equals this run's `target` AND whose `ts` falls within `[started_at, ended_at]`. |
+| `partial` | `outcome == "closed"` AND (`phases_failed[]` non-empty OR at least one matching negative suggestion exists). |
+| `failed` | `outcome == "aborted"`. |
+| `incomplete` | `outcome == "paused"` OR `outcome == "in-progress"`. |
+
+The observer phase uses `quality_derived` as the denominator when comparing wall-clock durations across same-shape inputs. Runs lacking `quality_derived` (pre-instrumentation) are excluded from the comparison — never silently treated as `clean`.
+
+### Backward compatibility
+
+All five new fields (`started_at`, `ended_at`, `duration_seconds`, `phase_durations`, `quality_derived`) are OPTIONAL. Readers MUST tolerate their absence on any run. Pre-instrumentation runs simply don't participate in efficiency analysis — they still count for FAIL trends and friction logs.
 
 ## `friction_log` (array)
 
@@ -105,10 +144,15 @@ Present only when the skill includes the Mid-run suggestion capture block (see `
   "phase": "<current phase number when the user spoke up, or 'audit' for final-call entries>",
   "tag": "<optional, parsed from [brackets] in the user's message; null if absent>",
   "text": "<verbatim text after the prefix and optional [tag]>",
+  "sentiment": "<negative | aspirational | neutral>",
   "applied_at": "<iso8601 | null>",
   "applied_via": "<description of SKILL.md change | null>"
 }
 ```
+
+`sentiment` is OPTIONAL on legacy entries (suggestions captured before sentiment was introduced). When absent, treat as `neutral` — never silently coerce to `negative`. New entries written by skills that include the suggestion-capture block ALWAYS include sentiment. See `library/templates/self-learning-skill/suggestion-capture.md` for the keyword heuristic.
+
+`sentiment` feeds `runs[].quality_derived` (see the "runs" section above): a run is `partial` rather than `clean` when at least one negative-sentiment suggestion was captured during its window. This is the load-bearing link between user-perceived quality and the observer's efficiency-detection logic.
 
 **Lifecycle (Tier 1 — capture only)**:
 - Suggestions are recorded verbatim. The current run is NOT altered by capture — the skill continues whatever phase logic dictates.

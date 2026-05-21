@@ -45,13 +45,27 @@ improvement: [6-detection-tightening] add internal token regex
      "phase": "<current phase number when the user spoke up>",
      "tag": "<optional, parsed from [brackets]>",
      "text": "<everything after the prefix and optional tag>",
+     "sentiment": "<negative | aspirational | neutral>",
      "applied_at": null,
      "applied_via": null
    }
    ```
+
+   **Sentiment classification** — apply this keyword heuristic at capture time (case-insensitive substring match on the suggestion text). The classification is the single best signal we have for "did this run actually achieve its objective?" without prompting the user explicitly:
+
+   | Sentiment | Trigger keywords (any match wins) | What it means |
+   |---|---|---|
+   | `negative` | `broken`, `wrong`, `incorrect`, `missed`, `failed`, `bug`, `doesn't`, `does not`, `should not`, `shouldn't`, `regression`, `flaw`, `error`, `mistake` | User is flagging a problem with this run — the skill produced a bad outcome. Counts against `quality_derived`. |
+   | `aspirational` | `would be nice`, `consider`, `could also`, `enhancement`, `add`, `nice to have`, `idea:`, `it would be cool`, `we should also`, `extend`, `support` | User is suggesting an enhancement — the skill did fine but could grow. Does NOT count against `quality_derived`. |
+   | `neutral` | none of the above match, OR matches in both lists | Ambiguous. Default fallback. Does NOT count against `quality_derived`. |
+
+   Resolution rule: if both lists match, classify as `neutral` (cancels out). If neither matches, classify as `neutral` too. **Negative wins only when no aspirational keyword also matches**, so the heuristic stays conservative — better to miss a quality signal than to fabricate one.
+
+   The user may hand-edit `sentiment` in `run_history.json` later if the heuristic misclassified. The classification is recorded once at capture and never re-evaluated by the skill.
+
 3. **Acknowledge** in one line:
    ```
-   ✓ suggestion captured (phase X, tag=<tag-or-none>): "<verbatim text>"
+   ✓ suggestion captured (phase X, tag=<tag-or-none>, sentiment=<negative|aspirational|neutral>): "<verbatim text>"
    ```
 4. **Resume** the current phase from where it was. The capture does NOT alter the current run — it only records the suggestion for future review at the audit and threshold-based aggregation later.
 

@@ -21,12 +21,19 @@ description: Generate a self-learning Claude Code skill through interactive inte
 **Templates this skill consumes**:
 - `library/templates/self-learning-skill/SKILL.md.tpl` — frame
 - `library/templates/self-learning-skill/audit-phase.md` — audit body (Phase N-1)
-- `library/templates/self-learning-skill/ledger-phase.md` — ledger body (Phase N)
-- `library/templates/self-learning-skill/run_history_schema_v1.md` — schema + bootstrap JSON
+- `library/templates/self-learning-skill/ledger-phase.md` — ledger body (Phase N) — emits timing + `quality_derived` UNCONDITIONALLY (no toggle)
+- `library/templates/self-learning-skill/run_history_schema_v1.md` — schema + bootstrap JSON (includes timing + sentiment fields)
 - `library/templates/self-learning-skill/freshness-phase.md` — freshness body (Phase 0, default opt-in, consumed in Step 5.4 / 8a.4)
-- `library/templates/self-learning-skill/suggestion-capture.md` — mid-run user-suggestion capture block (consumed in Step 5.5 / 8a.5)
-- `library/templates/self-learning-skill/observer-phase.md` — observer body (Phase N+1, OPTIONAL, consumed in Step 5.6 / 8a.7)
+- `library/templates/self-learning-skill/suggestion-capture.md` — mid-run user-suggestion capture block with sentiment auto-classification (consumed in Step 5.5 / 8a.5)
+- `library/templates/self-learning-skill/observer-phase.md` — observer body with efficiency categories + trade-off detector (Phase N+1, OPTIONAL, consumed in Step 5.6 / 8a.7)
 - `library/templates/self-learning-skill/observations_schema_v1.md` — observer schema + bootstrap JSON for `observations.json` and `suggestions.md`
+
+**Always-on instrumentation** (every generated skill inherits this; no interview toggle):
+- Each domain phase stamps its own `phase_durations[<id>] = seconds_elapsed` to in-memory run state on exit.
+- Phase 0 (or Phase 1 if no Phase 0) stamps `started_at` once at run start.
+- The ledger phase computes `ended_at`, `duration_seconds`, and `quality_derived`, and writes all four fields plus `phase_durations` into the `runs[]` entry for this run.
+- The suggestion-capture block auto-classifies `sentiment` on every captured suggestion using the keyword heuristic in `suggestion-capture.md`.
+- These are NOT optional toggles. Generated skills always emit timing and sentiment. The data is harmless when unused; an opt-out would mean some skills can't participate in efficiency analysis.
 
 ---
 
@@ -425,6 +432,13 @@ Freshness check (Phase 0): <enabled|disabled>
   times AND >= 21 days have passed since last validation. run_history.json
   gets a `validation_freshness` block initialized to defaults.
 
+Efficiency instrumentation: always-on (no toggle)
+  Every generated skill emits: per-phase `phase_durations`, total
+  `started_at`/`ended_at`/`duration_seconds`, mechanically-derived
+  `quality_derived`, and `sentiment` on every captured suggestion. These feed
+  the observer's trade-off detector (when observer is enabled) and remain
+  harmless when no observer consumes them.
+
 Mid-run suggestion capture: <enabled|disabled>
   When enabled, the SKILL.md gets a "Mid-run suggestion capture" block after the
   Inputs section, and run_history.json includes an improvement_suggestions[] array.
@@ -642,9 +656,16 @@ Run these mechanical checks. Fail loudly on any miss — DO NOT silently proceed
    - If false: SKILL.md MUST NOT contain a Phase 0 freshness heading AND `run_history.json` MUST NOT contain `validation_freshness`.
    Mismatch → fail loudly and report which side disagrees.
 
+10b. **Efficiency instrumentation present**: confirm SKILL.md and templates wired the always-on instrumentation correctly. This check runs unconditionally — there is no toggle.
+   - The first phase (Phase 0 if freshness is enabled, else Phase 1) MUST contain a step that stamps `started_at` to the run-start timestamp before doing any work.
+   - Every domain phase (1..N-2) MUST contain a step that stamps its own `phase_durations[<id>] = seconds_elapsed` as it exits. Grep the SKILL.md for `phase_durations` — count must be >= number of domain phases.
+   - The ledger phase MUST emit `started_at`, `ended_at`, `duration_seconds`, `phase_durations`, and `quality_derived` in the `runs[]` entry (search for all five field names in the ledger section).
+   - When suggestion-capture is enabled, the capture body MUST include the sentiment classification step (search for `sentiment:` field in the capture block).
+   Mismatch → fail loudly. Pre-instrumentation runs in the JSON are fine (forward-only), but the SKILL.md itself MUST be fully instrumented.
+
 10. **Composition table well-formed**: when `composed_skills` (Step 6.5.4) is non-empty, the generated SKILL.md MUST contain a `Plugin skills composed by this skill` table with exactly one row per `composed_skills` entry. Each row must have a non-empty Skill, Phase, and Trigger cell. When `not_composed` (Step 6.5.5) is non-empty, the generated SKILL.md MUST contain a `Plugin skills NOT composed` bullet list with exactly one bullet per entry. Empty `composed_skills` and `not_composed` are valid: the composition table is rendered with the "(none — populate by hand if/when you discover compositions on first runs)" placeholder row; the not-composed block is omitted entirely. Mismatch (declared in interview but missing in file, or vice versa) → fail loudly and report which side disagrees.
 
-If all checks (1–7 always; 8–9 when observer_enabled; 10a always (toggle-symmetric); 10 when `composed_skills` or `not_composed` is non-empty) pass, print:
+If all checks (1–7 always; 8–9 when observer_enabled; 10a always (toggle-symmetric); 10b always (efficiency instrumentation); 10 when `composed_skills` or `not_composed` is non-empty) pass, print:
 
 ```
 ✓ Generation validated. Skill ready to invoke.
@@ -789,6 +810,12 @@ Freshness check (Phase 0): <enabled|disabled>
   When enabled, the SKILL.md gets a non-blocking Phase 0 inserted BEFORE the
   existing Phase 1 (existing phases keep their numbering). run_history.json
   gets a `validation_freshness` block initialized to defaults.
+
+Efficiency instrumentation: always-on (no toggle)
+  Convert mode also adds timing + quality_derived emission to the existing
+  ledger phase and sentiment auto-classification to the suggestion-capture
+  block. Existing `runs[]` entries are NOT backfilled with timing data —
+  forward-only — and the observer skips them from efficiency comparison.
 
 Mid-run suggestion capture: <enabled|disabled>
   When enabled, the SKILL.md gets a "Mid-run suggestion capture" block inserted

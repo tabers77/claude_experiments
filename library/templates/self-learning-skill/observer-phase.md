@@ -64,6 +64,29 @@ The observer NEVER edits `SKILL.md`. It writes only to `observations.json` (per-
    | `output_format_quality` | UX-only signal: format/readability of the skill's output | audit row evidence string too long to scan visually |
    | `cross_phase_redundancy` | two phases share evidence the user only had to provide once | Phase 1 and Phase 3 both quoted the same user input |
    | `boundary_violation` | a domain phase referenced or used content from `observations.json` / `suggestions.md` (which it must not read) | Phase 2's user prompt framing visibly originated in observer-file content; the skill cited a prior observation in-flight to justify a recommendation |
+   | `phase_scope_too_broad_for_input` | a phase ran a full-scope routine when the input class would have justified a narrower scope (e.g. lite-mode existed but wasn't taken) | Phase 5 ran the full no-new-bugs sweep on a docs-only diff that Phase 1 had already classified `scope=lite` |
+   | `serializable_as_parallel` | two phases ran sequentially that have no data dependency on each other and could parallelize | Phase 3 (pre-commit-check sweep) and Phase 4 (relevant-tests run) ran back-to-back, neither using the other's output |
+   | `redundant_work_with_prior_phase` | a phase recomputed something an earlier phase already produced; the second phase's evidence cites the same fact the first one captured | Phase 5's evidence row quotes the same diff path set that Phase 1 already classified |
+   | `over_thorough_for_input_class` | a long-running phase fired on a tiny input where its full pass isn't load-bearing; skill lacks input-class dispatch | Phase 4 ran 8 tiers of tests on a single-line README change |
+   | `missed_cached_result` | a phase did work whose exact result is already recorded in `runs[]` for the same target / commit / input shape | Phase 2 (clean-merge probe) re-ran `git merge-tree` for a target whose result was identical in the run 30 minutes earlier |
+
+2a. **Efficiency trade-off detector** — runs only when this run has `duration_seconds` and `quality_derived` populated. Skip entirely otherwise (no fabricated signal on pre-instrumentation runs).
+
+   1. Group prior runs in `runs[]` by **input-class similarity** to this run's target. Default grouping: same `outcome` AND same `quality_derived` tier among runs with a similar input shape (skill-specific — e.g. for `pr-merge-readiness`, runs with `scope=lite` cluster together vs `scope=full`). If the skill has no input-class concept, group on `outcome` alone.
+
+   2. Compute the median `duration_seconds` of the matching cohort (need ≥ 3 prior cohort members — otherwise skip; one prior run is not a baseline).
+
+   3. **File an observation** under `phase_scope_too_broad_for_input` (or a more specific category if the evidence points clearly at one) when **both** are true:
+      - `this_run.duration_seconds > 1.5 × cohort_median`
+      - `this_run.quality_derived` is NOT strictly better than `cohort_median_quality` (i.e. quality didn't improve to justify the time cost). Define the ordering `clean > partial > failed > incomplete`.
+
+   4. **Also file an observation** when **both** are true (the inverse failure mode — fast at the cost of quality):
+      - `this_run.duration_seconds < 0.5 × cohort_median`
+      - `this_run.quality_derived` is strictly worse than `cohort_median_quality`.
+
+   The trade-off detector exists specifically to prevent "race to fast trash" — every speed delta must be tied to a quality delta before the observer files it. Slow-but-better runs and fast-but-equal runs are NOT observations; they're just variance.
+
+   Each filed observation's `evidence` field MUST include the exact numbers: this run's duration, cohort median, this run's `quality_derived`, cohort median's `quality_derived`, and the cohort size. No paraphrase, no rounding to "much slower."
 
 3. **Append observations** to `observations.json`. Each observation MUST cite verbatim evidence — never paraphrase user input. **Zero observations is a valid output.** Do NOT invent signals to demonstrate the observer is doing work.
 
@@ -193,6 +216,12 @@ Never reject either file because the user added a field, changed status, or anno
 - The user already captured the same idea via `improvement_suggestions[]` and applied it.
 - The category is `dev_env_friction` and the friction is project-environmental rather than skill-logic (these belong in `friction_log[]` of `run_history.json`, not as a SKILL.md edit proposal — observer can append to `friction_log[]` for these).
 - Zero new observations this run AND no clustering tripped. Print summary, exit cleanly.
+
+### Why efficiency proposals stay suggestion-only
+
+`fail_counters` remediations auto-apply on threshold because their failure mode is symmetric: a missed FAIL says "do MORE checking" — worst case is added noise, never a missed bug. Efficiency remediations are the opposite: they say "do LESS work." The failure mode is silent — the skill quietly learns to skip a phase that was load-bearing for an input class it hasn't seen yet, and the user only discovers it when a bad merge lands.
+
+Suggestion-only mode keeps the human in the loop precisely where the asymmetric risk lives. The observer surfaces the evidence; the user decides whether dropping the work is safe.
 
 ### Common mistakes to avoid
 

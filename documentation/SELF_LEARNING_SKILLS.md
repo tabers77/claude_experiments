@@ -120,6 +120,67 @@ The freshness check is **structurally independent** of the audit, ledger, sugges
 
 The freshness body is **movable** in the same sense as the observer: a future `meta-skill-freshness-sweep` skill could read every `run_history.json` in the plugin and report all stale skills at once. The schema (`validation_freshness` block) is the load-bearing contract; the per-skill Phase 0 body is the current prototype carrier.
 
+## Efficiency tracking (always-on instrumentation)
+
+The audit + ledger catch correctness drift; the observer catches design drift; the freshness check catches review-cycle drift. The fourth dimension is **efficiency drift** — the skill takes longer than necessary for the quality it delivers — and unlike the other three, it can't be detected from any single run. You need to compare runs against each other on the same input class, and you need a quality signal to ensure speed wins aren't paid for in correctness.
+
+This is the most important property a skill optimizes for: **achieve the objective in less time without compromising quality**. Every speed gain must be tied to a quality delta, or the skill is just racing to fast trash.
+
+### Instrumentation captured every run (no toggle)
+
+| Field | Stamped by | Used for |
+|---|---|---|
+| `started_at` | First phase (Phase 0 if present, else Phase 1) | Run duration baseline |
+| `phase_durations[<id>]` | Each phase, on exit | Per-phase timing for observer's category-specific signals |
+| `ended_at`, `duration_seconds` | Ledger phase | Total wall-clock |
+| `quality_derived` | Ledger phase (mechanical compute) | Denominator for trade-off comparison |
+| `sentiment` on each captured suggestion | Suggestion-capture block (keyword heuristic) | Feeds `quality_derived` |
+
+All five fields are OPTIONAL in the schema — pre-instrumentation runs simply opt out of efficiency analysis. The observer ignores them, never coerces absence to a positive signal.
+
+### Quality is derived, not asked
+
+There is deliberately no explicit "rate this run 1–5" prompt at audit-time. The signal we need — *did this run achieve the user's objective?* — is already implicit in two existing channels:
+
+- **`outcome` + `phases_failed[]`** — closed with zero FAILs is the mechanical pass.
+- **Sentiment of `improvement_suggestions[]` captured during the run window** — a suggestion classified `negative` (keywords: *broken, wrong, missed, failed, bug,* etc.) means the user is flagging a problem with this run. `aspirational` and `neutral` don't count against quality.
+
+The ledger combines them into one of four rolled-up values:
+
+| `quality_derived` | Condition |
+|---|---|
+| `clean` | closed + 0 FAILs + 0 negative suggestions in this run's window |
+| `partial` | closed + (FAILs OR negative suggestions) |
+| `failed` | aborted |
+| `incomplete` | paused / in-progress |
+
+Sentiment classification is a **conservative keyword heuristic** — negative wins only when no aspirational keyword also matches. The user can hand-edit `sentiment` in `run_history.json` if the heuristic misclassifies; the skill never re-evaluates a captured suggestion.
+
+### The trade-off detector
+
+In the observer phase (Phase N+1), step 2a clusters prior runs by input-class similarity (e.g., `scope=lite` vs `scope=full` for `pr-merge-readiness`) and computes the cohort median duration. A run files an observation when **both** are true:
+
+- Wall-clock deviates by >1.5× the median (slow run) OR <0.5× the median (fast run)
+- Quality moved in the *wrong* direction relative to the cohort (slow + not-better, or fast + worse)
+
+Slow-but-better runs and fast-but-equal runs are NOT observations — they're just variance. Tying every speed delta to a quality delta is what prevents the optimization from collapsing into "drop the careful checks for speed."
+
+### Five efficiency-focused observer categories
+
+Added to the standard category table:
+
+- `phase_scope_too_broad_for_input` — full-scope routine ran when input class justified narrower
+- `serializable_as_parallel` — sequential phases with no data dependency between them
+- `redundant_work_with_prior_phase` — work recomputed from an earlier phase
+- `over_thorough_for_input_class` — heavy phase ran on tiny input; skill lacks input-class dispatch
+- `missed_cached_result` — work whose result already exists in `runs[]` for the same shape
+
+The observer's clustering threshold (default 3) and theme-similarity check apply unchanged — these new categories just feed it richer signals.
+
+### Why efficiency proposals stay suggestion-only
+
+`fail_counters` remediations auto-apply because they say *do MORE checking* — worst case is added noise. Efficiency remediations say *do LESS work* — worst case is silently dropping a check that was load-bearing for an input class the skill hasn't seen yet. Asymmetric risk. Suggestion-only mode keeps the human in the loop precisely where the asymmetry lives.
+
 ## The schema
 
 `run_history.json` is the persistent ledger. Full schema documented at:

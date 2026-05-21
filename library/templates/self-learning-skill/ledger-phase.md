@@ -20,10 +20,38 @@ Persist the audit so failure patterns become evidence over time.
 
 1. **Read** `{{SKILL_PATH}}/run_history.json`. Initialize if missing per the schema in `library/templates/self-learning-skill/run_history_schema_v1.md`. Use the seed FAIL rules from that schema doc as the starting `fail_counters`.
 
-2. **Append** the run summary to `runs[]`:
+2. **Append** the run summary to `runs[]`. Include the timing and quality fields:
    ```json
-   {"ts": "<iso8601>", "target": "<input>", "outcome": "<closed|paused|aborted|in-progress>", "phases_failed": ["<tag>", ...]}
+   {
+     "ts": "<iso8601 of this ledger write — same as ended_at>",
+     "target": "<input>",
+     "outcome": "<closed|paused|aborted|in-progress>",
+     "phases_failed": ["<tag>", ...],
+     "started_at": "<iso8601 captured at run start>",
+     "ended_at": "<iso8601-now>",
+     "duration_seconds": <ended_at - started_at, integer seconds>,
+     "phase_durations": {"1": <seconds>, "2": <seconds>, "...": "..."},
+     "quality_derived": "<clean|partial|failed|incomplete>"
+   }
    ```
+
+   The skill is expected to track three pieces of running state across phases (in-memory, not persisted between runs):
+
+   | State | Set by | Used here |
+   |---|---|---|
+   | `started_at` | First phase that runs (Phase 0 if present, otherwise Phase 1), stamped before any work. | Emit verbatim. |
+   | `phase_durations` | Each phase stamps `phase_durations[<id>] = seconds_elapsed` as it exits. Half-numbered sub-phases (e.g. `1.5`) record under their literal id. | Emit verbatim. |
+   | `ended_at` | Set NOW, at the top of this ledger phase. | Compute `duration_seconds = ended_at - started_at`. |
+
+   **`quality_derived` is computed mechanically** from data already in the file plus this run's outcome:
+   - `clean` ← `outcome == "closed"` AND `phases_failed` is empty AND **no `improvement_suggestions[]` entry** with `sentiment == "negative"` exists whose `target == <this run's input>` AND whose `ts` falls within `[started_at, ended_at]`.
+   - `partial` ← `outcome == "closed"` AND (`phases_failed` non-empty OR at least one matching negative suggestion exists).
+   - `failed` ← `outcome == "aborted"`.
+   - `incomplete` ← `outcome == "paused"` OR `"in-progress"`.
+
+   No user prompt is involved. The classification reads from `improvement_suggestions[]` (sentiment auto-classified at capture time per `suggestion-capture.md`) and the run's own outcome/FAIL list.
+
+   If `started_at` was not recorded (e.g. the skill predates this instrumentation), omit `started_at`, `ended_at`, `duration_seconds`, `phase_durations`, and `quality_derived` entirely for this run — the observer phase will skip it from efficiency comparison. Do NOT fabricate timing data; absence is the signal that the run wasn't instrumented.
 
 3. **For each FAIL tag** observed in this run:
    - Increment `fail_counters[<tag>].count` by 1.
