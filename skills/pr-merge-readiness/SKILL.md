@@ -284,6 +284,15 @@ The premise: a skill that gets used heavily but never reviewed against the curre
 2. **Resolve `head` and `base`**:
    - `pr` mode: `gh pr view <num> --json headRefName,baseRefName,url,title,state` — capture `head`, `base` (must equal `BASE_BRANCH` from the config block; warn if not), URL, title.
    - `branch`/`current` mode: `head` = the branch; `base` = `BASE_BRANCH` (assumed; warn if remote-tracking diverges or if a peer config like `.github/PULL_REQUEST_TEMPLATE.md` suggests a different default).
+
+2a. **Defensive: shallow-clone check**. BEFORE any merge-base / rev-list / merge-tree probe is interpreted, run:
+
+   ```powershell
+   git rev-parse --is-shallow-repository
+   ```
+
+   If it returns `true`, the local clone is shallow (typical on Azure DevOps Pipeline checkouts with `fetchDepth: 1`, or any CI-provided shallow clone). Run `git fetch --unshallow origin` and re-verify; do NOT report ancestry findings (e.g. "orphan branch", "no merge base", absurdly small `rev-list --count`) until the clone is unshallowed. A shallow clone makes `git merge-base origin/<BASE_BRANCH> <head>` return `no merge base` and `git rev-list --count origin/<BASE_BRANCH>` return absurdly small values that mimic an orphaned base branch — these are clone artifacts, not real history. Record the outcome verbatim in the Phase 1 audit row evidence: `shallow-clone=<yes-unshallowed|no>`.
+
 3. **Confirm the branch exists locally and remotely**:
    ```powershell
    git rev-parse --verify "refs/heads/<head>"
@@ -425,6 +434,24 @@ This is the principle-anchor — the skill cannot mark Phase 5 `pass` without an
 3. **Optional**: when Phase 4 step 3 flagged the change as high-blast, also invoke `claude-library:quality-bug-sweep` for the comprehensive scan. Default: skip unless high-blast.
 4. **Diff-anomaly check**: for each path in `TRACKER_FILES`, `git diff origin/<BASE_BRANCH>...<head> -- <tracker-path>`. Confirm only expected rows changed; unexpected diffs are surfaced to Phase 7. If `TRACKER_FILES` is empty, skip this step and record `"diff-anomaly check skipped: no TRACKER_FILES configured"`.
 4b. **Tracker closure-pairing reconciliation**: for each path in `TRACKER_FILES`, diff the file against `origin/<BASE_BRANCH>`. If the diff *adds* a closure narrative (heuristic: a new paragraph mentioning a tracker ID like `W-*`, `V-*`, `SP-*`, `GAP-NNN` *and* outcome language such as "closed", "fixed", "resolved", "shipped"), confirm that the corresponding tracker row in the project's bug/gap tracker (typically the OTHER `TRACKER_FILE` — e.g. `BUGS_AND_GAPS.md` when `COMPLETED_STREAMS.md` got the closure narrative) was *removed* in the same diff. If the row is still present, surface to Phase 7 as a hard item with FAIL tag `5-tracker-closure-without-row-removal`. If `TRACKER_FILES` has fewer than 2 entries (so there's no "other" tracker to pair against), skip cleanly and record `"tracker closure-pairing skipped: needs >=2 TRACKER_FILES"`.
+
+4c. **Closure-narrative falsifiable-claim reconciliation**: closure narratives often contain truth-claims (e.g. `"All 1075 unit + integration tests pass post-change"`, `"smoke tier clean"`, `"no regressions"`). The tracker-pairing check (4b) verifies the row-removal *presence* but does NOT test the *truth* of these claims. For each closure-narrative paragraph added in any `TRACKER_FILES` path (and in `COMPLETED_STREAMS.md` when present in the diff), parse the paragraph for falsifiable phrases using these regex candidates (case-insensitive, applied to the added text):
+
+   - `\b\d{2,5}\s+(unit|integration|smoke)?\s*tests?\s+pass` (e.g. "1075 tests pass", "418 smoke tests pass")
+   - `\bno regressions?\b`
+   - `\bsmoke (?:tier\s+)?clean\b`
+   - `\ball tests pass\b`
+   - `\bN/?A failures?\b`
+   - `\btier\s+\w+\s+clean\b`
+
+   For each matched claim, reconcile against Phase 4's actual evidence in THIS session:
+
+   - If Phase 4 has run the corresponding tier (e.g. claim mentions "smoke" and Phase 4 ran smoke), compare: actual `passed`/`failed` counts must agree with the claim. If Phase 4 results contradict the claim (e.g. claim says "all tests pass" but smoke had 2/422 failures), surface to Phase 7 as a hard item with FAIL tag `5-closure-narrative-falsifiable-claims-not-reconciled` (load-bearing). Acceptance of a false claim is exactly the silent-confidence failure mode this skill exists to catch.
+   - If Phase 4 has NOT run the tier the claim mentions (e.g. claim says "1075 unit + integration tests pass" but Phase 4 ran smoke only this session per scope/relevance choices), surface to Phase 7 as an unresolved item demanding either (a) re-run the corresponding tier in this session, or (b) explicit user acceptance of the claim with a verbatim justification recorded.
+   - Record every matched claim verbatim in the Phase 5 sub-report alongside the Phase 4 actual-result row (or `"no Phase 4 evidence for this tier"`), so the user can scan the reconciliation table without re-deriving it.
+
+   If no closure-narrative paragraph is added in this diff, record `"closure-narrative reconciliation skipped: no closure narratives added"` and proceed.
+
 5. Any item in the **"blocks merge"** bucket of the TL;DR → mark Phase 5 FAIL and surface to Phase 7. Items in **"track as follow-up"** or **"pure refactoring"** do NOT auto-route to Phase 7 — they are informational unless the user explicitly asks to fix-now or to register as a gap.
 
 ## Phase 6 — (reserved — folded into Phase 3)
@@ -465,12 +492,20 @@ Before the audit can run, every unresolved item from Phases 1–5 must be addres
    3. Block the merge
    4. Abort the run
 
-   When the recommendation gate does NOT fire (any precondition fails), the existing symmetric four-option list is used and the skill does not recommend a default:
+   When the recommendation gate does NOT fire (any precondition fails), the skill STILL marks exactly one option as `(recommended)` using the softer-heuristic fallback below, and appends a one-line rationale to the recommended option. The four-option list itself remains the same:
 
    - **block the merge** — verdict will be RED. Skill records the reason and proceeds to audit.
    - **fix it now** — user describes the fix; skill applies it (or asks the user to apply); loops back to the originating phase.
    - **skip with logged justification** — user provides a one-line reason. Recorded verbatim in the audit and the run-history ledger.
    - **abort the run** — clean exit; no verdict produced.
+
+   **Softer-heuristic recommendation fallback** (applies whenever the narrow Recommendation gate doesn't fire — every multi-option Phase 7 prompt MUST mark exactly one option as `(recommended)` with a one-line rationale):
+
+   1. Pick the option with the smallest blast-radius that resolves the surfaced item (e.g. `skip with logged justification` is smaller blast-radius than `block the merge`; `fix it now` only beats both when the fix scope is bounded enough to apply confidently).
+   2. If multiple options have similar blast-radius, prefer the one that aligns with this PR's stated intent — e.g. `fix it now` for tightly-scoped feature PRs; `skip with logged justification` for close-out PRs where the surfaced item is out-of-scope.
+   3. Tie-breaker: choose the option chosen most often for this surfaced-item type in past runs (read from `run_history.json:runs[].notes` for similar item phrasings; if no prior signal exists, default to `skip with logged justification` as the smallest-blast-radius generic).
+
+   The option block (whether narrow-gate-fired or fallback) must always have exactly ONE option marked `(recommended)` with the rationale appended on the same line. Silence on a recommendation is NOT acceptable — neutral option blocks force a "which is best and why?" round-trip that this rule exists to short-circuit.
 
 3. **Loop until the user explicitly types "proceed to audit"** (or equivalent literal token). Silence, "looks good", "ok" do NOT advance.
 
@@ -491,7 +526,7 @@ The audit runs **before** the print. Print cannot fire until the user explicitly
 
    | Phase | Status | Evidence |
    |-------|--------|----------|
-   | 1 | pass | input parsed: <mode> <target>; user input verbatim: "<literal quote>" |
+   | 1 | pass | input parsed: <mode> <target>; user input verbatim: "<literal quote>"; shallow-clone=<yes-unshallowed\|no>; scope=<lite\|full>; reason=<matching condition> |
    | 2 | pass | git merge-tree --write-tree --name-only origin/<BASE_BRANCH> <head>: exit=<code>; conflicts: <none\|<paths>> |
    | 3 | pass\|FAIL | rules-source=<resolved PRE_COMMIT_RULES_PATH or "defaults">; outcomes: smoke=<...>, lint=<...>, protected=<...>, ownership=<...>, safety=<...>, env-secrets=<no-env-files\|pass\|FAIL+files>, relevance-skipped=<none\|<sub-check>:<skip_note>; ...> |
    | 4 | pass\|FAIL | tiers run: <list>; results: <pass/fail/skipped per tier>; test-cache: <verbatim lines or "not wired">; live UI: <ran\|skipped + reason> |
@@ -524,12 +559,15 @@ The audit runs **before** the print. Print cannot fire until the user explicitly
    - **`4-live-test-skipped-without-justification` FAIL** (load-bearing, threshold=1): live UI test skipped AND any diff path matches a glob in `HIGH_BLAST_PATHS` AND `LIVE_UI_TEST_COMMAND` is non-null AND no user-provided skip reason recorded AND `DEV_STACK_PREFLIGHT_URL` preflight (when set) did NOT explicitly fail.
    - **`5-code-diagnosis-narration-only` FAIL** (load-bearing, threshold=1): Phase 5 narrated diagnosis findings without an observed `Skill(skill="claude-library:code-diagnosis", ...)` tool call in this session.
    - **`5-tracker-closure-without-row-removal` FAIL** (load-bearing, threshold=1): Phase 5 sub-step 4b detected a closure narrative added to one `TRACKER_FILE` without a matching row removal in the paired tracker. Load-bearing because it defeats the documentation-implementation pairing invariant.
+   - **`5-closure-narrative-falsifiable-claims-not-reconciled` FAIL** (load-bearing, threshold=1): Phase 5 sub-step 4c detected a closure-narrative paragraph containing a falsifiable claim (e.g. "N tests pass", "no regressions", "tier X clean") that was NOT reconciled against Phase 4's actual evidence in this session — either Phase 4 contradicted the claim and the discrepancy was not surfaced to Phase 7, OR Phase 4 did not run the claimed tier and the user did not explicitly accept the unverified claim with a verbatim justification. Load-bearing because silent acceptance of a false claim is exactly the failure mode the skill exists to catch.
    - **`5-findings-table-needs-severity-provenance-columns` FAIL** (procedural, threshold=2): Phase 5 surfaced code-diagnosis findings without a one-line merge-impact TL;DR header (the `"<N1> blocks merge / <N2> track as follow-up / <N3> pure refactoring"` sentence) preceding the per-finding table. Threshold=2 because a single occurrence may be the skill's first run on a new project; two means the TL;DR rule is drifting.
    - **`6-env-secret-committed` FAIL** (load-bearing, threshold=1, evaluated within Phase 3 step 2's env-file safety sub-step): diff added a `.env*` line whose value matches the secret heuristic (high-entropy ≥32 chars, contains `password=`/`secret=`/`api_key=` with non-placeholder value, hex/base64 strings ≥32 chars, or known key prefixes such as AKIA / AIza / sk-) rather than a placeholder. Tag retained for counter continuity after the standalone Phase 6 was folded into Phase 3 on 2026-05-16.
    - **`7-implicit-skip-no-justification` FAIL** (load-bearing, threshold=1): `surfaced > resolved-with-explicit-choice`. Count = (surfaced − resolved).
    - **`7-recommendation-gate-not-applied` FAIL** (procedural, threshold=2): Phase 7 surfaced an item meeting all four `Fix it now (recommended)` preconditions but did NOT mark fix-now as recommended in the option block. Threshold=2 because a single occurrence may be a borderline precondition call; two means the gate logic is drifting.
    - **`1-scope-classifier-not-applied` FAIL** (procedural, threshold=2): Phase 1 audit row missing the `scope=lite|full; reason=<...>` evidence segment introduced by the 2026-05-19 scope-classifier remediation. Threshold=2 because a single occurrence may be the skill's first run on a new project before the operator has internalized the classifier; two means the gate logic is drifting.
    - **`3-or-5-relevance-prefilter-not-applied` FAIL** (procedural, threshold=2): Phase 3 or Phase 5 ran a sub-check whose `RELEVANCE_PREDICATES` predicate would have tripped given the diff content, but the prefilter step (Phase 3 step 1a or Phase 5 step 1a) was not invoked — i.e. the Phase 3 aggregate row is missing the `relevance-skipped=...` field entirely (not just `relevance-skipped=none`), OR Phase 5 evidence does not mention category skips when a predicate's triggers had zero diff-path matches. Threshold=2 because a single occurrence may be the skill's first run on a project before the predicates are tuned; two means the prefilter step is being bypassed.
+   - **`1-shallow-clone-not-unshallowed` FAIL** (procedural, threshold=2): Phase 1 step 2a was not invoked OR `git rev-parse --is-shallow-repository` returned `true` and the clone was not unshallowed before Phase 1 step 3 / Phase 2's ancestry probes ran. Detected when the Phase 1 audit row is missing the `shallow-clone=<yes-unshallowed|no>` evidence segment, OR the row records `shallow-clone=yes-not-unshallowed`. Threshold=2 because a single occurrence may be the skill's first run on a new host before the operator has internalized the check; two means the gate is drifting.
+   - **`7-recommendation-default-on-all-multi-option-prompts` FAIL** (procedural, threshold=2): Phase 7 rendered a multi-option prompt without marking exactly one option as `(recommended)` plus a one-line rationale (whether by the narrow Recommendation gate or the softer-heuristic fallback). Detected when the audit's Phase 7 evidence shows a surfaced item resolved through a neutral option block. Threshold=2 because a single occurrence may be a borderline call; two means the broadened recommendation rule is drifting.
 
 3. **Show the audit and ask the user to confirm OR correct every row.** The audit is NOT approved on silence or partial answer. The skill must wait for the user to:
    - **confirm** each row as written, OR

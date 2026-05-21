@@ -331,6 +331,39 @@
       "evidence": "Phase 2 step 2 invoked `git merge-tree --write-tree --name-only origin/dev feat/bug-bot-pipeline` and got exit 129 with stderr 'usage: git merge-tree <base-tree> <branch1> <branch2>'. `git --version` returned `git version 2.37.0.windows.1` — the `--write-tree` form requires git 2.38+. Fell back to legacy 3-arg form: `BASE=$(git merge-base origin/dev feat/bug-bot-pipeline); git merge-tree $BASE origin/dev feat/bug-bot-pipeline` exited 0 with 1993 lines of merge-tree output; grep'd for both `^\\+<{7}|^\\+={7}|^\\+>{7}` (conflict markers) and `^(changed in both|added in both|removed in both)` sections — both returned 0 → clean. Same pattern as the 2026-05-11 seed observation (theme `git-version-compat-not-handled-in-skill`, proposed_audit_tag `2-git-version-fallback-not-automatic`, count=1). Run-history notes from 2026-05-08 / 2026-05-13 / 2026-05-18 / 2026-05-19 each recorded the same fallback ad-hoc. Observations.json count now 2 (this + seed); cross-run count counting run-history notes is 5+.",
       "interpretation": "Sixth-or-later real-world occurrence of the same git-version compat pattern; second observation in observations.json (count 1→2). The remediation would be a Phase 2 step 2 sub-step that detects git version (`git --version | parse → if >=2.38 use --write-tree; else use legacy 3-arg with grep'd conflict-marker check`) and selects the right invocation automatically. Below standalone threshold (count=2, threshold=3); no matching improvement_suggestions[] entry yet so convergence rule doesn't apply. Recording for clustering — one more observation OR one matching user suggestion flips this to a proposal. Future-proofing note: the legacy 3-arg form is also being phased out (git 2.42+ deprecates without --write-tree); the eventual fix should pick the modern form on modern git and not the legacy form forever.",
       "proposed_audit_tag": "2-git-version-fallback-not-automatic"
+    },
+    {
+      "ts": "2026-05-21T11:00:00+02:00",
+      "run_ref": "2026-05-21T10:50:00+02:00",
+      "target": "this branch into dev (current=feat/mcp_tools_exposure; head=c700144; base=dev)",
+      "category": "missing_audit_category",
+      "_theme_slug": "shallow-clone-not-detected",
+      "phase": "1",
+      "evidence": "Phase 1 step 3 ran `git rev-list --count origin/dev` (returned 1) and `git merge-base origin/dev feat/mcp_tools_exposure` (returned 'no merge base'). I reported origin/dev as a 1-commit orphan branch and told the user the bug-bot pipeline had wiped dev's history. User responded with real alarm — verbatim 'ok , no this is a bigger problem . You are saying that bug-bot pipeline changed the git history of dev ? ... in dev history in devops I see all the commits , why are you saying you only see 1 commit ?'. Root cause: local clone was shallow. `git rev-parse --is-shallow-repository` returned `true`; `git cat-file -p <dev-tip>` showed the commit had a `parent <hash>` line, but the parent object was not in the local pack. After `git fetch --unshallow origin`, origin/dev correctly showed 384 commits with merge-base = c52840e. Matching improvement_suggestions[] entry (this run, tag=2-shallow-clone-check) records the user's verbatim complaint. Convergence rule trips: ≥1 unaddressed observation (this one) + matching user suggestion.",
+      "interpretation": "Phase 1 has no defensive check against shallow-clone state. Any operator running this skill from an Azure DevOps Pipeline checkout (fetchDepth: 1) or a similarly shallow clone will hit the same false 'orphan branch' alarm. Concrete remediation: insert a Phase 1 sub-step 3a (or fold into 3) — `git rev-parse --is-shallow-repository` → if `true`, run `git fetch --unshallow origin` BEFORE any merge-base / rev-list / merge-tree probe is interpreted. The check is one bash line and adds maybe 30 seconds (vs the cost of a false alarm that caused panic). Convergence-tripped this run; recommend writing a suggestions.md proposal.",
+      "proposed_audit_tag": "1-shallow-clone-not-unshallowed"
+    },
+    {
+      "ts": "2026-05-21T11:00:00+02:00",
+      "run_ref": "2026-05-21T10:50:00+02:00",
+      "target": "this branch into dev (current=feat/mcp_tools_exposure; head=c700144; base=dev)",
+      "category": "output_format_quality",
+      "_theme_slug": "options-without-recommendation",
+      "phase": "7",
+      "evidence": "Phase 7 surfaced 4 unresolved items and I rendered four AskUserQuestion blocks. The Recommendation gate fired only on item #4 (Smell 2 mid-file imports — narrow fix-now precondition match). The other three items used the symmetric four-option list without a recommended default. User replied verbatim 'which is th ebest option and why ?' — a round-trip the skill could have saved by recommending up-front. After I provided recommendations + rationale, user confirmed verbatim 'just execute them'. Matching improvement_suggestions[] entry (this run, tag=7-always-recommend-with-rationale) records the user's verbatim complaint. Convergence rule trips: ≥1 unaddressed observation (this one) + matching user suggestion. Also: prior convergence applied 2026-05-19 ('when giving suggestion of next steps it should be easier to digest and clear for the user which are the best options') addressed scope-classifier verbosity, NOT recommendation-default-on-options — distinct theme.",
+      "interpretation": "Phase 7 step 2's Recommendation gate has 4 narrow preconditions (≤15 lines, code/docs only, smoke ≤60s, canonical-small-fix category). Items that fall outside those preconditions get a NEUTRAL option block — but the user wants a recommendation regardless. The fix: broaden the recommendation rule to ALL multi-option prompts. When the gate's narrow preconditions don't apply, the skill should still mark one option as 'recommended' based on a softer heuristic (e.g., smallest blast-radius option that resolves the surfaced item; or the option that most aligns with the user's stated PR intent; or the option chosen in similar past runs from run_history). Convergence-tripped this run; recommend writing a suggestions.md proposal.",
+      "proposed_audit_tag": "7-recommendation-default-on-all-multi-option-prompts"
+    },
+    {
+      "ts": "2026-05-21T11:00:00+02:00",
+      "run_ref": "2026-05-21T10:50:00+02:00",
+      "target": "this branch into dev (current=feat/mcp_tools_exposure; head=c700144; base=dev)",
+      "category": "missing_audit_category",
+      "_theme_slug": "prior-closure-narrative-vs-actual-state-not-reconciled",
+      "phase": "5",
+      "evidence": "Phase 5 tracker-pairing check (step 4b) verified that closure narratives for C-M1 and M-M1 added in COMPLETED_STREAMS.md did NOT have orphan rows in BUGS_AND_GAPS.md. The check PASSED on those grounds. But the M-M1 closure narrative contains a falsifiable claim 'All 1075 unit + integration tests pass post-change' — the smoke tier in this run failed 2/422 (the very tests the M-M1 work added) for an endpoint-shape bug + a fixture import-order bug that the over-permissive assertion `status not in (401, 403)` let pass for the wrong reason. The skill's tracker-pairing check verified PRESENCE of rows, not the TRUTH of falsifiable claims in the narrative. User raised this as the third captured suggestion verbatim 'first in this branch we introduced all the changes related to mcp, we ran all tests, we confirmed everything was correct, later when I invoke pre merge readiness branch you discover that some tests don't pass — very confusing and making me lose a lot of time and tokens'. Matching improvement_suggestions[] entry (this run, tag=skill-vs-prior-claim-reconciliation). Convergence rule trips: ≥1 unaddressed observation (this one) + matching user suggestion.",
+      "interpretation": "The skill currently treats closure narratives as DOCUMENTATION ARTIFACTS (presence-checked) rather than as FALSIFIABLE CLAIMS (truth-checked). When a closure narrative asserts a test result ('N tests pass', 'no regressions', 'tier X clean'), the skill could re-run the same tier in-session and compare. The narrative's claim becomes a hypothesis to test, not a finding to accept. Remediation candidates: (a) Phase 5 step 4c — for each closure-narrative paragraph in TRACKER_FILES diff, parse for falsifiable phrases ('tests pass', 'no regressions', 'N passed', 'tier X clean') and run a quick verification check; (b) cheaper alternative — add an audit row that records the closure-narrative claim verbatim and lets the user manually reconcile against Phase 3/4 test evidence; (c) cheapest — add a Phase 8 note 'narratives in TRACKER_FILES diff may contain stale claims; re-verify before relying on them'. Convergence-tripped this run; recommend writing a suggestions.md proposal.",
+      "proposed_audit_tag": "5-closure-narrative-falsifiable-claims-not-reconciled"
     }
   ],
   "review_log": [
@@ -440,6 +473,51 @@
       "suggestion_written_to": "skills/pr-merge-readiness/suggestions.md",
       "applied_at": "2026-05-20T20:00:00+02:00",
       "applied_via": "Implemented the proposed per-sub-check relevance prefilter remediation. Added RELEVANCE_PREDICATES config block (phase3_smoke / phase3_lint_python / phase3_lint_frontend / phase5_code_diagnosis_categories) with CRITICAL downstream-tuning note; Phase 3 step 1a (per-sub-check prefilter) added with load-bearing exemptions; Phase 3 step 4 aggregate row extended with `relevance-skipped=...` field; Phase 5 step 1a (per-category prefilter; Skill call itself remains load-bearing) added; Phase 8 step 1 Phase 3 row format updated; Phase 8 step 2 FAIL rule `3-or-5-relevance-prefilter-not-applied` (procedural, threshold=2) added; counter seeded in run_history.json:fail_counters. Two reviewer-flagged caveats applied beyond the verbatim proposal: (1) config-block comment requiring downstream projects to tune the globs; (2) phase3_smoke triggers extended to include pyproject.toml / poetry.lock / requirements*.txt / Dockerfile* / docker-compose*.yml so dependency-only diffs still run smoke. Both matching improvement_suggestions[] entries (tag=3-relevance-prefilter + tag=5-relevance-prefilter) marked applied."
+    },
+    {
+      "ts": "2026-05-21T11:00:00+02:00",
+      "trigger": "convergence",
+      "clustered_theme": "shallow-clone-not-detected (Phase 1 ancestry probes — git rev-list / merge-base / merge-tree — silently return absurdly small / no-merge-base results on shallow clones; skill currently misreads this as 'orphan branch' and raises a false alarm)",
+      "category": "missing_audit_category",
+      "observations_referenced": [
+        "2026-05-21T11:00:00+02:00 (shallow-clone-not-detected)"
+      ],
+      "improvement_suggestions_referenced": [
+        "2026-05-21T10:50:00+02:00 (tag=2-shallow-clone-check)"
+      ],
+      "suggestion_written_to": "skills/pr-merge-readiness/suggestions.md",
+      "applied_at": "2026-05-21T12:00:00+02:00",
+      "applied_via": "Inserted Phase 1 step 2a (shallow-clone defensive check via `git rev-parse --is-shallow-repository` → `git fetch --unshallow origin` when shallow) verbatim from the proposal. Extended the Phase 8 step 1 Phase 1 audit-row template with `shallow-clone=<yes-unshallowed|no>` evidence segment. Added `1-shallow-clone-not-unshallowed` FAIL rule (procedural, threshold=2) to Phase 8 step 2 and seeded the counter in run_history.json:fail_counters. Matching improvement_suggestions[] entry (2026-05-21T10:50:00, tag=2-shallow-clone-check) marked applied."
+    },
+    {
+      "ts": "2026-05-21T11:00:00+02:00",
+      "trigger": "convergence",
+      "clustered_theme": "options-without-recommendation (Phase 7 multi-option prompts present neutral choice lists without a recommended default + rationale when the narrow Recommendation gate's preconditions don't fire — forcing a 'which is best and why?' round-trip)",
+      "category": "output_format_quality",
+      "observations_referenced": [
+        "2026-05-21T11:00:00+02:00 (options-without-recommendation)"
+      ],
+      "improvement_suggestions_referenced": [
+        "2026-05-21T10:50:00+02:00 (tag=7-always-recommend-with-rationale)"
+      ],
+      "suggestion_written_to": "skills/pr-merge-readiness/suggestions.md",
+      "applied_at": "2026-05-21T12:00:00+02:00",
+      "applied_via": "Broadened Phase 7 step 2's recommendation rule — every multi-option Phase 7 prompt now marks exactly one option as `(recommended)` with a one-line rationale, regardless of whether the narrow Recommendation gate's four preconditions fire. Softer-heuristic fallback documented (smallest blast-radius → alignment with PR intent → tie-break via past run_history). Added `7-recommendation-default-on-all-multi-option-prompts` FAIL rule (procedural, threshold=2) to Phase 8 step 2 and seeded the counter in run_history.json:fail_counters. Matching improvement_suggestions[] entry (2026-05-21T10:50:00, tag=7-always-recommend-with-rationale) marked applied."
+    },
+    {
+      "ts": "2026-05-21T11:00:00+02:00",
+      "trigger": "convergence",
+      "clustered_theme": "prior-closure-narrative-vs-actual-state-not-reconciled (closure narratives in TRACKER_FILES diff often contain falsifiable claims like 'All N tests pass post-change'; skill currently presence-checks the row-removal pairing but does NOT reconcile the narrative's truth-claims against this run's actual test results)",
+      "category": "missing_audit_category",
+      "observations_referenced": [
+        "2026-05-21T11:00:00+02:00 (prior-closure-narrative-vs-actual-state-not-reconciled)"
+      ],
+      "improvement_suggestions_referenced": [
+        "2026-05-21T10:50:00+02:00 (tag=skill-vs-prior-claim-reconciliation)"
+      ],
+      "suggestion_written_to": "skills/pr-merge-readiness/suggestions.md",
+      "applied_at": "2026-05-21T12:00:00+02:00",
+      "applied_via": "Inserted Phase 5 step 4c (closure-narrative falsifiable-claim reconciliation) per the primary proposal — for each closure-narrative paragraph added in any TRACKER_FILES path (and in COMPLETED_STREAMS.md when in diff), parse for falsifiable claims using the documented regex candidates. Reconcile each claim against Phase 4 actuals: contradictions surface to Phase 7 as load-bearing FAIL; tier-missing claims surface as unresolved items demanding (a) re-run the tier in-session or (b) explicit verbatim user acceptance. Added `5-closure-narrative-falsifiable-claims-not-reconciled` FAIL rule (load-bearing, threshold=1) to Phase 8 step 2 and seeded the counter in run_history.json:fail_counters. Matching improvement_suggestions[] entry (2026-05-21T10:50:00, tag=skill-vs-prior-claim-reconciliation) marked applied."
     }
   ]
 }

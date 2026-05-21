@@ -543,3 +543,65 @@ Add the corresponding counter to `run_history.json:fail_counters`:
 **Applied via**: Implemented the adopted approach (declarative per-sub-check predicates in the config block; mechanically evaluated against the diff path list; conservative defaults; load-bearing gates exempt) with two reviewer-flagged caveats: (1) the config block carries a CRITICAL note that downstream projects MUST tune the example globs (intelligence_platform / backend/tests / frontend / auth / etc.) for their own layout, otherwise the prefilter silently skips nothing or everything; (2) `phase3_smoke.triggers` was extended beyond the proposed list to include `pyproject.toml`, `poetry.lock`, `requirements*.txt`, `Dockerfile*`, and `docker-compose*.yml`, because dependency or build-image changes can break smoke even without platform-code touched and the proposal's narrower trigger list would have silently skipped smoke on env-only branches. Concrete edits: RELEVANCE_PREDICATES config block added; Phase 3 step 1a (per-sub-check relevance prefilter with load-bearing exemptions for Phase 2 / Phase 5 Skill call / Phase 7) added; Phase 3 step 4 aggregate row extended with `relevance-skipped=<none|<sub-check>:<skip_note>; ...>`; Phase 5 step 1a (per-category relevance prefilter — Skill call itself remains load-bearing, only sub-skill category scans like Security / Performance can skip via Skill-call args); Phase 8 step 1 audit-table Phase 3 row updated with the new `relevance-skipped=...` segment; Phase 8 step 2 FAIL rule `3-or-5-relevance-prefilter-not-applied` (procedural, threshold=2) added; counter seeded in `run_history.json:fail_counters` with `remediation_hint` citing the smoke-trigger safety net. Both matching `improvement_suggestions[]` entries (2026-05-20T17:00:00 tag=`3-relevance-prefilter` + tag=`5-relevance-prefilter`) marked applied with mirroring summaries.
 
 
+
+
+---
+
+## 2026-05-21 — Theme: shallow-clone-not-detected
+
+**Pattern observed in 1 run + 1 matching user suggestion (convergence rule):**
+- 2026-05-21T11:00:00 (run feat/mcp_tools_exposure): Phase 1 step 3 ran `git rev-list --count origin/dev` (returned 1) and `git merge-base origin/dev <head>` (returned 'no merge base'). Skill reported origin/dev as a 1-commit orphan branch. User verbatim: "ok , no this is a bigger problem . You are saying that bug-bot pipeline changed the git history of dev ? in dev history in devops I see all the commits , why are you saying you only see 1 commit ?". Root cause: shallow clone — `git rev-parse --is-shallow-repository` returned `true`; parent commit object not in local pack. After `git fetch --unshallow origin`, dev correctly showed 384 commits.
+- Matching `improvement_suggestions[]` entry (tag=`2-shallow-clone-check`, verbatim): "you gave fail red flags regarding the dev branch and this brnach miss match".
+
+**Interpretation:** Phase 1 has no defensive check against shallow-clone state. Any operator running this skill from an Azure DevOps Pipeline checkout (default `fetchDepth: 1`) or a CI-provided shallow clone will hit the same false "orphan branch" alarm. The check is one bash line; the cost of skipping it is a false alarm that has now caused real user panic.
+
+**Proposed change to SKILL.md:**
+- In Phase 1, BEFORE step 3's branch-existence checks, insert a new step 2a: "Defensive: run `git rev-parse --is-shallow-repository`. If it returns `true`, run `git fetch --unshallow origin` and re-check. A shallow clone makes subsequent merge-base / rev-list / merge-tree probes return absurdly small or 'no merge base' results that mimic an orphan branch — do NOT report ancestry findings until the clone is unshallowed."
+- Optionally add audit FAIL tag `1-shallow-clone-not-unshallowed` (procedural, threshold=2) so future runs that skip the defensive check get caught.
+
+**Status:** applied
+**Applied at:** 2026-05-21T12:00:00+02:00
+**Applied via:** Inserted Phase 1 step 2a (shallow-clone defensive check via `git rev-parse --is-shallow-repository` → `git fetch --unshallow origin` when shallow) verbatim from the proposal. Extended the Phase 8 step 1 Phase 1 audit-row template with `shallow-clone=<yes-unshallowed|no>` evidence segment. Added `1-shallow-clone-not-unshallowed` FAIL rule (procedural, threshold=2) to Phase 8 step 2 and seeded the counter in `run_history.json:fail_counters` with the documented `remediation_hint`. Matching `improvement_suggestions[]` entry (2026-05-21T10:50:00, tag=`2-shallow-clone-check`) will be marked applied in the same edit session.
+
+---
+
+## 2026-05-21 — Theme: options-without-recommendation
+
+**Pattern observed in 1 run + 1 matching user suggestion (convergence rule):**
+- 2026-05-21T11:00:00 (run feat/mcp_tools_exposure): Phase 7 surfaced 4 unresolved items and rendered four AskUserQuestion blocks. The Recommendation gate fired only on item #4 (the canonical-small-fix precondition match); the other three used a neutral four-option list. User verbatim: "which is th ebest option and why ?".
+- Matching `improvement_suggestions[]` entry (tag=`7-always-recommend-with-rationale`, verbatim): "when you give options you should give a recommendation of which is the best option and why".
+
+**Interpretation:** Phase 7 step 2's Recommendation gate has 4 narrow preconditions (≤15 lines, code/docs only, smoke ≤60s, canonical-small-fix category). Items outside those preconditions get a NEUTRAL option block. The user wants a recommendation on EVERY multi-option prompt, not just the small-fix subset. A neutral list forces a "which is best?" round-trip — wasted time + tokens that the skill could save.
+
+**Proposed change to SKILL.md:**
+- Broaden Phase 7 step 2's recommendation rule. When the narrow Recommendation gate does NOT fire (current behavior: symmetric four-option list), the skill should STILL mark one option as recommended based on a softer heuristic. Suggested heuristic order:
+  1. The option with smallest blast-radius that resolves the surfaced item.
+  2. If multiple options have similar blast-radius, prefer the one that aligns with this PR's stated intent (e.g. `fix-now` for tightly-scoped feature PRs).
+  3. Tie-breaker: the option chosen most often for this surfaced-item type in past runs (read from run_history).
+- The option block should always have exactly one option marked `(recommended)` with a one-line rationale appended.
+- Optionally add audit FAIL tag `7-recommendation-default-on-all-multi-option-prompts` (procedural, threshold=2) to catch future regressions where the skill renders a neutral option list.
+
+**Status:** applied
+**Applied at:** 2026-05-21T12:00:00+02:00
+**Applied via:** Broadened Phase 7 step 2's recommendation rule per the proposal — every multi-option Phase 7 prompt must now mark exactly one option as `(recommended)` with a one-line rationale, regardless of whether the narrow Recommendation gate's four preconditions fire. When the gate does not fire, a softer-heuristic fallback selects the recommended option (1: smallest blast-radius that resolves the surfaced item; 2: alignment with PR intent; 3: tie-break by most-chosen option in past run_history). Added `7-recommendation-default-on-all-multi-option-prompts` FAIL rule (procedural, threshold=2) to Phase 8 step 2 and seeded the counter in `run_history.json:fail_counters` with the documented `remediation_hint`. Matching `improvement_suggestions[]` entry (2026-05-21T10:50:00, tag=`7-always-recommend-with-rationale`) will be marked applied in the same edit session.
+
+---
+
+## 2026-05-21 — Theme: prior-closure-narrative-vs-actual-state-not-reconciled
+
+**Pattern observed in 1 run + 1 matching user suggestion (convergence rule):**
+- 2026-05-21T11:00:00 (run feat/mcp_tools_exposure): The M-M1 closure narrative in COMPLETED_STREAMS.md (added by THIS branch) asserts "All 1075 unit + integration tests pass post-change". Phase 5 step 4b tracker-pairing PASSED on grounds of row-removal symmetry. BUT the smoke tier in this run failed 2/422 (the very tests the M-M1 work added) — the over-permissive assertion `status not in (401, 403)` in `test_mcp_valid_bearer_is_accepted` let 404 pass for the wrong reason, masking a mount-path bug. The narrative's truth-claim was false at the time it was written, and the skill silently accepted it.
+- Matching `improvement_suggestions[]` entry (tag=`skill-vs-prior-claim-reconciliation`, verbatim): "first in this branch we introduced all the changes related to mcp, we ran all tests, we confirmed everything was correct, later when I invoke pre merge readiness branch you discover that some tests don't pass — very confusing and making me lose a lot of time and tokens".
+
+**Interpretation:** The skill treats closure narratives as DOCUMENTATION ARTIFACTS (presence-checked for tracker pairing) rather than as FALSIFIABLE CLAIMS (truth-checked against this run's evidence). When a closure narrative asserts a test result, the skill could re-run the same tier in-session and compare. This converts narrative claims from hypotheses-to-accept into hypotheses-to-test.
+
+**Proposed change to SKILL.md:**
+- In Phase 5, add step 4c — closure-narrative claim reconciliation:
+  - For each closure-narrative paragraph in TRACKER_FILES diff, parse for falsifiable phrases. Regex candidates: `\b\d{2,5}\s+(unit|integration|smoke)?\s*tests?\s+pass`, `\bno regressions?\b`, `\bsmoke (?:tier\s+)?clean\b`, `\ball tests pass\b`, `\bN/?A failures?\b`.
+  - For each matched claim, run the corresponding tier in this session if Phase 4 hasn't already, and compare. If actual results contradict the claim, surface the discrepancy as a Phase 7 unresolved item (load-bearing: prior over-claim becomes false confidence the user might rely on for the merge decision).
+- Cheaper alternative: add a Phase 5 sub-report row that quotes each closure-narrative claim verbatim alongside the Phase 4 actual result, and surfaces ANY narrative claim to Phase 7 for explicit user reconciliation — even if the skill itself doesn't re-run the tier.
+- Add audit FAIL tag `5-closure-narrative-falsifiable-claims-not-reconciled` (load-bearing, threshold=1) because acceptance of a false claim is exactly the silent-confidence failure mode the skill is supposed to catch.
+
+**Status:** applied
+**Applied at:** 2026-05-21T12:00:00+02:00
+**Applied via:** Inserted Phase 5 step 4c (closure-narrative falsifiable-claim reconciliation) per the primary proposal — for each closure-narrative paragraph added in any TRACKER_FILES path (and in COMPLETED_STREAMS.md when in diff), parse for falsifiable claims using the documented regex candidates (`\b\d{2,5}\s+(unit|integration|smoke)?\s*tests?\s+pass`, `\bno regressions?\b`, `\bsmoke (?:tier\s+)?clean\b`, `\ball tests pass\b`, `\bN/?A failures?\b`, `\btier\s+\w+\s+clean\b`). Reconcile each claim against Phase 4 actuals: contradictions surface to Phase 7 as load-bearing FAIL; tier-missing claims surface as unresolved items demanding (a) re-run the tier in-session or (b) explicit verbatim user acceptance. Added `5-closure-narrative-falsifiable-claims-not-reconciled` FAIL rule (load-bearing, threshold=1) to Phase 8 step 2 and seeded the counter in `run_history.json:fail_counters`. Matching `improvement_suggestions[]` entry (2026-05-21T10:50:00, tag=`skill-vs-prior-claim-reconciliation`) will be marked applied in the same edit session.
