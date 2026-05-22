@@ -90,6 +90,15 @@
       "occurrences": [],
       "remediation_hint": "In Phase 5 step 2, after the artifact is written, re-parse the Companion non-pytest checks section. For each NON_PYTEST_CHECKS rule whose triggers fired, confirm at least one bullet whose justification matches the rule's justification is present. When a rule fired but is missing from the section, regenerate the section and re-write the artifact. Common cause: placeholder substitution (e.g. <changed-py-paths>) dropped a command because no .py files were in the diff even though the rule's trigger matched on a non-Python path — surface the rule explicitly with an empty argument list rather than silently omitting it.",
       "applied_at": null
+    },
+    "5-cache-bypass-marker-missing": {
+      "count": 0,
+      "threshold": 2,
+      "phase": "5",
+      "description": "A test whose marker set intersects CACHE_BYPASS_MARKERS appeared in the artifact's Tests to run list WITHOUT the trailing `# cache_bypass=true` annotation.",
+      "occurrences": [],
+      "remediation_hint": "In Phase 5, after writing the artifact, re-parse the Tests to run section. For each test ID without the annotation, look up its marker set from the Phase 2 inventory. If any marker is in CACHE_BYPASS_MARKERS, regenerate the line with the annotation and re-write the artifact. Common cause: the inventory map from Phase 2 didn't capture markers for newly-added tests, OR a marker-name mismatch (case sensitivity, hyphen vs underscore). Verify the Phase 2 marker extraction pass catches every marker pytest knows about.",
+      "applied_at": null
     }
   },
   "runs": [],

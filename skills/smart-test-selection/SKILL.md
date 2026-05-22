@@ -76,6 +76,17 @@ LIVE_UI_REQUIRED_PATHS:
   - "**/registry/**"
   - "**/routes.py"
 
+CACHE_BYPASS_MARKERS:
+  # Pytest markers whose tests depend on EXTERNAL state (running dev stack,
+  # live APIs, browser/Playwright session) — outcomes are NOT a pure function
+  # of (test code + source code + fixtures + config), so the SHA-keyed cache
+  # cannot be trusted to give the same result on a clean tree.
+  # Phase 5 annotates each test with one of these markers as `# cache_bypass=true`
+  # in the plan artifact. Parents read the annotation and pass `--no-test-cache`
+  # for those test IDs when invoking pytest.
+  # Empty list → no cache-bypass annotations emitted, regardless of markers.
+  - "live"
+
 CACHE_FILE_PATH:
   # Where to find the SHA-keyed pytest cache. First existing path is used; if none
   # exist, the cache lookup gracefully degrades. Default matches pytest_test_cache.py
@@ -366,8 +377,16 @@ Write the structured selection plan to a file and surface it to the user. This i
    ```
    <test-id-1>
    <test-id-2>
+   <test-id-3>  # cache_bypass=true
    ...
    ```
+
+   Each line is a pytest node ID. Lines ending with `# cache_bypass=true` indicate
+   tests whose marker set intersects `CACHE_BYPASS_MARKERS` — the parent skill MUST
+   invoke pytest for those IDs with `--no-test-cache` so external state (running
+   dev stack, live APIs, browser sessions) is re-verified rather than trusted from
+   a prior-SHA cache hit. Lines without the annotation participate in the cache
+   normally.
 
    ## Cached-pass at this SHA (<count>) — diff-anchored skips
 
@@ -400,6 +419,13 @@ Write the structured selection plan to a file and surface it to the user. This i
    - Each bullet's `justification` and `triggered by path` come verbatim from the rule's `justification` field and the first matching diff path.
    - When `NON_PYTEST_CHECKS` is empty OR no rule matches, the section header still appears with `"(none — no NON_PYTEST_CHECKS rules matched the diff)"` so the parent skill can confirm the section was considered, not silently dropped.
 
+   **Cache-bypass annotation rules** (for the "Tests to run" section):
+   - For each test ID emitted in "Tests to run", look up its marker set from the Phase 2 inventory.
+   - If the marker set intersects `CACHE_BYPASS_MARKERS` (any single marker match wins), append `  # cache_bypass=true` to the line (two spaces before the `#` for readability).
+   - Tests with no markers, or markers not in `CACHE_BYPASS_MARKERS`, emit as plain pytest node IDs (no annotation).
+   - When `CACHE_BYPASS_MARKERS` is empty, NO annotations are emitted regardless of markers — the section is plain node IDs only.
+   - The annotation is the SINGLE SOURCE OF TRUTH for which tests bypass the cache. Parent skills MUST NOT independently re-derive this from marker introspection — they read the annotation and honor it.
+
 3. **Validate the artifact is pytest-runnable**: pick 3 random entries from the `Tests to run` list and confirm `pytest --collect-only --co --pyargs <id>` returns each one. If any sample fails, mark Phase 5 FAIL with `5-artifact-not-pytest-runnable`.
 
 4. **Display the artifact path + summary to the user** for review:
@@ -429,7 +455,7 @@ The audit runs **before** the file-write. File-write cannot fire until the user 
    - Phase 2 [pass|FAIL] | pytest --collect-only: <N> tests in <S>s, exit=<code>; <M> markers
    - Phase 3 [pass|FAIL] | <M> candidates from <K> surfaces; strategies hit: import=<a>, name-proximity=<b>, marker=<c>, tier-policy=<d>, historic=<e>; orphans=<count>; tier-policy-rules-fired=<f>/<g>; live_ui_required=<y|n>
    - Phase 4 [pass|FAIL] | partition cached-pass=<a>/to-run=<b>/pruned=<c> at SHA <sha>; clean_tree=<y|n>; budget=<s-or-NONE>; user input verbatim (if structured): "<literal quote>"
-   - Phase 5 [pass|FAIL] | artifact at documentation/test-plans/<fp>.md; pytest-runnability sample 3/3 pass; companion-checks=<C>; wall-clock estimate <S>s
+   - Phase 5 [pass|FAIL] | artifact at documentation/test-plans/<fp>.md; pytest-runnability sample 3/3 pass; companion-checks=<C>; cache-bypass-annotated=<B>; wall-clock estimate <S>s
    ```
 
    Each row format: `- Phase X [pass|FAIL] | <evidence>` where `<evidence>` is a literal command, output snippet, file:line reference, or quoted user input.
@@ -450,6 +476,7 @@ The audit runs **before** the file-write. File-write cannot fire until the user 
    - **`4-cached-skip-without-clean-tree-or-sha-match` FAIL** (load-bearing, threshold=1): a test marked `cached-pass` in the plan but the cache file doesn't actually contain it at the current SHA, OR the working tree was dirty at lookup time. Detection: re-read cache file, confirm each cached-pass entry exists with `outcome=passed`, confirm `git status --porcelain` was empty at Phase 4 step 1 time.
    - **`5-artifact-not-pytest-runnable` FAIL** (load-bearing, threshold=1): a random sample of 3 IDs from the artifact's `Tests to run` list failed `pytest --collect-only --co <id>` validation. Detection: Phase 5 step 3.
    - **`5-companion-checks-section-missing` FAIL** (procedural, threshold=2): a `NON_PYTEST_CHECKS` rule's `triggers` matched ≥1 changed path BUT the artifact's `Companion non-pytest checks` section is missing the corresponding command bullet. Detection: re-parse the written artifact; for each matching rule, confirm ≥1 bullet whose justification matches the rule's `justification` is present. Procedural threshold=2 because one miss may be a config edge case; two means the emitter is dropping checks.
+   - **`5-cache-bypass-marker-missing` FAIL** (procedural, threshold=2): a test whose marker set intersects `CACHE_BYPASS_MARKERS` appeared in the artifact's `Tests to run` list WITHOUT the trailing `# cache_bypass=true` annotation. Detection: re-parse the written artifact's "Tests to run" section; for each test ID without an annotation, look up its markers from the Phase 2 inventory; if any marker is in `CACHE_BYPASS_MARKERS`, mark FAIL. Procedural threshold=2 because one miss may be a marker-string mismatch (e.g. project added a new state-dependent marker without updating config); two means the annotator is silently dropping cache-bypass declarations — exactly the failure mode this rule exists to catch.
 
 3. **Show the audit and ask the user to confirm OR correct every row.** The audit is NOT approved on silence or partial answer. The skill must wait for the user to:
    - **confirm** each row as written, OR

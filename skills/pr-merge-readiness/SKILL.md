@@ -414,24 +414,39 @@ Apply the project's pre-commit-check rules (resolved from `PRE_COMMIT_RULES_PATH
 
 ## Phase 4 — Relevant-tests run (incl. live UI gate)
 
-Run the test tiers that actually exercise the changed surface — not the full suite. Routing is driven by the config block; project-specific paths and commands live there, not here.
+Run the test tiers that actually exercise the changed surface — not the full suite. **Selection is delegated to `claude-library:smart-test-selection`** (composed child); this phase consumes its artifact and is responsible only for EXECUTION, the live-UI mandatory gate, and per-tier telemetry. The decision tree that used to live here moved into smart-test-selection's `TIER_POLICY` config block — project-specific paths and commands now live there.
 
 **Test-cache integration**: the project is expected to have wired up the SHA-keyed pytest cache plugin (see `documentation/TEST_CACHE_SETUP.md` in the claude-library plugin). When wired, every pytest command below transparently **deselects tests already passed for the current HEAD SHA on a clean tree** and **records fresh results** to `documentation/test-results/<sha>.json` — no per-tier plumbing needed; the plugin lives in pytest's lifecycle hooks. The cache file is intended to be committed alongside the code change so teammates pulling the same SHA inherit the cache. If the project hasn't opted in, every tier runs the full set unchanged. Each pytest tier below produces a terminal line like `[test-cache] skipped N tests …` or `[test-cache] recorded N results …` (or `[test-cache] disabled: <reason>`); capture that line verbatim into step 4 telemetry.
 
-1. **Compute the changed surface**: `git diff --name-only origin/<BASE_BRANCH>...<head>`. Bucket files by extension and `HIGH_BLAST_PATHS` membership:
-   - Frontend (`*.tsx`, `*.ts`, `*.jsx`, `*.js`, `**/frontend/**`): run `DEFAULT_TEST_COMMANDS.lint_frontend && DEFAULT_TEST_COMMANDS.typecheck_frontend`.
-   - Backend Python — no match against `HIGH_BLAST_PATHS`, no DB layer touched: run `DEFAULT_TEST_COMMANDS.smoke`.
-   - Backend Python — DB / SQL / fixtures (paths matching `**/db/**`, `**/migrations/**`, `**/fixtures/**`): `DEFAULT_TEST_COMMANDS.smoke` + `DEFAULT_TEST_COMMANDS.unit` + `DEFAULT_TEST_COMMANDS.integration` against an isolated DB (test container if the project has one).
-   - Backend Python — **high-blast** (any diff path matches a glob in `HIGH_BLAST_PATHS`): run the broader tiers AND the live UI test (`LIVE_UI_TEST_COMMAND`).
-   - Migrations (`**/migrations/**` or paths matching the project's migration glob): smoke + integration + alembic up/down round-trip.
-2. **Live UI test sub-gate**: if any diff path matches `HIGH_BLAST_PATHS`, the live UI test is **mandatory** unless one of these honest exceptions applies:
+1. **Invoke smart-test-selection (composed) to produce the selection plan**. Pass the parent invocation args so the child skips its Phase 0 freshness check and Phase 8 observer (composition protocol):
+
+   ```
+   Skill(
+     skill="claude-library:smart-test-selection",
+     args="invocation_mode=composed; parent=pr-merge-readiness; parent_run_ts=<this run's started_at>; diff=origin/<BASE_BRANCH>...<head>"
+   )
+   ```
+
+   The child writes its plan to `documentation/test-plans/<fingerprint>.md`. Capture the artifact path; do NOT re-implement the tier-routing decision tree here — it lives in smart-test-selection's `TIER_POLICY` block. If the Skill call returns a non-success status, hard-stop and surface the failure to Phase 7.
+
+1a. **Consume the artifact**. Read `documentation/test-plans/<fingerprint>.md` and parse three sections:
+
+   - `Tests to run` — one pytest node ID per line. Lines ending with `# cache_bypass=true` indicate state-dependent tests; for those IDs, invoke pytest with `--no-test-cache` so external state (running dev stack, live APIs) is re-verified rather than trusted from a prior-SHA cache hit. Plain lines run with the cache normally.
+   - `Companion non-pytest checks` — one command per bullet (ruff, mypy, npm lint/typecheck, alembic round-trip, etc.). Run each in order. These are NOT pytest invocations; the cache plugin doesn't apply.
+   - `Live UI required` (header field, `y|n` + triggering paths) — feeds the mandatory gate in step 2.
+
+   Group pytest IDs by their owning marker tier (smoke / unit / integration / live) using `pytest --collect-only --co <ids>` to preserve the per-tier telemetry shape expected in step 4. Run each tier as a single `pytest <ids...>` invocation when possible; isolate live-tier IDs into a separate invocation so `--no-test-cache` is applied only to them.
+
+1b. **Frontend / migration commands** are emitted by the child as Companion non-pytest checks — run them via the step 1a loop. There is no separate "frontend" or "migration" branch here anymore; the child's `NON_PYTEST_CHECKS` config drives which commands appear in the artifact.
+
+2. **Live UI test sub-gate** — enforced HERE (parent), not in the child. If the artifact's `Live UI required` header is `y` (smart-test-selection detected a `LIVE_UI_REQUIRED_PATHS` match), the live UI test is **mandatory** unless one of these honest exceptions applies:
    - `LIVE_UI_TEST_COMMAND` is `null` → record `"live UI tier: no infra configured (LIVE_UI_TEST_COMMAND=null)"`. This is NOT a `4-live-test-skipped-without-justification` failure — the skill respects the project's stated absence of live infra.
    - `DEV_STACK_PREFLIGHT_URL` is set AND the preflight call (`curl -fs <DEV_STACK_PREFLIGHT_URL>`) returns non-2xx → record the failed URL + status code, skip cleanly.
    - The user provides an explicit skip reason via Phase 7 (recorded verbatim).
 
-   Skipping without one of these → `4-live-test-skipped-without-justification` FAIL. **The live UI tier should be invoked with `--no-test-cache`** so it always runs fresh — UI tests usually depend on external state (a running dev stack) that the SHA alone doesn't capture.
-3. **Optional blast-radius probe**: when any diff path matches `HIGH_BLAST_PATHS`, invoke `claude-library:safe-changes-impact-check` and fold its findings into Phase 5/7. This is a recommendation, not mandatory.
-4. **Capture per-tier telemetry** for the audit: tier name, exact command run (with config values resolved), wall-clock, pass count, fail count, skipped count, and the **verbatim `[test-cache] …` line** emitted by the pytest plugin for that tier (or `"[test-cache] not wired"` when the project hasn't opted in).
+   Skipping without one of these → `4-live-test-skipped-without-justification` FAIL. The live UI tier is always invoked with `--no-test-cache` because every live-marked test in the plan carries the `# cache_bypass=true` annotation (enforced by smart-test-selection's `5-cache-bypass-marker-missing` FAIL rule).
+3. **Optional blast-radius probe**: when the artifact's `Live UI required` header is `y` (i.e., a high-blast path was touched), invoke `claude-library:safe-changes-impact-check` and fold its findings into Phase 5/7. This is a recommendation, not mandatory.
+4. **Capture per-tier telemetry** for the audit: tier name, exact command run (with config values resolved), wall-clock, pass count, fail count, skipped count, the **verbatim `[test-cache] …` line** emitted by the pytest plugin for that tier (or `"[test-cache] not wired"` when the project hasn't opted in), AND a reference to the plan artifact path so the auditor can trace selection back to smart-test-selection's evidence chain.
 
 ## Phase 5 — No-new-bugs sweep
 
