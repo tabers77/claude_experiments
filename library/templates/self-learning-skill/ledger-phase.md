@@ -20,7 +20,7 @@ Persist the audit so failure patterns become evidence over time.
 
 1. **Read** `{{SKILL_PATH}}/run_history.json`. Initialize if missing per the schema in `library/templates/self-learning-skill/run_history_schema_v1.md`. Use the seed FAIL rules from that schema doc as the starting `fail_counters`.
 
-2. **Append** the run summary to `runs[]`. Include the timing and quality fields:
+2. **Append** the run summary to `runs[]`. Include the timing, quality, and composition fields:
    ```json
    {
      "ts": "<iso8601 of this ledger write — same as ended_at>",
@@ -31,9 +31,14 @@ Persist the audit so failure patterns become evidence over time.
      "ended_at": "<iso8601-now>",
      "duration_seconds": <ended_at - started_at, integer seconds>,
      "phase_durations": {"1": <seconds>, "2": <seconds>, "...": "..."},
-     "quality_derived": "<clean|partial|failed|incomplete>"
+     "quality_derived": "<clean|partial|failed|incomplete>",
+     "invocation_mode": "<standalone | composed>",
+     "parent": "<parent-skill-name | null>",
+     "parent_run_ts": "<iso8601 of parent's started_at | null>"
    }
    ```
+
+   The three composition fields come from the skill's invocation args. Parse `invocation_mode=composed; parent=<name>; parent_run_ts=<ts>` from the args at run start (Phase 0 or Phase 1, before any phase work begins). When no `invocation_mode` arg is present, default to `invocation_mode: "standalone"` with `parent: null` and `parent_run_ts: null`.
 
    The skill is expected to track three pieces of running state across phases (in-memory, not persisted between runs):
 
@@ -44,12 +49,18 @@ Persist the audit so failure patterns become evidence over time.
    | `ended_at` | Set NOW, at the top of this ledger phase. | Compute `duration_seconds = ended_at - started_at`. |
 
    **`quality_derived` is computed mechanically** from data already in the file plus this run's outcome:
-   - `clean` ← `outcome == "closed"` AND `phases_failed` is empty AND **no `improvement_suggestions[]` entry** with `sentiment == "negative"` exists whose `target == <this run's input>` AND whose `ts` falls within `[started_at, ended_at]`.
-   - `partial` ← `outcome == "closed"` AND (`phases_failed` non-empty OR at least one matching negative suggestion exists).
+   - `clean` ← `outcome == "closed"` AND `phases_failed` is empty AND **no negative-sentiment suggestion** exists for this run's window (see "Cross-skill lookup" below).
+   - `partial` ← `outcome == "closed"` AND (`phases_failed` non-empty OR at least one negative-sentiment suggestion exists for this run's window).
    - `failed` ← `outcome == "aborted"`.
    - `incomplete` ← `outcome == "paused"` OR `"in-progress"`.
 
-   No user prompt is involved. The classification reads from `improvement_suggestions[]` (sentiment auto-classified at capture time per `suggestion-capture.md`) and the run's own outcome/FAIL list.
+   No user prompt is involved. The classification reads `improvement_suggestions[]` (sentiment auto-classified at capture time per `suggestion-capture.md`) and the run's own outcome/FAIL list.
+
+   **Cross-skill lookup (only when this run is a PARENT — `invocation_mode == "standalone"`)**: a negative-sentiment suggestion captured while the user was inside a composed child skill belongs to the child's `improvement_suggestions[]`, not this skill's. The parent's ledger MUST also check each composed child's history file for negative-sentiment entries within `[started_at, ended_at]` whose `parent_run_ts == this_run.started_at`. Each such entry counts as a negative-sentiment hit for this run's `quality_derived` computation.
+
+   Which child files to check: walk this run's `phase_durations` (or the skill's own composed-skills table from the SKILL.md). For each composed self-learning child, the file lives at the child's standard location (`skills/<child>/run_history.json` for plugin skills, `.claude/skills/<child>/run_history.json` for project skills, `~/.claude/skills/<child>/run_history.json` for user-global). If the child's file is missing or unreadable, log to `friction_log[]` and proceed — never block the parent's ledger on a missing child.
+
+   **When the run IS the child (`invocation_mode == "composed"`)**: skip the cross-skill lookup. The child computes `quality_derived` from its own `improvement_suggestions[]` only, scoped to the child's run window. The parent does its own roll-up separately. No double-counting because both ledgers reference suggestions by `ts` — each suggestion exists in exactly one file.
 
    If `started_at` was not recorded (e.g. the skill predates this instrumentation), omit `started_at`, `ended_at`, `duration_seconds`, `phase_durations`, and `quality_derived` entirely for this run — the observer phase will skip it from efficiency comparison. Do NOT fabricate timing data; absence is the signal that the run wasn't instrumented.
 

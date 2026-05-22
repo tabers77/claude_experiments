@@ -97,6 +97,9 @@ Used to compute trends ("what fraction of runs aborted?"), correlate FAIL tags a
 | `duration_seconds` | int | OPTIONAL. `ended_at - started_at` in seconds. Absent on pre-instrumentation runs. |
 | `phase_durations` | object | OPTIONAL. Map of phase id (string) → seconds elapsed in that phase. Each phase stamps its own duration as it exits. Absent on pre-instrumentation runs. |
 | `quality_derived` | enum | OPTIONAL. Roll-up of `outcome` + `phases_failed` + sentiment-of-this-run's-suggestions. See "Quality derivation" below. Absent on pre-instrumentation runs. |
+| `invocation_mode` | enum | OPTIONAL. `standalone` (skill invoked directly by the user) or `composed` (skill invoked by another self-learning skill). Absent → treat as `standalone`. See "Composition" below. |
+| `parent` | string | OPTIONAL. When `invocation_mode == "composed"`, the name of the parent skill that invoked this one. Null/absent when standalone. |
+| `parent_run_ts` | ISO 8601 | OPTIONAL. When `invocation_mode == "composed"`, the `started_at` value of the parent's run. Lets the parent's ledger correlate child runs to the right parent run when computing `quality_derived`. |
 
 ### Quality derivation
 
@@ -114,6 +117,31 @@ The observer phase uses `quality_derived` as the denominator when comparing wall
 ### Backward compatibility
 
 All five new fields (`started_at`, `ended_at`, `duration_seconds`, `phase_durations`, `quality_derived`) are OPTIONAL. Readers MUST tolerate their absence on any run. Pre-instrumentation runs simply don't participate in efficiency analysis — they still count for FAIL trends and friction logs.
+
+The three composition fields (`invocation_mode`, `parent`, `parent_run_ts`) are also OPTIONAL — absence implies `standalone` invocation, which is the most common case.
+
+### Composition
+
+A self-learning skill can be invoked from another self-learning skill (e.g. `pr-merge-readiness` Phase 4 calling `smart-test-selection`). To avoid two freshness nudges + two observer passes per user-facing run, the parent passes an `invocation_mode=composed` argument when calling the child via the Skill tool. The recommended arg format is a single semicolon-separated string:
+
+```
+invocation_mode=composed; parent=<parent-skill-name>; parent_run_ts=<iso8601-parent-started_at>
+```
+
+When the child receives this:
+- **Phase 0 (freshness check) — skipped.** The parent's freshness phase is the user-facing surface; one nudge per run is enough.
+- **Audit phase — fires unchanged.** Audit is load-bearing; never skipped.
+- **Ledger phase — fires unchanged**, but the child's `runs[]` entry records `invocation_mode: "composed"`, `parent: <parent>`, `parent_run_ts: <ts>`.
+- **Observer phase (if present) — skipped when composed.** The parent's observer is the single cross-run pattern detector for this user-facing run. The child accumulates observer signal **only on its standalone runs**.
+- **Timing instrumentation — fires unchanged.** Both ledgers benefit from per-phase durations.
+
+When no `invocation_mode` arg is passed (default = `standalone`), all phases fire as usual.
+
+### Sentiment ownership when composed
+
+A suggestion captured while inside the child's phase belongs to the **child's** `improvement_suggestions[]` — single source of truth. When the parent's ledger phase computes `quality_derived` for the parent's run, it ALSO reads the child's `improvement_suggestions[]` for entries whose `ts` falls within the parent's run window AND whose `parent_run_ts` (if present) matches this parent run. Negative-sentiment matches count against the parent's `quality_derived` exactly as if they had been captured at the parent level.
+
+The child's own `quality_derived` is computed normally from its own `improvement_suggestions[]` for the child's run window — no double-counting needed because both ledgers reference the same source entries by `ts`.
 
 ## `friction_log` (array)
 
@@ -145,6 +173,8 @@ Present only when the skill includes the Mid-run suggestion capture block (see `
   "tag": "<optional, parsed from [brackets] in the user's message; null if absent>",
   "text": "<verbatim text after the prefix and optional [tag]>",
   "sentiment": "<negative | aspirational | neutral>",
+  "parent": "<parent skill name when composed, null when standalone>",
+  "parent_run_ts": "<parent's started_at iso8601 when composed, null when standalone>",
   "applied_at": "<iso8601 | null>",
   "applied_via": "<description of SKILL.md change | null>"
 }

@@ -36,6 +36,10 @@ improvement: [6-detection-tightening] add internal token regex
 
 **Capture protocol** (the skill follows this exactly):
 
+0. **Ownership rule (single source of truth)**: when this skill is invoked with `invocation_mode=composed`, the suggestion still gets captured **only into the deepest active skill's `improvement_suggestions[]`** — i.e. THIS skill's file, not the parent's. The parent's ledger phase looks up child suggestions cross-file at `quality_derived` computation time (see `ledger-phase.md` → "Cross-skill lookup"). Never duplicate a suggestion across two skill files; storage redundancy makes manual edits ambiguous.
+
+   The captured entry records `parent` and `parent_run_ts` (when composed) so the parent can correlate it back to the right parent run. When standalone, both fields are null.
+
 1. **Detect the prefix** at the start of the user's message (any of the five forms above; `[tag]` between the prefix and the text is optional). Anything that does NOT start with one of these prefixes is treated as normal conversation — *not* a suggestion. Mid-run overrides ("don't run X for this branch") still go through the existing user-resolution flow (not this capture path).
 2. **Record verbatim** into `improvement_suggestions[]`:
    ```json
@@ -46,10 +50,14 @@ improvement: [6-detection-tightening] add internal token regex
      "tag": "<optional, parsed from [brackets]>",
      "text": "<everything after the prefix and optional tag>",
      "sentiment": "<negative | aspirational | neutral>",
+     "parent": "<parent skill name when composed, null when standalone>",
+     "parent_run_ts": "<parent's started_at iso8601 when composed, null when standalone>",
      "applied_at": null,
      "applied_via": null
    }
    ```
+
+   `parent` and `parent_run_ts` are populated from the same args the ledger phase parses for `invocation_mode`. Both null on standalone runs. Legacy entries without these fields are treated as standalone.
 
    **Sentiment classification** — apply this keyword heuristic at capture time (case-insensitive substring match on the suggestion text). The classification is the single best signal we have for "did this run actually achieve its objective?" without prompting the user explicitly:
 

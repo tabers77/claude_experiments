@@ -33,7 +33,8 @@ description: Generate a self-learning Claude Code skill through interactive inte
 - Phase 0 (or Phase 1 if no Phase 0) stamps `started_at` once at run start.
 - The ledger phase computes `ended_at`, `duration_seconds`, and `quality_derived`, and writes all four fields plus `phase_durations` into the `runs[]` entry for this run.
 - The suggestion-capture block auto-classifies `sentiment` on every captured suggestion using the keyword heuristic in `suggestion-capture.md`.
-- These are NOT optional toggles. Generated skills always emit timing and sentiment. The data is harmless when unused; an opt-out would mean some skills can't participate in efficiency analysis.
+- Every generated skill parses `invocation_mode=composed; parent=<name>; parent_run_ts=<iso8601>` from its invocation args at run start. The ledger records `invocation_mode`, `parent`, `parent_run_ts` in the `runs[]` entry. When `composed`, the Phase 0 freshness check and Phase N+1 observer skip their bodies (timing + audit + ledger still fire). Captured suggestions also record `parent` / `parent_run_ts` so cross-skill `quality_derived` lookup works.
+- These are NOT optional toggles. Generated skills always emit timing, sentiment, and composition-aware behavior. The data is harmless when unused; an opt-out would mean some skills can't participate in efficiency analysis OR can't compose cleanly.
 
 ---
 
@@ -439,6 +440,15 @@ Efficiency instrumentation: always-on (no toggle)
   the observer's trade-off detector (when observer is enabled) and remain
   harmless when no observer consumes them.
 
+Composition protocol: always-on (no toggle)
+  Every generated skill parses `invocation_mode=composed; parent=<name>;
+  parent_run_ts=<iso>` from its invocation args. When composed, Phase 0
+  (freshness) and Phase N+1 (observer) skip their bodies. Audit + ledger +
+  timing fire regardless. The ledger records invocation_mode/parent/parent_run_ts
+  in runs[]; captured suggestions record parent/parent_run_ts. This is what
+  lets self-learning skills nest cleanly inside each other without doubling
+  freshness nudges and observer passes.
+
 Mid-run suggestion capture: <enabled|disabled>
   When enabled, the SKILL.md gets a "Mid-run suggestion capture" block after the
   Inputs section, and run_history.json includes an improvement_suggestions[] array.
@@ -656,6 +666,13 @@ Run these mechanical checks. Fail loudly on any miss — DO NOT silently proceed
    - If false: SKILL.md MUST NOT contain a Phase 0 freshness heading AND `run_history.json` MUST NOT contain `validation_freshness`.
    Mismatch → fail loudly and report which side disagrees.
 
+10c. **Composition protocol wired**: confirm the generated SKILL.md handles the `invocation_mode=composed` arg correctly. This check runs unconditionally — there is no toggle.
+   - Phase 0 (freshness, when present) MUST contain a `Composition check` step that skips its body when `invocation_mode == composed`. Grep the freshness section for `invocation_mode` — must return ≥ 1 match.
+   - The observer phase (Phase N+1, when present) MUST contain a `Composition check` step that skips its body when `invocation_mode == composed`. Grep the observer section for `invocation_mode` — must return ≥ 1 match.
+   - The ledger phase MUST record `invocation_mode`, `parent`, `parent_run_ts` in the `runs[]` entry (search for all three field names in the ledger section).
+   - The suggestion-capture block (when present) MUST record `parent` and `parent_run_ts` on each captured suggestion (search for both in the capture section).
+   Mismatch → fail loudly. This is the single largest source of cross-skill composition bugs; the check exists specifically to catch them at generation time.
+
 10b. **Efficiency instrumentation present**: confirm SKILL.md and templates wired the always-on instrumentation correctly. This check runs unconditionally — there is no toggle.
    - The first phase (Phase 0 if freshness is enabled, else Phase 1) MUST contain a step that stamps `started_at` to the run-start timestamp before doing any work.
    - Every domain phase (1..N-2) MUST contain a step that stamps its own `phase_durations[<id>] = seconds_elapsed` as it exits. Grep the SKILL.md for `phase_durations` — count must be >= number of domain phases.
@@ -665,7 +682,7 @@ Run these mechanical checks. Fail loudly on any miss — DO NOT silently proceed
 
 10. **Composition table well-formed**: when `composed_skills` (Step 6.5.4) is non-empty, the generated SKILL.md MUST contain a `Plugin skills composed by this skill` table with exactly one row per `composed_skills` entry. Each row must have a non-empty Skill, Phase, and Trigger cell. When `not_composed` (Step 6.5.5) is non-empty, the generated SKILL.md MUST contain a `Plugin skills NOT composed` bullet list with exactly one bullet per entry. Empty `composed_skills` and `not_composed` are valid: the composition table is rendered with the "(none — populate by hand if/when you discover compositions on first runs)" placeholder row; the not-composed block is omitted entirely. Mismatch (declared in interview but missing in file, or vice versa) → fail loudly and report which side disagrees.
 
-If all checks (1–7 always; 8–9 when observer_enabled; 10a always (toggle-symmetric); 10b always (efficiency instrumentation); 10 when `composed_skills` or `not_composed` is non-empty) pass, print:
+If all checks (1–7 always; 8–9 when observer_enabled; 10a always (toggle-symmetric); 10b always (efficiency instrumentation); 10c always (composition protocol); 10 when `composed_skills` or `not_composed` is non-empty) pass, print:
 
 ```
 ✓ Generation validated. Skill ready to invoke.

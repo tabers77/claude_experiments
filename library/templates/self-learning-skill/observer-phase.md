@@ -48,6 +48,12 @@ The observer runs **after** the ledger has written `run_history.json` and any au
 
 The observer NEVER edits `SKILL.md`. It writes only to `observations.json` (per-run notes) and `suggestions.md` (clustered proposals). The user reviews `suggestions.md` and decides whether to integrate any proposal.
 
+0. **Composition check — skip the observer body entirely when invoked from another skill.** Parse the skill's invocation args for `invocation_mode=composed` (same convention as Phase 0). When present, **skip steps 1–7 of this phase** and return cleanly. The parent skill's observer is the single cross-run pattern detector for this user-facing run; firing the child's observer would double the work and split the signal across two `observations.json` files for one logical run.
+
+   Composed runs are still recorded in the child's `runs[]` by the ledger phase, with `invocation_mode: "composed"` set. Cross-run pattern detection at the child level is deferred until the child is invoked standalone (where its own observer will see both standalone and composed prior runs and can choose whether to filter).
+
+   Default when the arg is absent or set to anything other than `composed` is `standalone` — all observer steps below fire.
+
 1. **Read state**:
    - `{{SKILL_PATH}}/observations.json` — initialize per the schema if missing.
    - `{{SKILL_PATH}}/run_history.json` — for the run that just finished (last entry in `runs[]`) and prior runs (for cross-run context).
@@ -101,9 +107,13 @@ The observer NEVER edits `SKILL.md`. It writes only to `observations.json` (per-
      "phase": "<phase number where signal appeared, or 'cross-phase'>",
      "evidence": "<verbatim quote / observed event>",
      "interpretation": "<one-line reasoning for why this signal matters>",
-     "proposed_audit_tag": "<optional new FAIL tag the audit could track, or null>"
+     "proposed_audit_tag": "<optional new FAIL tag the audit could track, or null>",
+     "invocation_mode": "<standalone | composed>",
+     "parent": "<parent skill name, or null when standalone>"
    }
    ```
+
+   When the observer fires (only on standalone runs of this skill), it may still cluster observations across BOTH `standalone` and `composed` prior runs in `runs[]`. The `invocation_mode` field on each observation lets the observer **filter the cohort intentionally** when the signal class is mode-sensitive — e.g., timing distributions for composed runs differ from standalone runs because the composed context bounds the input shape. Default: include both unless the category's signal logic explicitly filters.
 
 4. **Cross-run clustering check** — for each category in `observations.json`:
    - Count entries whose `applied_at` (in any subsequent `review_log` entry) is null.

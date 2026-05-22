@@ -19,6 +19,10 @@ Before running any domain work, briefly check how stale this skill has gotten. T
 
 The premise: a skill that gets used heavily but never reviewed against the current state of Claude Code, peer skills, or its own domain will silently rot. The audit + ledger catch mechanical drift inside a run; this phase catches **the skill's own design** falling behind across runs.
 
+0. **Composition check — skip the freshness body entirely when invoked from another skill.** Parse the skill's invocation args for `invocation_mode=composed` (semicolon-separated `key=value` format). When present, **skip steps 1–4 of this phase** and proceed directly to step 5 (proceed to Phase 1). The parent skill's own freshness check is the user-facing nudge; firing a second one here would be noise. Still stamp `started_at` for timing instrumentation — that fires unconditionally regardless of invocation mode.
+
+   Default when the arg is absent or set to anything other than `composed` is `standalone` — all freshness steps below fire.
+
 1. **Read** `{{SKILL_PATH}}/run_history.json` → `validation_freshness`.
    - If the file is missing or the block is missing, initialize the block in-memory with:
      ```json
@@ -96,6 +100,12 @@ Defaults (10 runs, 21 days) work for an average-cadence skill. Hot skills (run m
 ### Initialization is in-memory only
 
 Phase 0 reads. Phase N (ledger) writes. Centralizing writes in the ledger phase preserves the existing invariant that `run_history.json` has exactly one writer per run, which makes concurrent-run scenarios (if they ever exist) safer.
+
+### Why composed runs skip the nudge
+
+When this skill is invoked from another self-learning skill (e.g. `pr-merge-readiness` calling `smart-test-selection`), the user sees one user-facing run, not two. The parent's freshness phase already handles the validation nudge for the composed workflow. Firing a second nudge from the child would surface the same staleness signal twice — and worse, point the user at the wrong skill name.
+
+The skip is body-only: `started_at` still gets stamped for timing. The child's freshness counter (`runs_since_validation`) is still incremented by its own ledger phase regardless of mode, so composed usage accumulates toward the standalone nudge that fires when the user invokes the child directly.
 
 ### `friction_log` is out of scope
 

@@ -181,6 +181,51 @@ The observer's clustering threshold (default 3) and theme-similarity check apply
 
 `fail_counters` remediations auto-apply because they say *do MORE checking* — worst case is added noise. Efficiency remediations say *do LESS work* — worst case is silently dropping a check that was load-bearing for an input class the skill hasn't seen yet. Asymmetric risk. Suggestion-only mode keeps the human in the loop precisely where the asymmetry lives.
 
+## Composition: parent and child skills
+
+Self-learning skills can call other self-learning skills. The naïve composition — child fires every phase including freshness and observer — produces noise (two nudges per user-facing run) and split signal (two `observations.json` files cluster on disjoint subsets of the same run). The protocol below avoids both without weakening anyone's audit.
+
+### The `invocation_mode` arg
+
+When a parent invokes a child via the Skill tool, it passes a single semicolon-separated arg string:
+
+```
+invocation_mode=composed; parent=<parent-skill-name>; parent_run_ts=<iso8601 of parent's started_at>
+```
+
+The child parses this at run start (before Phase 0 fires). When absent or set to anything other than `composed`, the child defaults to `invocation_mode=standalone` and behaves as it does when invoked directly by the user.
+
+### Which phases skip when composed
+
+| Phase | Composed behavior | Reason |
+|---|---|---|
+| Phase 0 — Freshness | **Skipped** (body only; `started_at` still stamps) | Parent's freshness phase is the user-facing nudge; one per user-facing run is enough |
+| Domain phases | **Fire unchanged** | The work the user invoked the parent for |
+| Timing instrumentation | **Fires unchanged** | Both ledgers benefit from per-phase durations |
+| Audit | **Fires unchanged** | Audit is load-bearing; never skipped under any condition |
+| Ledger | **Fires unchanged**; records `invocation_mode`, `parent`, `parent_run_ts` | Child's history accumulates regardless of how it was invoked |
+| Observer | **Skipped** when composed | Parent's observer is the single cross-run pattern detector for this user-facing run; child's observer fires on standalone invocations only |
+
+The split is principled: **load-bearing phases never skip** (audit, ledger, timing); **user-facing surfaces skip** (freshness nudge, observer) because the parent owns the user-facing layer.
+
+### Sentiment ownership when composed
+
+A suggestion captured while inside the child's phase belongs to the **child's** `improvement_suggestions[]` only. There is exactly one source of truth — never duplicate across two skill files; that makes manual edits ambiguous.
+
+The parent's ledger phase looks up the child's suggestions cross-file when computing `quality_derived` for the parent's run: it reads each composed child's `run_history.json`, filters entries where `parent == this_parent` AND `parent_run_ts == this_parent.started_at`, counts negative-sentiment matches, and folds them into the parent's roll-up. Single-write, dual-read.
+
+If a child's file is unreachable when the parent reads it (file missing, parse error), the parent logs the friction to its own `friction_log[]` and proceeds — never blocks the ledger write on a missing child.
+
+### Why composed child observer cross-run analysis still has runway
+
+A natural concern: if `smart-test-selection` is mostly invoked composed (inside `pr-merge-readiness`), its observer rarely runs — does it lose its self-learning loop?
+
+Answer: the observer only fires on **standalone** invocations of the child. But standalone runs still happen — for ad-hoc test-list debugging, CI invocations, or any future skill that calls the child differently than `pr-merge-readiness` does. When standalone, the observer sees the **entire** `runs[]` array including all composed runs. The composition fields (`invocation_mode`, `parent`) let it filter the cohort intentionally — e.g., "give me median duration of standalone runs only" vs. "give me median across all runs." The child accumulates cross-run pattern data continuously; only the *observer pass* is deferred to standalone moments, which keeps the user-facing surface clean.
+
+### Why the protocol lives in the templates (not per-skill)
+
+The `invocation_mode` parsing, the conditional skips, and the cross-skill sentiment lookup all live in the template files (`freshness-phase.md`, `observer-phase.md`, `ledger-phase.md`, `suggestion-capture.md`, `run_history_schema_v1.md`). Generated skills inherit the protocol automatically; convert-mode retrofits land it on existing skills the same way. There is no per-skill flag to flip — the protocol is DNA, like timing and sentiment.
+
 ## The schema
 
 `run_history.json` is the persistent ledger. Full schema documented at:
