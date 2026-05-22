@@ -1,0 +1,117 @@
+{
+  "version": 1,
+  "fail_counters": {
+    "audit-paraphrased-user-input": {
+      "count": 0,
+      "threshold": 1,
+      "phase": "audit",
+      "description": "Audit row paraphrased user intent rather than quoting verbatim. Load-bearing honesty failure.",
+      "occurrences": [],
+      "remediation_hint": "Tighten the audit phase: 'Each verdict MUST cite objective evidence — a tool call observed, a command output, a file diff, or a literal quote from the user. Never paraphrase user input.' Add explicit FAIL detection for any audit row that paraphrases rather than quotes verbatim.",
+      "applied_at": null
+    },
+    "audit-no-explicit-approval-wait": {
+      "count": 0,
+      "threshold": 2,
+      "phase": "audit",
+      "description": "Skill advanced past a user-gate phase without observing the literal approval token.",
+      "occurrences": [],
+      "remediation_hint": "Add an explicit wait-for-token gate at the audit-to-terminal-action boundary. Silence, 'looks good', 'ok', 'proceed' do NOT count as approval — only the literal 'tests approved' token (case-insensitive).",
+      "applied_at": null
+    },
+    "tool-claim-without-call": {
+      "count": 0,
+      "threshold": 1,
+      "phase": "any",
+      "description": "SKILL.md text claimed a tool/skill ran but no corresponding tool call was observed in the session.",
+      "occurrences": [],
+      "remediation_hint": "Audit phase MUST verify the actual tool-call trace, not narration. Mark FAIL when the audit row says 'invoked X' but no Skill/Bash/Read call for X exists in the session.",
+      "applied_at": null
+    },
+    "2-test-inventory-stale": {
+      "count": 0,
+      "threshold": 2,
+      "phase": "2",
+      "description": "Phase 2's pytest --collect-only exited non-zero OR returned 0 tests.",
+      "occurrences": [],
+      "remediation_hint": "In Phase 2, after running pytest --collect-only, MUST inspect both exit code and stdout test count. When exit != 0 OR test count == 0, mark Phase 2 FAIL and surface stderr to user with abort-or-proceed prompt. Do not silently treat partial inventory as complete.",
+      "applied_at": null
+    },
+    "3-changed-surface-missing-from-candidates": {
+      "count": 0,
+      "threshold": 1,
+      "phase": "3",
+      "description": "A changed surface from Phase 1 has at least one matching test in the Phase 2 inventory but no candidate in the Phase 3 candidates list covers it.",
+      "occurrences": [],
+      "remediation_hint": "In Phase 3 step 4, tighten the orphan-surface detection: for each changed surface, scan the full inventory for any nodeid whose filename or symbol overlap heuristic matches; if such a test exists but is not in the candidates list, escalate to Phase 7 resolution rather than silently emitting an incomplete plan. Add an explicit cross-check between Phase 1 surfaces and Phase 2 inventory before declaring Phase 3 done.",
+      "applied_at": null
+    },
+    "3-tier-policy-not-applied": {
+      "count": 0,
+      "threshold": 2,
+      "phase": "3",
+      "description": "A TIER_POLICY rule's triggers matched at least one changed path BUT no test with marker in rule.include_markers ended up in the candidates list (when such tests exist in the Phase 2 inventory).",
+      "occurrences": [],
+      "remediation_hint": "In Phase 3 step 5, after the candidates list is built, walk each TIER_POLICY rule whose triggers fired and verify the candidates list contains at least one test with each marker in rule.include_markers (filtered by inventory availability). When a rule fires but contributes zero candidates, escalate to Phase 7 with the rule's justification verbatim — do NOT silently drop the tier. Common cause: glob in include_markers doesn't match any marker actually present on tests, OR strategy 'marker' ran first and excluded everything before tier-policy could fire.",
+      "applied_at": null
+    },
+    "4-skip-without-diff-anchored-reason": {
+      "count": 0,
+      "threshold": 1,
+      "phase": "4",
+      "description": "A skip entry in cached-pass or pruned-by-cost has a reason field that does not contain any of: an SHA, a changed file path, a changed surface name, or another test-id explaining the substitution.",
+      "occurrences": [],
+      "remediation_hint": "In Phase 4 step 4, tighten the validation regex: each skip's reason MUST match at least one of (a) /SHA [a-f0-9]{7,}/, (b) any path from the Phase 1 changed-file list, (c) any symbol from the Phase 1 changed-symbol list, (d) /\\b[a-zA-Z0-9_]+::test_[a-zA-Z0-9_]+\\b/ for substitute test-ids. Any skip lacking these is a load-bearing principle violation and must be flagged.",
+      "applied_at": null
+    },
+    "4-cached-skip-without-clean-tree-or-sha-match": {
+      "count": 0,
+      "threshold": 1,
+      "phase": "4",
+      "description": "A test marked cached-pass in the plan but the cache file doesn't actually contain it at the current SHA, OR the working tree was dirty at lookup time.",
+      "occurrences": [],
+      "remediation_hint": "In Phase 4 step 5, before marking the partition complete, re-read documentation/test-results/<SHA>.json and confirm every cached-pass entry exists with outcome=passed at that SHA. Also confirm `git status --porcelain` was empty at the time Phase 4 step 1 ran (capture stdout at step 1 and replay it at step 5). Mark FAIL when either check fails.",
+      "applied_at": null
+    },
+    "5-artifact-not-pytest-runnable": {
+      "count": 0,
+      "threshold": 1,
+      "phase": "5",
+      "description": "A random sample of 3 IDs from the artifact's 'Tests to run' list failed pytest --collect-only --co <id> validation.",
+      "occurrences": [],
+      "remediation_hint": "In Phase 5 step 3, expand the validation sample to all entries if the random 3 sample finds any failure. Regenerate any malformed test IDs in canonical pytest nodeid format (file::test_name or file::ClassName::test_name) before writing the artifact. Block the file-write until 100% of IDs pass the runnability check.",
+      "applied_at": null
+    },
+    "5-companion-checks-section-missing": {
+      "count": 0,
+      "threshold": 2,
+      "phase": "5",
+      "description": "A NON_PYTEST_CHECKS rule's triggers matched at least one changed path BUT the artifact's Companion non-pytest checks section is missing the corresponding command bullet.",
+      "occurrences": [],
+      "remediation_hint": "In Phase 5 step 2, after the artifact is written, re-parse the Companion non-pytest checks section. For each NON_PYTEST_CHECKS rule whose triggers fired, confirm at least one bullet whose justification matches the rule's justification is present. When a rule fired but is missing from the section, regenerate the section and re-write the artifact. Common cause: placeholder substitution (e.g. <changed-py-paths>) dropped a command because no .py files were in the diff even though the rule's trigger matched on a non-Python path — surface the rule explicitly with an empty argument list rather than silently omitting it.",
+      "applied_at": null
+    }
+  },
+  "runs": [],
+  "friction_log": [],
+  "improvement_suggestions": [],
+  "validation_freshness": {
+    "created_at": "2026-05-22T00:00:00+02:00",
+    "last_validated_at": "2026-05-22T00:00:00+02:00",
+    "last_research_at": null,
+    "last_overlap_check_at": null,
+    "runs_since_validation": 0,
+    "thresholds": {
+      "runs": 10,
+      "days": 21
+    },
+    "review_log": [
+      {
+        "ts": "2026-05-22T00:00:00+02:00",
+        "type": "both",
+        "summary": "Bootstrap entry — skill generated by /meta-self-learning-skill-gen with freshness phase + observer + composition protocol baked in. Generation itself counts as the first validation touch.",
+        "outcome": "skill-edited"
+      }
+    ]
+  }
+}
