@@ -375,6 +375,45 @@
       "evidence": "Phase 1 scope-classifier set scope=full because backend/intelligence_platform/tools/** matched HIGH_BLAST_PATHS — but the actual edit was ~30 LOC across 2 tools/ files (validation.py +7 lines for PER_TON_METRIC_NAMES frozenset; profitability_queries.py +6 lines for the assert + import) plus a +30-line test class and 2 tracker doc diffs. Total diff: 5 files. Lite-eligibility currently requires 'no diff path matches any glob in HIGH_BLAST_PATHS' — a single low-LOC touch to a high-blast directory disqualifies the whole PR from lite-mode unconditionally. User then asked verbatim at Phase 5 hand-off: 'I dont understand what the next step is , I only need to know : 1. are there serious bugs blocking the merge (above you say no) 2. do we need to add new gaps that we currently dont have ? 3. is refactoring really necesary ? what shoudl I do with that suggestion'. The friction maps to feedback_output_scaled_to_scope.md in user memory ('small PRs ... get a 2-3 sentence can-you-merge TL;DR') — same theme as 2026-05-19T17:00 improvement_suggestions[] entry that landed the lite-mode classifier in the first place. The classifier exists but is too eager to go full on small high-blast-path touches.",
       "interpretation": "HIGH_BLAST_PATHS path-match alone over-triggers scope=full when LOC delta is small. A 5-LOC edit in tools/validation.py should not get the same scope treatment as a 1029-LOC routes.py rewrite. Remediation candidates: (a) extend Phase 1 step 5 lite-eligibility to count LOC on high-blast paths — e.g. 'matches HIGH_BLAST_PATHS AND >50 added LOC on those paths' is the disqualifier, not bare path match; (b) add a separate 'small-high-blast' scope tier between lite and full that runs the full safety gates but renders Phase 5 + Phase 8 in lite-mode condensed format; (c) cheapest — keep full-mode safety gates but render the user-facing summary in lite-mode TL;DR-first format when total diff is ≤10 files. Same root theme as 2026-05-19 improvement_suggestions[] entry (applied via lite-mode classifier); below convergence threshold today (single fresh observation on this sub-theme). Observer records; do NOT write a suggestions.md proposal yet.",
       "proposed_audit_tag": "1-scope-classifier-loc-aware-high-blast"
+    },
+    {
+      "ts": "2026-05-22T13:26:00Z",
+      "run_ref": "2026-05-22T13:25:00Z",
+      "target": "this branch into dev (current=bot/o-l6-20260522; head=3709acd; base=dev)",
+      "category": "user_friction",
+      "_theme_slug": "phase7-recommendation-misranks-fix-now-when-branch-introduced",
+      "phase": "7",
+      "evidence": "User asked twice in a row before I converged on the right recommendation. First clarification verbatim: 'so you added a gap to document ? in theory we are removing a gap and adding a gap , so we are even ?'. Second clarification verbatim: 'I dont understand if T-L5 was introduced by tthis rabcnh , and can we fix it in thsi run direclty ?'. Initial Phase 7 AskUserQuestion led with 'File smell #1 only (recommended)' and listed 'Fix smell #1 in-session' as the fourth option without recommendation. The smell was introduced by this branch and met all four Recommendation-gate preconditions; fix-in-session should have been the default-recommended option, not a non-recommended fourth choice.",
+      "interpretation": "Phase 7 Recommendation gate fires correctly when preconditions match, but does not differentiate branch-introduced vs pre-existing items. Branch-introduced + cheap-fix should DEFAULT to fix-now ahead of file-as-gap; pre-existing should keep current behavior. The four preconditions already encode 'cheap-fix' (<=15 LOC, code/docs only, smoke <=60s, canonical small-fix category); adding a fifth precondition 'item is NEW in this branch' (verifiable via git blame against origin/<BASE_BRANCH>...HEAD) would let the gate prefer fix-now for new regressions while preserving file-as-gap for pre-existing tech debt.",
+      "proposed_audit_tag": "7-fix-now-default-for-branch-introduced-cheap-fixes",
+      "invocation_mode": "standalone",
+      "parent": null
+    },
+    {
+      "ts": "2026-05-22T13:26:00Z",
+      "run_ref": "2026-05-22T13:25:00Z",
+      "target": "this branch into dev (current=bot/o-l6-20260522; head=3709acd; base=dev)",
+      "category": "missing_audit_category",
+      "_theme_slug": "phase5-false-positive-without-surrounding-convention-check",
+      "phase": "5",
+      "evidence": "Phase 5 code-diagnosis flagged smell #1 'test_unauthenticated_lookup_blocks uses over-permissive != 200 assertion' as a legitimate follow-up. After user authorized fix-in-session, the tightening (== 401) FAILED against actual test-env state (got 500 'Authentication not configured'). Investigation revealed test_api_auth_smoke.py:47-56 (TestUsersMeAuth.test_unauthenticated_returns_401_or_403) uses IDENTICAL != 200 pattern with explicit comment documenting the test-env trade-off: 'Behind the scenes Depends(get_current_user) either reaches the Entra scheme (401) or short-circuits with a 500 not configured depending on env. We accept any non-200 here'. The smell was a false positive; the bot author was correctly mirroring the file's documented convention.",
+      "interpretation": "Phase 5 code-diagnosis findings need a 'is this pattern already an established convention in the surrounding file?' check before being elevated to merge-impact follow-ups. The check is: before flagging a pattern as a smell, grep the same file (and sibling test files) for the same pattern; if it appears 2+ times with comments documenting why, the new occurrence is NOT a smell but a consistent convention-follow. The check is cheap (one grep per smell) and would have caught this false positive before Phase 7 surfaced it.",
+      "proposed_audit_tag": "5-pattern-flagged-as-smell-without-convention-check",
+      "invocation_mode": "standalone",
+      "parent": null
+    },
+    {
+      "ts": "2026-05-22T13:26:00Z",
+      "run_ref": "2026-05-22T13:25:00Z",
+      "target": "this branch into dev (current=bot/o-l6-20260522; head=3709acd; base=dev)",
+      "category": "scope_drift",
+      "_theme_slug": "skill-applied-fix-without-pre-edit-verification",
+      "phase": "7",
+      "evidence": "After user approved fix-in-session for smell #1, I edited test_api_auth_smoke.py to tighten the assertion from '!= 200' to '== 401' WITHOUT first running the failing-state test to observe what status code the unauthenticated call actually returns. The edit was rejected by the test (got 500, not 401), forcing a revert. The auth-sensitive PreToolUse hook fired twice (once on the edit, once on the revert). User feedback verbatim: 'you made a huge mistakae changing a file , an dn then reverting , this is very bad' (sentiment=negative).",
+      "interpretation": "Phase 7 fix-now flow does not encode a 'verify the failing-state value FIRST' precondition. For any tightening fix (replacing a permissive assertion with a precise one), the correct order is: (1) run the relevant test/script to observe the actual value, (2) confirm the precise expected value matches the actual, (3) THEN apply the edit. Currently I jumped from 'user approved fix-in-session' to 'apply edit' without verifying the test would still pass under the tightened assertion. Adding a pre-edit verification step would prevent the edit+revert ceremony.",
+      "proposed_audit_tag": "7-fix-now-applied-without-failing-state-observation",
+      "invocation_mode": "standalone",
+      "parent": null
     }
   ],
   "review_log": [
@@ -529,6 +568,42 @@
       "suggestion_written_to": "skills/pr-merge-readiness/suggestions.md",
       "applied_at": "2026-05-21T12:00:00+02:00",
       "applied_via": "Inserted Phase 5 step 4c (closure-narrative falsifiable-claim reconciliation) per the primary proposal — for each closure-narrative paragraph added in any TRACKER_FILES path (and in COMPLETED_STREAMS.md when in diff), parse for falsifiable claims using the documented regex candidates. Reconcile each claim against Phase 4 actuals: contradictions surface to Phase 7 as load-bearing FAIL; tier-missing claims surface as unresolved items demanding (a) re-run the tier in-session or (b) explicit verbatim user acceptance. Added `5-closure-narrative-falsifiable-claims-not-reconciled` FAIL rule (load-bearing, threshold=1) to Phase 8 step 2 and seeded the counter in run_history.json:fail_counters. Matching improvement_suggestions[] entry (2026-05-21T10:50:00, tag=skill-vs-prior-claim-reconciliation) marked applied."
+    },
+    {
+      "ts": "2026-05-22T13:26:00Z",
+      "trigger": "convergence",
+      "clustered_theme": "phase7-recommendation-misranks-fix-now-when-branch-introduced",
+      "category": "user_friction",
+      "observations_referenced": [
+        "2026-05-22T13:26:00Z"
+      ],
+      "matching_improvement_suggestions": [
+        {
+          "ts": "2026-05-22T13:24:00Z",
+          "tag": "7-fix-in-session-default-when-branch-introduced"
+        }
+      ],
+      "suggestion_written_to": "skills/pr-merge-readiness/suggestions.md",
+      "applied_at": "2026-05-22T00:00:00+02:00",
+      "applied_via": "Added 5th precondition (branch-introduced via git blame) to Phase 7 narrow Recommendation gate; when all 5 fire, default-recommend Fix it now with rationale 'branch-introduced + cheap fix'. Added branch-introduced bias as step 3 of softer-heuristic fallback ahead of the historical-frequency tie-breaker. Added FAIL tag `7-fix-now-default-for-branch-introduced-cheap-fixes` (procedural, threshold=2) to Phase 8 audit. Matching improvement_suggestions[] entry (2026-05-22T13:24:00, tag=7-fix-in-session-default-when-branch-introduced) marked applied."
+    },
+    {
+      "ts": "2026-05-22T13:26:00Z",
+      "trigger": "convergence",
+      "clustered_theme": "skill-applied-fix-without-pre-edit-verification",
+      "category": "scope_drift",
+      "observations_referenced": [
+        "2026-05-22T13:26:00Z"
+      ],
+      "matching_improvement_suggestions": [
+        {
+          "ts": "2026-05-22T13:24:00Z",
+          "tag": "verify-actual-state-before-tightening-assertions"
+        }
+      ],
+      "suggestion_written_to": "skills/pr-merge-readiness/suggestions.md",
+      "applied_at": "2026-05-22T00:00:00+02:00",
+      "applied_via": "Added Phase 7 step 2a (Pre-edit verification for tightening fixes only) with mechanical tightening-fix detector (operator strictness, membership collapse, range tightening, whitelist narrowing, pattern strictness) and a verification sequence that runs the failing-state test BEFORE applying the edit. On actual != proposed precise value, surfaces discrepancy with three options instead of applying-then-reverting. Added FAIL tag `7-fix-now-applied-without-failing-state-observation` (procedural, threshold=2) to Phase 8 audit. Matching improvement_suggestions[] entry (2026-05-22T13:24:00, tag=verify-actual-state-before-tightening-assertions) marked applied."
     }
   ]
 }

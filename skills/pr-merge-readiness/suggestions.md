@@ -605,3 +605,44 @@ Add the corresponding counter to `run_history.json:fail_counters`:
 **Status:** applied
 **Applied at:** 2026-05-21T12:00:00+02:00
 **Applied via:** Inserted Phase 5 step 4c (closure-narrative falsifiable-claim reconciliation) per the primary proposal — for each closure-narrative paragraph added in any TRACKER_FILES path (and in COMPLETED_STREAMS.md when in diff), parse for falsifiable claims using the documented regex candidates (`\b\d{2,5}\s+(unit|integration|smoke)?\s*tests?\s+pass`, `\bno regressions?\b`, `\bsmoke (?:tier\s+)?clean\b`, `\ball tests pass\b`, `\bN/?A failures?\b`, `\btier\s+\w+\s+clean\b`). Reconcile each claim against Phase 4 actuals: contradictions surface to Phase 7 as load-bearing FAIL; tier-missing claims surface as unresolved items demanding (a) re-run the tier in-session or (b) explicit verbatim user acceptance. Added `5-closure-narrative-falsifiable-claims-not-reconciled` FAIL rule (load-bearing, threshold=1) to Phase 8 step 2 and seeded the counter in `run_history.json:fail_counters`. Matching `improvement_suggestions[]` entry (2026-05-21T10:50:00, tag=`skill-vs-prior-claim-reconciliation`) will be marked applied in the same edit session.
+
+---
+
+## 2026-05-22 — Theme: phase7-recommendation-misranks-fix-now-when-branch-introduced
+
+**Pattern observed in 1 run + 1 matching user suggestion (convergence rule):**
+- 2026-05-22T13:25:00Z (run bot/o-l6-20260522): My initial Phase 7 AskUserQuestion led with `File smell #1 only (recommended)` and listed `Fix smell #1 in-session` as the fourth, non-recommended option. The smell had been introduced by THIS branch (verifiable via the diff) and met all four Recommendation-gate preconditions (2 LOC change, test code only, smoke <60s, matches "fail-loud assertion" canonical category). User pushed back twice in a row — first verbatim "so you added a gap to document ? in theory we are removing a gap and adding a gap , so we are even ?", then verbatim "I dont understand if T-L5 was introduced by tthis rabcnh , and can we fix it in thsi run direclty ?" — before I converged on `Fix in-session, drop T-L5 row (recommended)` in a third AskUserQuestion.
+- Matching `improvement_suggestions[]` entry (tag=`7-fix-in-session-default-when-branch-introduced`, verbatim): "why you did not suggested to fix the gap in this branch , I lost time asking you , and making you coming to the conclusion".
+
+**Interpretation:** The current Recommendation gate evaluates *whether* a fix is cheap enough for in-session execution (4 preconditions covering LOC, code/docs scope, smoke time, fix category), but does not consider *whether* the issue was introduced by THIS branch vs is pre-existing tech debt. Both classes pass through the same option-ranking logic — `(recommended)` lands on whatever the softer-heuristic fallback picks (typically the "smallest blast-radius that resolves the surfaced item", which for follow-up smells often defaults to `File as gap` rather than `Fix now`). For branch-introduced issues, this is exactly backwards: the cost of leaving a new regression in the merge is higher than the cost of a 2-LOC fix, and the user's expectation is that the skill catches and fixes the bug it just surfaced.
+
+**Proposed change to SKILL.md:**
+- In Phase 7 step 2's narrow Recommendation gate, add a fifth precondition: `item was introduced by this branch (verifiable via git blame: at least one cited file:line falls within `git diff origin/<BASE_BRANCH>...HEAD` for the cited file)`. When all five fire, default-recommend `Fix it now` as option #1 with the rationale "branch-introduced + cheap fix; closing before merge is cheaper than filing a follow-up".
+- In the softer-heuristic fallback (when the narrow gate does NOT fire), preserve current logic for pre-existing items but bias toward `Fix it now` whenever the cited file:line is in the current branch's diff — same git-blame check as above, used as a tie-breaker ahead of "smallest blast-radius".
+- Optionally add audit FAIL tag `7-fix-now-default-for-branch-introduced-cheap-fixes` (procedural, threshold=2) to catch future regressions where a branch-introduced cheap-fix item was surfaced with `File as gap` recommended over `Fix now`.
+
+**Status:** applied
+**Applied at:** 2026-05-22T00:00:00+02:00
+**Applied via:** Added 5th precondition (branch-introduced via `git blame -L <line>,<line> -- <file>` against `origin/<BASE_BRANCH>...HEAD`) to Phase 7 narrow Recommendation gate. When all 5 fire, default-recommend `Fix it now` with rationale "branch-introduced + cheap fix; closing before merge is cheaper than filing a follow-up". Added branch-introduced bias as step 3 of the softer-heuristic fallback (ahead of the historical-frequency tie-breaker). Added FAIL tag `7-fix-now-default-for-branch-introduced-cheap-fixes` (procedural, threshold=2) to Phase 8 audit and seeded the counter in `run_history.json`.
+
+---
+
+## 2026-05-22 — Theme: skill-applied-fix-without-pre-edit-verification
+
+**Pattern observed in 1 run + 1 matching user suggestion (convergence rule):**
+- 2026-05-22T13:25:00Z (run bot/o-l6-20260522): After user approved `Fix in-session, drop T-L5 row (recommended)` for the over-permissive `!= 200` assertion, I edited `test_api_auth_smoke.py:108-113` tightening to `== 401` WITHOUT first running the failing-state test to observe what status code the unauthenticated call actually returns in the test container. The edit was rejected on re-run (actual return: 500 "Authentication not configured" because `ENTRA_APP_TENANT_ID`/`ENTRA_APP_CLIENT_ID` aren't loaded in tests), forcing a revert. The auth-sensitive PreToolUse hook fired twice (once on the edit, once on the revert). Net: 2 edits + 1 revert + 1 re-test wasted ~3 minutes for no net change to the merged state.
+- Matching `improvement_suggestions[]` entry (tag=`verify-actual-state-before-tightening-assertions`, sentiment=negative, verbatim): "you made a huge mistakae changing a file , an dn then reverting , this is very bad".
+
+**Interpretation:** Phase 7's fix-now flow currently treats user approval as the only gate before applying the edit. For *tightening* fixes specifically (replacing a permissive predicate with a precise one — e.g. `!= 200` → `== 401`, `not in (401, 403)` → `== 200`), the precise expected value is a SECOND assumption that needs verification before the edit lands. If the user's mental model of the precise value disagrees with the actual observable behavior, the edit fails on re-run and must be reverted. The asymmetry: a *loosening* fix can't fail at runtime (it admits more states), but a *tightening* fix can fail if the assumed precise value is wrong.
+
+**Proposed change to SKILL.md:**
+- In Phase 7 step 2, after the user selects a `Fix it now` option, add a sub-step: **2a. Pre-edit verification (for tightening fixes only)**. Define a "tightening fix" as one that replaces a comparison operator with a stricter one (`!=` → `==`, `not in (...)` → `==`, `>= 0` → `> 0`, etc.) or replaces a multi-valued whitelist with a single-value match. Before applying the edit:
+  1. Run the relevant test (or curl/probe) in its current failing state, capture the actual value.
+  2. Compare the actual value to the user's proposed precise value.
+  3. If they agree, apply the edit. If they disagree, surface the discrepancy back to the user: "Actual return was <X>; tightening to <Y> will fail. Adjust the precise expected value, or skip the fix?"
+- The verification step is cheap (1 test invocation in container) and prevents the edit+revert ceremony.
+- Optionally add audit FAIL tag `7-fix-now-applied-without-failing-state-observation` (procedural, threshold=2) to catch future regressions where a tightening edit was applied without a recorded pre-edit verification run.
+
+**Status:** applied
+**Applied at:** 2026-05-22T00:00:00+02:00
+**Applied via:** Added Phase 7 step 2a (`Pre-edit verification (for tightening fixes only)`). Includes mechanical tightening-fix detector (operator strictness `!=` → `==`, membership collapse `not in (...)` → `==`, range tightening `>= 0` → `> 0`, whitelist narrowing, pattern strictness substring → exact equality) and a verification sequence that runs the failing-state test/probe BEFORE applying the edit. When actual ≠ proposed precise value, surfaces the discrepancy to the user with three options (adjust precise to actual / investigate underlying code / skip and file as gap) instead of applying-then-reverting. Added FAIL tag `7-fix-now-applied-without-failing-state-observation` (procedural, threshold=2) to Phase 8 audit and seeded the counter in `run_history.json`.

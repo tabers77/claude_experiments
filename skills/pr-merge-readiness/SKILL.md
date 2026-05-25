@@ -530,11 +530,12 @@ Before the audit can run, every unresolved item from Phases 1–5 must be addres
    - the fix touches ≤ 15 lines AND
    - the fix is in code or docs only (no schema migrations, no infra config, no security boundary) AND
    - a re-run of the relevant test tier after the fix is feasible within this session (smoke tier ≤ 60s) AND
-   - the fix description is one of: missing-import, deprecation comment update, follow-up tracker row, removed-dead-code, narrow exception handler, fail-loud assertion.
+   - the fix description is one of: missing-import, deprecation comment update, follow-up tracker row, removed-dead-code, narrow exception handler, fail-loud assertion AND
+   - **the item was introduced by THIS branch.** Mechanical check: for each cited `<file>:<line>` in the surfaced item, run `git blame -L <line>,<line> -- <file>` and confirm the commit hash is reachable from `origin/<BASE_BRANCH>...HEAD` (i.e., in this branch's diff). If at least one cited file:line was introduced by the branch, the precondition fires. If every cited line predates `origin/<BASE_BRANCH>`, the precondition does NOT fire (pre-existing tech debt — keep current ranking behavior).
 
    When the recommendation gate fires, the option block must read:
 
-   1. **Fix it now (recommended)** — <one-line description>
+   1. **Fix it now (recommended)** — <one-line description> *(branch-introduced + cheap fix; closing before merge is cheaper than filing a follow-up)*
    2. Skip with logged justification
    3. Block the merge
    4. Abort the run
@@ -550,9 +551,47 @@ Before the audit can run, every unresolved item from Phases 1–5 must be addres
 
    1. Pick the option with the smallest blast-radius that resolves the surfaced item (e.g. `skip with logged justification` is smaller blast-radius than `block the merge`; `fix it now` only beats both when the fix scope is bounded enough to apply confidently).
    2. If multiple options have similar blast-radius, prefer the one that aligns with this PR's stated intent — e.g. `fix it now` for tightly-scoped feature PRs; `skip with logged justification` for close-out PRs where the surfaced item is out-of-scope.
-   3. Tie-breaker: choose the option chosen most often for this surfaced-item type in past runs (read from `run_history.json:runs[].notes` for similar item phrasings; if no prior signal exists, default to `skip with logged justification` as the smallest-blast-radius generic).
+   3. **Branch-introduced bias** (applied AHEAD of the historical tie-breaker): if the surfaced item has at least one cited `<file>:<line>` whose `git blame` shows the line was introduced in `origin/<BASE_BRANCH>...HEAD`, bias the recommendation toward `fix it now`. Rationale on the option line: "branch-introduced; closing before merge is cheaper than filing a follow-up." This catches branch-new items that fail the narrow gate on one of the OTHER four preconditions (e.g., >15 LOC, smoke >60s, or category outside the canonical small-fix list) — `fix it now` is still usually the right default for new regressions, just not as confidently as when all 5 narrow-gate preconditions match.
+   4. Tie-breaker: choose the option chosen most often for this surfaced-item type in past runs (read from `run_history.json:runs[].notes` for similar item phrasings; if no prior signal exists, default to `skip with logged justification` as the smallest-blast-radius generic).
 
    The option block (whether narrow-gate-fired or fallback) must always have exactly ONE option marked `(recommended)` with the rationale appended on the same line. Silence on a recommendation is NOT acceptable — neutral option blocks force a "which is best and why?" round-trip that this rule exists to short-circuit.
+
+2a. **Pre-edit verification (for tightening fixes only)** — fires after the user selects a `Fix it now` option AND BEFORE the edit is applied. Skip this step entirely for non-tightening fixes (purely additive edits, deletions, comment updates).
+
+   **Tightening-fix detector** (mechanical). A proposed edit is a "tightening fix" if ANY of these patterns match the BEFORE→AFTER of the user-approved change:
+
+   | Class | Before | After |
+   |---|---|---|
+   | Operator strictness | `!=` (or `is not`) | `==` (or `is`) |
+   | Membership collapse | `not in (<set>)` or `in (<a>, <b>, ...)` | `== <single-value>` |
+   | Range tightening | `>= 0`, `>= N`, `<= N` | `> 0`, `> N`, `< N` |
+   | Whitelist narrowing | `<value> in {<a>, <b>, <c>}` | `<value> in {<a>}` |
+   | Pattern strictness | broad substring match, e.g. `"401" in resp.text` | exact equality, e.g. `resp.status_code == 401` |
+
+   If the proposed edit does NOT match any pattern, treat as non-tightening and proceed to the existing edit-and-apply flow.
+
+   **Verification sequence** (when tightening detected):
+
+   1. **Identify the assertion target.** Locate the test (or curl/probe) whose assertion the edit modifies. The test name is the file+function the edit lives in OR a sibling test that exercises the same code path.
+   2. **Run the test/probe in its CURRENT (pre-edit) state** and capture the actual observable value:
+      - For pytest assertions: run the single test via `pytest <node-id> -v` and parse the assertion line.
+      - For curl/HTTP probes: run the curl and capture the status code + first body line.
+      - For Python REPL checks: import + invoke + observe.
+   3. **Compare the actual value to the user-approved precise value.**
+      - If they MATCH: proceed to apply the edit. Record the verified actual value in the audit row for traceability.
+      - If they DISAGREE: do NOT apply the edit. Surface the discrepancy to the user verbatim:
+        ```
+        Pre-edit verification: actual return is <X> but the tightened expected value is <Y>.
+        Applying the edit would cause the test to fail.
+
+        Options:
+          1. Adjust the precise expected value to <X> (recommended — matches observable behavior)
+          2. Investigate why actual != intended (the underlying code may be wrong, not the test)
+          3. Skip the fix; file as gap for follow-up
+        ```
+        Loop back to user choice. Do NOT loop into apply-then-revert under any circumstance.
+
+   **Why this exists.** Tightening edits have an asymmetric failure mode: a loosening fix can't fail at runtime (it admits more states), but a tightening fix can fail if the assumed precise value is wrong. Apply-then-revert costs file ops, sensitive-file hook fires, and user trust. Running the failing-state test FIRST is cheap (one pytest invocation) and prevents the ceremony entirely.
 
 3. **Loop until the user explicitly types "proceed to audit"** (or equivalent literal token). Silence, "looks good", "ok" do NOT advance.
 
@@ -610,7 +649,9 @@ The audit runs **before** the print. Print cannot fire until the user explicitly
    - **`5-findings-table-needs-severity-provenance-columns` FAIL** (procedural, threshold=2): Phase 5 surfaced code-diagnosis findings without a one-line merge-impact TL;DR header (the `"<N1> blocks merge / <N2> track as follow-up / <N3> pure refactoring"` sentence) preceding the per-finding table. Threshold=2 because a single occurrence may be the skill's first run on a new project; two means the TL;DR rule is drifting.
    - **`6-env-secret-committed` FAIL** (load-bearing, threshold=1, evaluated within Phase 3 step 2's env-file safety sub-step): diff added a `.env*` line whose value matches the secret heuristic (high-entropy ≥32 chars, contains `password=`/`secret=`/`api_key=` with non-placeholder value, hex/base64 strings ≥32 chars, or known key prefixes such as AKIA / AIza / sk-) rather than a placeholder. Tag retained for counter continuity after the standalone Phase 6 was folded into Phase 3 on 2026-05-16.
    - **`7-implicit-skip-no-justification` FAIL** (load-bearing, threshold=1): `surfaced > resolved-with-explicit-choice`. Count = (surfaced − resolved).
-   - **`7-recommendation-gate-not-applied` FAIL** (procedural, threshold=2): Phase 7 surfaced an item meeting all four `Fix it now (recommended)` preconditions but did NOT mark fix-now as recommended in the option block. Threshold=2 because a single occurrence may be a borderline precondition call; two means the gate logic is drifting.
+   - **`7-recommendation-gate-not-applied` FAIL** (procedural, threshold=2): Phase 7 surfaced an item meeting all five `Fix it now (recommended)` preconditions but did NOT mark fix-now as recommended in the option block. Threshold=2 because a single occurrence may be a borderline precondition call; two means the gate logic is drifting.
+   - **`7-fix-now-default-for-branch-introduced-cheap-fixes` FAIL** (procedural, threshold=2): Phase 7 surfaced an item meeting the 4 original narrow-gate preconditions (LOC ≤15, code/docs only, smoke ≤60s, canonical small-fix category) AND `git blame` shows at least one cited file:line is in `origin/<BASE_BRANCH>...HEAD` BUT the option block landed `(recommended)` on `File as gap` or `Skip with logged justification` instead of `Fix it now`. Detection: re-run the git blame check at audit time on each cited file:line; if branch-introduced + all 4 narrow preconditions match but `(recommended)` was elsewhere, fail. Threshold=2 because a single occurrence may be a deliberate user override; two means the ranking logic is drifting in the wrong direction.
+   - **`7-fix-now-applied-without-failing-state-observation` FAIL** (procedural, threshold=2): a Phase 7 `Fix it now` flow applied a tightening edit (per the tightening-fix detector in Phase 7 step 2a) WITHOUT recording the pre-edit verification sequence in the audit row evidence. Detection: scan the audit row for the Phase 7 step 2a evidence ("Pre-edit verification: actual=<X>, expected=<Y>, match=<y|n>"); if the row applied a tightening edit and that evidence string is absent, fail. Threshold=2 because a single occurrence may be a non-tightening edit the detector misclassified; two means the verification step is being skipped — the very failure mode this step exists to prevent.
    - **`1-scope-classifier-not-applied` FAIL** (procedural, threshold=2): Phase 1 audit row missing the `scope=lite|full; reason=<...>` evidence segment introduced by the 2026-05-19 scope-classifier remediation. Threshold=2 because a single occurrence may be the skill's first run on a new project before the operator has internalized the classifier; two means the gate logic is drifting.
    - **`3-or-5-relevance-prefilter-not-applied` FAIL** (procedural, threshold=2): Phase 3 or Phase 5 ran a sub-check whose `RELEVANCE_PREDICATES` predicate would have tripped given the diff content, but the prefilter step (Phase 3 step 1a or Phase 5 step 1a) was not invoked — i.e. the Phase 3 aggregate row is missing the `relevance-skipped=...` field entirely (not just `relevance-skipped=none`), OR Phase 5 evidence does not mention category skips when a predicate's triggers had zero diff-path matches. Threshold=2 because a single occurrence may be the skill's first run on a project before the predicates are tuned; two means the prefilter step is being bypassed.
    - **`1-shallow-clone-not-unshallowed` FAIL** (procedural, threshold=2): Phase 1 step 2a was not invoked OR `git rev-parse --is-shallow-repository` returned `true` and the clone was not unshallowed before Phase 1 step 3 / Phase 2's ancestry probes ran. Detected when the Phase 1 audit row is missing the `shallow-clone=<yes-unshallowed|no>` evidence segment, OR the row records `shallow-clone=yes-not-unshallowed`. Threshold=2 because a single occurrence may be the skill's first run on a new host before the operator has internalized the check; two means the gate is drifting.
