@@ -414,6 +414,19 @@
       "proposed_audit_tag": "7-fix-now-applied-without-failing-state-observation",
       "invocation_mode": "standalone",
       "parent": null
+    },
+    {
+      "ts": "2026-05-25T13:05:30Z",
+      "run_ref": "2026-05-25T13:05:00Z",
+      "target": "this branch into dev (current=bot/n-m3-20260525; head=0a625ea; base=dev)",
+      "category": "user_friction",
+      "_theme_slug": "skill-framing-overstates-requirement-relative-to-config",
+      "phase": "4",
+      "evidence": "User typed three clarification messages during the run: (1) 'continue , where are we in the process ? I dont understand ?' after Phase 4a smart-test-selection produced a long plan; (2) 'do we really need to run How should I handle the mandatory live UI tier ? is this really necsary ? which skill is ordering this ?' after I presented live UI as 'mandatory' when LIVE_UI_TEST_COMMAND=null config makes it cleanly skippable per the SKILL.md's own honest-exception clause; (3) 'I dont understand what is the problem , why are you re asking about which tests passed and which not , you should know this already' when I framed Phase 5 step 4c closure-narrative reconciliation as 'tests pass/not' instead of the actual binary 'verify the narrative claim or trust it'.",
+      "interpretation": "Recurring failure mode: skill prompts the user with framing that overstates the requirement or misrepresents the question relative to what the resolved config + SKILL.md text actually demand. Each instance forced a clarification round-trip the user did not need. In this run the issues were operator-level (my phrasing) not skill-text-level — but pattern repeats across runs (see 2026-05-15 'Phase 4 protected-files explanation required two rounds of plain-English re-explanation', 2026-05-19 'audit-table layout unreadable', 2026-05-22 'why didn't you suggest fix-in-session when it was the right default'). Root cause is likely SKILL.md emphasizes mechanical rule names ('mandatory', 'load-bearing', 'auto-route to Phase 7') without parallel emphasis on plain-English framing for the user. Possible remediation: add a Phase 7 step 0 'Frame the question, not the rule' checklist line — when surfacing an item, lead with WHAT decision the user is making in plain English, then cite the rule that surfaced it as the secondary justification.",
+      "proposed_audit_tag": null,
+      "invocation_mode": "standalone",
+      "parent": null
     }
   ],
   "review_log": [
