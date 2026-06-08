@@ -322,6 +322,18 @@
       "phases_failed": [],
       "quality_derived": "clean",
       "notes": "O-M2 limit/offset bound on admin_graph_backfill_group_names. 5 gates pass. 1 medium smell (drain-termination docstring) fixed in-flight; integration tier 55/7 vs claimed 56/7 reconciled+skipped (0 failures); live UI skipped (LIVE_UI_TEST_COMMAND=null). Timing fields omitted: started_at not stamped this session."
+    },
+    {
+      "ts": "2026-06-08T17:51:00+02:00",
+      "target": "bot/t-l4-20260608 -> dev (input: 'merge this branch into dev')",
+      "outcome": "closed",
+      "verdict": "GREEN",
+      "phases_failed": [],
+      "quality_derived": "clean",
+      "invocation_mode": "standalone",
+      "parent": null,
+      "parent_run_ts": null,
+      "notes": "T-L4 closure merge readiness — bug-bot pipeline close-the-loop PR. Removes deprecated module-level aliases TOOL_CATALOG / VALID_TOOL_NAMES + the now-orphaned _load_tool_catalog() / _TOOL_CATALOG_FALLBACK from agent_generator.py (per GAP-002-followup 'one release' directive), plus the 3-test TestToolCatalog class that exercised the removed constants. Diff: 4 files (agent_generator.py -83 LOC, test_agent_generator.py -18 LOC, BUGS_AND_GAPS.md T-L4 row removed, COMPLETED_STREAMS.md T-L4 closure added); 2 commits ahead / 0 behind dev. Phase 1: mode=current; head=bot/t-l4-20260608 (a1c3b1d, a merge of dev); base=dev; user input verbatim 'merge this branch into dev'; shallow-clone=no; scope=full; reason=registry/agent_generator.py matches HIGH_BLAST glob **/registry/**. Phase 2 clean: git 2.37 lacks --write-tree (exit 129) -> legacy `git merge-tree 7c70864 origin/dev bot/t-l4-20260608`; exit=0, 190 lines, 0 conflict markers; rev-list --count --left-right = 0\\t2 (ff possible). Phase 3: rules-source=.claude/skills/shared-pre-commit-check.md; smoke=PASS 442/1skip (31.25s); ruff `All checks passed!` on intelligence_platform/ tests/; protected=none; safety=ok; env-secrets=no-env-files; relevance-skipped=`phase3_lint_frontend: no frontend paths in diff`. Pre-flight grep confirmed the removed symbols (TOOL_CATALOG/VALID_TOOL_NAMES/_load_tool_catalog/_TOOL_CATALOG_FALLBACK) have ZERO live references remaining — only historical comments in 4 test files. Phase 4: smoke 442/1skip (31.25s), unit 1070/6skip (51.48s), integration 56/6skip (24.93s) — all green via docker-compose.test.yml; test-cache verbatim `[test-cache] disabled: no git HEAD (FileNotFoundError)` each tier; live UI skipped (LIVE_UI_TEST_COMMAND=null per config, HIGH_BLAST hit but no infra -> 4-live-test-skipped-without-justification does NOT trip). Phase 5: Skill(claude-library:code-diagnosis, args paths=agent_generator.py+test, skip_categories=[security]) OBSERVED; skip_security_category TRIPPED (no auth/security/routes), skip_performance_category NOT tripped (registry/** in diff). Findings: 0 BUGS, 1 LOW smell (agent_generator.py:285&297 duplicate ideal_tools fetch — PRE-EXISTING, not in diff), 1 opportunity (3x _tool_catalog_union per generate — PRE-EXISTING, intentional fresh-at-call-time design). TL;DR rendered BEFORE tables: '0 block merge, 1 follow-up, 1 refactoring'. Step 4 diff-anomaly: issue-ID set comparison dev vs HEAD shows EXACTLY 1 row removed (T-L4), 0 added (31->30 rows) — pure row removal + order-column renumber cascade. Step 4b closure-pairing: T-L4 closure narrative ADDED to COMPLETED_STREAMS.md + `| 6 | T-L4 |` row REMOVED from BUGS_AND_GAPS.md in same diff (correct Flow-8 pairing); 2 surviving 'T-L4' mentions in BUGS_AND_GAPS Last-updated header are narrative refs to 'the T-L4 bot run' in unrelated B-M2/B-M1/B-H1 closures, NOT the tracker row -> 5-tracker-closure-without-row-removal NOT tripped. Step 4c falsifiable-claim reconciliation: COMPLETED_STREAMS T-L4 narrative claims smoke 442/1, unit 1069/6, integration 56/6, ruff clean. Phase 4 ran ALL claimed tiers: smoke 442/1 EXACT, integration 56/6 EXACT, ruff clean EXACT, unit 1070 vs claimed 1069 (+1, ADDITIVE — branch HEAD a1c3b1d merges dev which added 1 unit test; also +1 deselected/tier; 0 failures either run, no pass->fail) -> claim 'all green' upheld+strengthened, NOT contradicted -> 5-closure-narrative-falsifiable-claims-not-reconciled NOT tripped. Phase 7: 0 unresolved items surfaced (empty-list auto-pass); 2 Phase 5 informational items pre-existing, did not auto-route. Phase 8: 6-row audit table, 0 FAIL tags; user typed verbatim 'merge approved'. Phase 8 step 5: 0 mid-run captures, 0 final-call entries. ENV NOTE: Docker daemon was down at Phase 3 start; user started Docker Desktop mid-run (user msg 'now is deamon running') and all container tiers ran cleanly after. Working tree clean at verdict (HEAD a1c3b1d). quality_derived=clean (closed + 0 negative-sentiment suggestions). Timing fields (phase_durations/duration_seconds) omitted: started_at not stamped to a precise wall-clock this session (matches O-M2 precedent same day). FAIL counters: NONE tripped this run."
     }
   ],
   "friction_log": [
@@ -334,6 +346,16 @@
       "phase": "4",
       "evidence": "Phase 4 live UI tier first invocation `docker compose -f docker-compose.test.yml run --rm backend pytest -m live -v tests/test_live_ui_workflow.py` SKIPPED both cases with `Dev stack not reachable at http://localhost:8000` because `localhost` inside the test container is the container's loopback, not the host. Fixed by overriding env: `docker compose -f docker-compose.test.yml run --rm -e LIVE_API_URL=http://host.docker.internal:8000 -e LIVE_MCP_URL=http://host.docker.internal:8003/mcp backend pytest -m live -v tests/test_live_ui_workflow.py`. After fix, db_only PASSED, dual_source FAILED on its own (test-spec issue, separate).",
       "interpretation": "Environmental friction with no clean SKILL.md fix — Docker networking topology is correctly isolated. The right remediation is operator-side: either document the `host.docker.internal` override in the SKILL.md as the canonical Phase 4 live UI invocation when using the test container on Docker Desktop, OR (cleaner) the project should expose `LIVE_API_URL` in `docker-compose.test.yml` as a service env var defaulting to `http://host.docker.internal:8000`. Per the observer's narrow exception for `dev_env_friction`, this is appended to friction_log[] rather than proposed in suggestions.md."
+    },
+    {
+      "ts": "2026-06-08T17:52:00+02:00",
+      "run_ref": "2026-06-08T17:51:00+02:00",
+      "target": "bot/t-l4-20260608 -> dev (input: 'merge this branch into dev')",
+      "category": "dev_env_friction",
+      "_theme_slug": "docker-daemon-not-running-at-skill-start",
+      "phase": "3",
+      "evidence": "Phase 3 first container command `docker compose -f docker-compose.test.yml ps` returned `error during connect: ... the docker daemon is not running ... open //./pipe/docker_engine: The system cannot find the file specified.` — daemon entirely off at skill start. User started Docker Desktop mid-run (verbatim 'now is deamon running'); after ServerVersion 25.0.3 came up all tiers ran clean (ruff pass, smoke 442/1, unit 1070/6, integration 56/6). User rejected my preceding PowerShell host-tooling probe (python/ruff/venv/docker checks).",
+      "interpretation": "New dev_env_friction theme distinct from dev-stack-staleness / test-container networking / test-container-no-db-credentials. Actionable skill-side remediation: a one-line `docker info` (or `docker compose version`) preflight at the ENTRY of Phase 3 that fails fast with a plain-English 'Docker daemon not reachable — start Docker Desktop' before the first tier command, instead of surfacing a raw Windows named-pipe error mid-phase; and prompt to start the daemon rather than probing host-installed python/ruff fallbacks. Count=1, no matching improvement_suggestions[] entry → below threshold, no suggestions.md proposal. Recorded here per the observer's narrow dev_env_friction exception."
     }
   ],
   "improvement_suggestions": [
@@ -483,7 +505,7 @@
     "last_validated_at": "2026-05-21T00:00:00+02:00",
     "last_research_at": null,
     "last_overlap_check_at": null,
-    "runs_since_validation": 5,
+    "runs_since_validation": 6,
     "thresholds": {
       "runs": 10,
       "days": 21

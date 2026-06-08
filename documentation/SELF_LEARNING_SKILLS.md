@@ -43,13 +43,33 @@ skills/<name>/
 The skill's flow:
 
 ```
-Phase 1..N-2  : Domain work (your custom phases)
-Phase N-1     : Pre-action self-audit (verbatim evidence, FAIL detection, approval gate)
-Phase N       : Update run-history ledger (append run, increment counters, trip remediation)
+Phase 0       : OPTIONAL — Freshness check (non-blocking nudge when stale + well-used)
+Phase 0.5     : Run plan (greenfield/describe only; non-skippable) — reuse/adapt/skip/create over the baseline
+Phase 1..N-2  : Domain work (your custom phases — the "baseline")
+Phase N-1     : Pre-action self-audit (verbatim evidence, FAIL detection, run-plan reconciliation, approval gate)
+Phase N       : Update run-history ledger (append run, increment counters, trip remediation, persist run_plan)
 Phase N+1     : OPTIONAL — Observer (qualitative signals, cross-run clustering, suggestion-only)
 ```
 
-Phases N-1 and N are **standardized** across all self-learning skills. Phase N+1 is **optional** — include it when the skill would benefit from a second vantage that catches what the audit's mechanical FAIL detection cannot. The domain phases are 1 through N-2.
+Phases N-1 and N are **standardized** across all self-learning skills. Phase 0.5 is **always-on** for greenfield/describe-generated skills and **absent** in convert-mode (fixed-sequence) skills. Phase N+1 is **optional** — include it when the skill would benefit from a second vantage that catches what the audit's mechanical FAIL detection cannot. The domain phases are 1 through N-2.
+
+## Per-run adaptive execution (Phase 0.5 run plan)
+
+Greenfield- and describe-generated skills are **adaptive**: instead of marching the same fixed phase sequence every run, a non-skippable `Phase 0.5` reads the user's request and builds a **run plan** before any domain phase fires. This is always-on DNA (no interview toggle), exactly like the timing and composition instrumentation. **Convert-mode-retrofitted skills are the one exception** — they stay fixed-sequence so their existing phase order is preserved byte-identical.
+
+**The run-plan model.** Phase 0.5 does four things: (1) quote the user's request verbatim; (2) start from the **baseline** — the domain phases (1..N-2) fixed at generation time, never a blank slate; (3) classify each baseline step as **reuse** / **adapt** (with a one-line `how`) / **skip** (with a one-line `justification` + the step's `tier`), and add **created** steps only when the run genuinely needs work the baseline doesn't cover; (4) emit the plan to run state.
+
+**Non-skippable machinery.** Phase 0.5, the audit, and the ledger can never appear in `run_plan.skipped[]`. Domain steps may be skipped, but **never silently**:
+- **Load-bearing** baseline steps may be skipped only with a substantive justification.
+- **Procedural/cosmetic** steps skip freely — still recorded.
+
+**Audit reconciliation (the load-bearing change).** The audit walks the run plan, not a fixed phase list: one row per *executed* step (reuse/adapt/create) and one **skip-justification row** per *skipped* baseline step. Two new FAIL rules (load-bearing, threshold=1) enforce it:
+- `plan-silent-skip` — a baseline step is absent from both executed rows and skip rows.
+- `plan-skipped-load-bearing-step-without-justification` — a load-bearing skip has an empty/placeholder justification.
+
+**Persistence + signal.** The ledger writes `run_plan` into the run's `runs[]` entry (optional field; fixed-sequence skills omit it). This gives the observer real cross-run signal: a baseline step skipped on most runs is a demote candidate (`baseline_step_rarely_used`); a `created` step that recurs is a promote-into-baseline candidate (`recurring_created_step`). Both stay suggestion-only — neither the planner nor the observer auto-edits the baseline.
+
+Template: `library/templates/self-learning-skill/run-plan-phase.md` (the Phase 0.5 body to inline). The generator (`meta-self-learning-skill-gen`) inlines it in Step 8a (sub-step 1.45) for greenfield/describe and skips it entirely in convert mode.
 
 ## The observer phase (optional, suggestion-only)
 
@@ -321,6 +341,20 @@ Don't pre-invent domain FAIL rules. Run the skill on real tasks; when a failure 
 
 Each remediation was applied automatically, reviewed in the user's normal commit flow, and reset the counter. The pattern works.
 
+## The research checkpoint (L1/L2 levels, orchestration, freshness coupling)
+
+The freshness check (Phase 0) is **passive** — it nudges the user when a skill is stale and well-used, but does nothing itself. The `meta-research-checkpoint` skill is its **active counterpart**: a suggestion-only, cadence-based sweep that actually does the research and resets the counter.
+
+**Two levels** (Level 3 — normal, non-self-learning skills — is explicitly out of scope):
+- **Level 1 — the meta layer.** Targets `meta-self-learning-skill-gen`, the `library/templates/self-learning-skill/*` template set, and this design doc. Orchestrates `/meta-discover-claude-features` (new Claude Code capabilities the pattern could adopt) + `/meta-skill-audit` (overlap) + `/quality-strategic-advisor` (pattern-level ideas).
+- **Level 2 — each generated self-learning skill.** Enumerates skills with `metadata.pattern: self-learning` (or a sibling `run_history.json`), selects those **due** by the `validation_freshness` AND-gate (or `--all`/`--skill` to force), and for each orchestrates `/meta-discover-claude-features` + `/quality-upgrade-advisor` scoped to that skill's domain + `/meta-skill-audit`.
+
+**Orchestration, not reimplementation.** The checkpoint invokes the repo's existing research skills (passing `invocation_mode=composed` so their own freshness/observer phases don't double-fire) and only falls back to raw web search for gaps. Findings aggregate into `documentation/RESEARCH_CHECKPOINT.md` (dated, append-only sections, each citing the source skill).
+
+**Freshness coupling closes the loop with zero new per-skill state.** After researching an L2 skill, the checkpoint appends a `validation_freshness.review_log[]` entry (`type: research`), sets `last_validated_at`/`last_research_at`, and resets `runs_since_validation` to 0. The freshness check opens the loop ("you're overdue"); the checkpoint satisfies it ("here's the research, counter reset"). These three writes (the report, the freshness reset, and optional observer `suggestions.md` proposals) are the **only** things the checkpoint writes — it never edits a skill's SKILL.md, frontmatter, or logic.
+
+**Cadence:** primarily on-demand (`/meta-research-checkpoint [--level 1|2|all] [--all] [--skill <name>]`); optionally scheduled via the `schedule` skill (cron). The AND-gate keeps scheduled runs cheap — fresh skills are skipped.
+
 ## What's NOT in this design
 
 Decisions deliberately kept simple at v1:
@@ -353,6 +387,7 @@ These don't block v1. Surface them when they matter.
 ## Templates in this repo
 
 - `library/templates/self-learning-skill/SKILL.md.tpl` — full SKILL.md template
+- `library/templates/self-learning-skill/run-plan-phase.md` — run-plan boilerplate (Phase 0.5, ALWAYS-ON for greenfield/describe)
 - `library/templates/self-learning-skill/freshness-phase.md` — freshness boilerplate (Phase 0, OPTIONAL, default opt-in)
 - `library/templates/self-learning-skill/audit-phase.md` — audit boilerplate (Phase N-1)
 - `library/templates/self-learning-skill/ledger-phase.md` — ledger boilerplate (Phase N)

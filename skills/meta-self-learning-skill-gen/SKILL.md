@@ -20,6 +20,7 @@ description: Generate a self-learning Claude Code skill through interactive inte
 
 **Templates this skill consumes**:
 - `library/templates/self-learning-skill/SKILL.md.tpl` — frame
+- `library/templates/self-learning-skill/run-plan-phase.md` — run-plan body (Phase 0.5) — always-on for greenfield/describe; consumed in Step 8a
 - `library/templates/self-learning-skill/audit-phase.md` — audit body (Phase N-1)
 - `library/templates/self-learning-skill/ledger-phase.md` — ledger body (Phase N) — emits timing + `quality_derived` UNCONDITIONALLY (no toggle)
 - `library/templates/self-learning-skill/run_history_schema_v1.md` — schema + bootstrap JSON (includes timing + sentiment fields)
@@ -29,6 +30,7 @@ description: Generate a self-learning Claude Code skill through interactive inte
 - `library/templates/self-learning-skill/observations_schema_v1.md` — observer schema + bootstrap JSON for `observations.json` and `suggestions.md`
 
 **Always-on instrumentation** (every generated skill inherits this; no interview toggle):
+- **Per-run adaptive execution (Phase 0.5 run plan).** Greenfield- and describe-generated skills always get a non-skippable Phase 0.5 that reads the user's request, starts from the generation-time baseline (Phases 1..N-2), and decides per step reuse/adapt/skip/create. The audit reconciles the plan (skip-justification rows + silent-skip FAIL), and the ledger persists `run_plan`. This is always-on DNA, NOT a toggle. **Convert mode is the one exception** — retrofitted skills stay fixed-sequence (no Phase 0.5, no run-plan reconciliation, no `run_plan`, no `plan-*` FAIL tags), preserving their existing phase order byte-identical.
 - Each domain phase stamps its own `phase_durations[<id>] = seconds_elapsed` to in-memory run state on exit.
 - Phase 0 (or Phase 1 if no Phase 0) stamps `started_at` once at run start.
 - The ledger phase computes `ended_at`, `duration_seconds`, and `quality_derived`, and writes all four fields plus `phase_durations` into the `runs[]` entry for this run.
@@ -53,11 +55,13 @@ The interview is the value. Resist the urge to skip questions; each one correspo
 ### Step 1 — Detect starting point
 
 1. **Check arguments and dispatch**:
-   - If the user passed `convert <path-to-skill-dir-or-SKILL.md>`: jump to the **Convert Mode** section below (Steps C1–C8). Greenfield Steps 2–10 do NOT run.
+   - If the user passed `convert <path-to-skill-dir-or-SKILL.md>`: jump to the **Convert Mode** section below (Steps C1–C8). Greenfield Steps 2–10 do NOT run. Convert mode produces **fixed-sequence** skills (no Phase 0.5 run plan).
+   - If the user passed `describe <free-text problem statement>` (or the user's first message is a prose description of a problem they want a self-learning skill for, rather than a structured interview answer): jump to the **Describe Mode** section below (Steps D1–D4). Describe mode qualifies the case, gap-fills adaptively, then funnels into the same build engine (Steps 6.5 → 10). Describe-generated skills are adaptive (Phase 0.5 on).
    - If the user passed `improve <skill-name>`: respond "Improve mode is not yet supported in v1. To modify an existing self-learning skill, open its SKILL.md directly." and stop.
-   - Otherwise: continue with greenfield generation (Steps 2–10).
-2. **Read the templates** (you'll substitute from them later). The first four are mandatory; the rest are loaded on demand based on Step 5.4 / 5.5 / 5.6 toggles:
+   - Otherwise: continue with greenfield generation (Steps 2–10). Greenfield-generated skills are adaptive (Phase 0.5 on).
+2. **Read the templates** (you'll substitute from them later). The first five are mandatory for greenfield/describe; the rest are loaded on demand based on Step 5.4 / 5.5 / 5.6 toggles:
    - `library/templates/self-learning-skill/SKILL.md.tpl`
+   - `library/templates/self-learning-skill/run-plan-phase.md` (always-on Phase 0.5 for greenfield/describe; NOT read in convert mode)
    - `library/templates/self-learning-skill/audit-phase.md`
    - `library/templates/self-learning-skill/ledger-phase.md`
    - `library/templates/self-learning-skill/run_history_schema_v1.md`
@@ -411,6 +415,7 @@ Frontmatter:
 Phase structure:
   <only if freshness_enabled is true:>
   Phase 0   — Freshness check (non-blocking, runs/days thresholds=<runs>/<days>)
+  Phase 0.5 — Run plan (non-skippable; reuse/adapt/skip/create over the baseline) [always-on]
   Phase 1 — <name>  (<tier>)
   Phase 2 — <name>  (<tier>)
   ...
@@ -432,6 +437,13 @@ Freshness check (Phase 0): <enabled|disabled>
   to revalidate (research + overlap check) when the skill has been used >= 10
   times AND >= 21 days have passed since last validation. run_history.json
   gets a `validation_freshness` block initialized to defaults.
+
+Per-run adaptive execution: always-on (no toggle, greenfield/describe)
+  Every generated skill gets a non-skippable Phase 0.5 that reads the user's
+  request and decides reuse/adapt/skip/create over the generation-time baseline.
+  The audit reconciles the plan (skip-justification rows; silent-skip FAIL) and
+  the ledger persists `run_plan`. Two `plan-*` FAIL tags are seeded. Convert mode
+  is the exception — it stays fixed-sequence.
 
 Efficiency instrumentation: always-on (no toggle)
   Every generated skill emits: per-phase `phase_durations`, total
@@ -503,7 +515,12 @@ When `generate` is received:
    - `{{SKILL_NAME}}` → from Step 2
    - `{{SKILL_PATH}}` → `<target_dir>/<name>` resolved to a relative path from the project root
 
-   If `freshness_enabled` is false, remove the entire Phase 0 placeholder block (heading + "Insert here" callout) so Phase 1 becomes the first phase. Also remove the surrounding `<!-- PHASE 0 ... -->` comment block above the placeholder.
+   If `freshness_enabled` is false, remove the entire Phase 0 placeholder block (heading + "Insert here" callout) so Phase 0.5 becomes the first phase. Also remove the surrounding `<!-- PHASE 0 ... -->` comment block above the placeholder.
+
+1.45. **Inline the Phase 0.5 run plan** (ALWAYS — greenfield and describe modes; no toggle). Replace the `## Phase 0.5 — Understand this run's expectations & build the run plan (non-skippable)` placeholder block in the template (the one with the "Insert here" callout) with the body of `library/templates/self-learning-skill/run-plan-phase.md` — the section that starts with `## Phase 0.5 — Understand this run's expectations & build the run plan (non-skippable)` and ends just before the next `---` horizontal rule (do NOT include the "Authoring notes" tail). Apply the substitution:
+   - `{{SKILL_NAME}}` → from Step 2
+
+   Also remove the surrounding `<!-- PHASE 0.5 ... -->` comment block above the placeholder. This step is NOT optional — every greenfield/describe-generated skill gets Phase 0.5. (Convert mode never reaches this step; it omits Phase 0.5 entirely.)
 
 1.5. **Inline the Mid-run suggestion capture block** if `suggestion_capture_enabled` is true (Step 5.5). Insert the body of `library/templates/self-learning-skill/suggestion-capture.md` — the section that starts with `## Mid-run suggestion capture` and ends just before the next `---` horizontal rule — between the `## Inputs` section and the first domain phase (i.e., right before the `---` divider that precedes Phase 1). Apply substitutions:
    - `{{SKILL_NAME}}` → from Step 2
@@ -533,6 +550,8 @@ When `generate` is received:
      - Phase i [pass] | <description>; user input verbatim: "<literal quote>"
      ```
    - `{{DOMAIN_FAIL_RULES}}` → from Step 6, formatted as bullet list. If Step 6 was skipped, write: `(none yet — accumulating from real runs)`.
+
+   **Keep the adaptive blocks** (greenfield/describe always do): retain audit step `1a` (run-plan reconciliation) and the two **Adaptive-execution FAIL rules** (`plan-silent-skip`, `plan-skipped-load-bearing-step-without-justification`) verbatim from `audit-phase.md`. These are what reconcile the Phase 0.5 run plan. (Convert mode strips them — see Step C6.)
 
 4. **Inline the ledger body.** Find the `## Phase {{N}} — Update the run-history ledger` placeholder block. Replace with the body of `ledger-phase.md` — the section that starts with `## Phase {{N}} — Update the run-history ledger` and ends just before the next `---` horizontal rule. Apply substitutions:
    - `{{N}}` → ledger phase number
@@ -569,7 +588,7 @@ When `generate` is received:
 
 #### 8b — Build run_history.json
 
-1. Use the **"Initial state"** JSON snippet from `run_history_schema_v1.md` verbatim as the base.
+1. Use the **"Initial state"** JSON snippet from `run_history_schema_v1.md` verbatim as the base. For greenfield/describe modes, **keep** the two adaptive seed counters (`plan-silent-skip`, `plan-skipped-load-bearing-step-without-justification`) — they pair with Phase 0.5. (Convert mode drops both; see Step C6.)
 2. **Apply suggestion-capture toggle** (from Step 5.5):
    - If `suggestion_capture_enabled` is `true`: keep the `"improvement_suggestions": []` line as it appears in the canonical Initial state.
    - If `suggestion_capture_enabled` is `false`: drop the `"improvement_suggestions": []` line entirely AND remove the trailing comma from the previous line so the JSON stays valid.
@@ -642,10 +661,12 @@ Run these mechanical checks. Fail loudly on any miss — DO NOT silently proceed
 
 1. **No orphan placeholders**: `Grep` the generated SKILL.md for `{{` — must return zero matches. If any placeholder remains, surface its location and offer to fix.
 2. **JSON is valid v1**: parse `run_history.json` (mentally or via `python -c "import json; ..."`). Confirm `version == 1`, `fail_counters` is an object, `runs` and `friction_log` are arrays.
-3. **Audit phase has correct row count**: count `- Phase` lines in the audit block — must equal the number of domain phases.
+3. **Audit phase reconciles the run plan** (greenfield/describe are always adaptive): confirm the audit block contains step `1a` (run-plan reconciliation) with the silent-skip and load-bearing-skip checks, AND that `run_history.json` seeds both `plan-silent-skip` and `plan-skipped-load-bearing-step-without-justification`. The `{{PHASE_AUDIT_ROWS}}` seed list should still carry one example row per baseline domain phase (the runtime walk overrides it from the actual run plan). *(Convert mode is fixed-sequence: there, instead verify the audit row count equals the number of domain phases and that the run-plan reconciliation step + `plan-*` tags are ABSENT.)*
+
+3a. **Phase 0.5 run plan present and non-skippable** (greenfield/describe): confirm a `## Phase 0.5 — Understand this run's expectations & build the run plan` heading exists, appears AFTER any Phase 0 freshness heading and BEFORE domain Phase 1, and that its body marks itself, the audit, and the ledger as non-skippable. Grep the SKILL.md for `run_plan` — must return ≥1 match (Phase 0.5 emits it; the ledger persists it). *(Convert mode: this heading MUST be absent.)*
 4. **Approval gate uses the literal token**: confirm the audit phase contains the exact approval token from Step 3 wrapped in backticks.
 5. **Last phase is correct**: if `observer_enabled` is false, the ledger is the last phase — no `## Phase` heading appears after the ledger block. If `observer_enabled` is true, the observer is the last phase — no `## Phase` heading appears after the observer block.
-6. **Phase numbering is contiguous**: 1, 2, ..., N with no gaps. Sub-phases (1.5, 5.5) are allowed but flag for review.
+6. **Phase numbering is contiguous**: 1, 2, ..., N with no gaps. The standing half-numbered phases `0.5` (run plan, expected on every greenfield/describe skill) and any `1.5`/`5.5`-style gates are allowed; flag only sub-phases other than `0.5` for review.
 7. **Suggestion-capture consistency**: confirm SKILL.md and run_history.json agree.
    - If `suggestion_capture_enabled` is true: SKILL.md MUST contain `## Mid-run suggestion capture` heading AND `run_history.json` MUST contain `"improvement_suggestions": []`.
    - If false: SKILL.md MUST NOT contain that heading AND `run_history.json` MUST NOT contain that key.
@@ -674,7 +695,7 @@ Run these mechanical checks. Fail loudly on any miss — DO NOT silently proceed
    Mismatch → fail loudly. This is the single largest source of cross-skill composition bugs; the check exists specifically to catch them at generation time.
 
 10b. **Efficiency instrumentation present**: confirm SKILL.md and templates wired the always-on instrumentation correctly. This check runs unconditionally — there is no toggle.
-   - The first phase (Phase 0 if freshness is enabled, else Phase 1) MUST contain a step that stamps `started_at` to the run-start timestamp before doing any work.
+   - The first phase MUST contain a step that stamps `started_at` to the run-start timestamp before doing any work. For greenfield/describe skills the order is Phase 0 (freshness, if enabled) → Phase 0.5 (run plan) → Phase 1, so the stamper is Phase 0 when freshness is enabled, otherwise Phase 0.5. (Convert/fixed-sequence: Phase 0 if freshness enabled, else Phase 1.)
    - Every domain phase (1..N-2) MUST contain a step that stamps its own `phase_durations[<id>] = seconds_elapsed` as it exits. Grep the SKILL.md for `phase_durations` — count must be >= number of domain phases.
    - The ledger phase MUST emit `started_at`, `ended_at`, `duration_seconds`, `phase_durations`, and `quality_derived` in the `runs[]` entry (search for all five field names in the ledger section).
    - When suggestion-capture is enabled, the capture body MUST include the sentiment classification step (search for `sentiment:` field in the capture block).
@@ -695,6 +716,7 @@ Tell the user how to verify the skill works end-to-end:
 ```
 Smoke test:
 1. Invoke the skill: /<skill-name> <example-input>
+1.5. Watch Phase 0.5 print a run plan (reuse/adapt/skip/create over the baseline). Try a second run with a narrower request — confirm at least one baseline step is skipped WITH a justification, and that the audit shows a skip-justification row for it (a silent skip would FAIL `plan-silent-skip`).
 2. Watch each domain phase report what it did, with evidence.
 3. The audit phase should:
    - List one row per domain phase, with verbatim quotes for any user input.
@@ -888,8 +910,8 @@ When `convert` is received:
 1a. **Insert the Phase 0 freshness check** if `freshness_enabled` is true. Use `Edit` to insert the body of `library/templates/self-learning-skill/freshness-phase.md` (the section starting with `## Phase 0 — Freshness check (non-blocking)` and ending just before the next `---`) ABOVE the existing first domain phase. Apply `{{SKILL_NAME}}` and `{{SKILL_PATH}}` substitutions. Existing phase headings are NOT renumbered — the freshness phase takes the previously-unused Phase 0 slot. Skip if disabled.
 
 2. **Insert the Mid-run suggestion capture block** if `suggestion_capture_enabled` is true. Use `Edit` to insert the body of `library/templates/self-learning-skill/suggestion-capture.md` (the `## Mid-run suggestion capture` section, before the next `---`) between the existing `## Inputs` section and the first existing domain phase. Apply `{{SKILL_NAME}}` and `{{SKILL_PATH}}` substitutions. Skip if disabled.
-3. **Append the audit phase** after the last existing domain phase. Use the body of `library/templates/self-learning-skill/audit-phase.md` with substitutions from C3/C4. Audit row count must equal the number of existing domain phases; rows for input-consuming phases include the verbatim-quote slot. Use the chosen heading prefix (`Phase` or `Step`) consistently. Include the suggestion-review final-call sub-step when `suggestion_capture_enabled` is true; omit when disabled.
-4. **Append the ledger phase** after the audit phase. Use `ledger-phase.md` with `{{SKILL_PATH}} → skills/<name>` substitution. Include the "Persist captured suggestions" step + suggestions line in run-end summary when `suggestion_capture_enabled` is true.
+3. **Append the audit phase** after the last existing domain phase. Use the body of `library/templates/self-learning-skill/audit-phase.md` with substitutions from C3/C4. **Convert mode is fixed-sequence: OMIT audit step `1a` (run-plan reconciliation) and the two Adaptive-execution FAIL rules (`plan-silent-skip`, `plan-skipped-load-bearing-step-without-justification`)** — there is no Phase 0.5 to reconcile. Audit row count must equal the number of existing domain phases; rows for input-consuming phases include the verbatim-quote slot. Use the chosen heading prefix (`Phase` or `Step`) consistently. Include the suggestion-review final-call sub-step when `suggestion_capture_enabled` is true; omit when disabled.
+4. **Append the ledger phase** after the audit phase. Use `ledger-phase.md` with `{{SKILL_PATH}} → skills/<name>` substitution. **OMIT the `run_plan` field from the `runs[]` entry** (fixed-sequence skills have no run plan). Include the "Persist captured suggestions" step + suggestions line in run-end summary when `suggestion_capture_enabled` is true.
 5. **Append the observer pattern (TWO sections, both required)** if `observer_enabled` is true. Use `library/templates/self-learning-skill/observer-phase.md` (see "Two sections to inline" in that template):
    - **5a.** Insert the `Observer file boundary` callout near the top of the SKILL.md — between the Mid-run suggestion capture block (or Inputs section if capture is disabled) and the first existing domain phase. Apply `{{N}}` substitution. This is what prevents domain phases from reading observer files.
    - **5b.** Append the observer Phase body after the ledger phase. Apply `{{N}}`, `{{SKILL_PATH}}`, `{{CLUSTER_THRESHOLD}}` substitutions.
@@ -900,7 +922,7 @@ When `convert` is received:
    - Append each `new_not_composed` entry to the existing `Plugin skills NOT composed` bullet list (or create it if missing).
    - Existing rows and bullets are preserved byte-identical — convert mode is additive only.
 7. **Append the "Self-learning checklist" section** at the bottom of the SKILL.md if it isn't already present (copy from `SKILL.md.tpl`'s tail).
-8. **Write `skills/<name>/run_history.json`** from the schema v1 "Initial state" snippet, plus any domain FAIL rules from C4. Include the `improvement_suggestions: []` field when `suggestion_capture_enabled` is true; omit otherwise. Include the `validation_freshness` block when `freshness_enabled` is true (substituting `created_at`/`last_validated_at` with the current ISO 8601 UTC timestamp and applying the chosen thresholds); omit otherwise.
+8. **Write `skills/<name>/run_history.json`** from the schema v1 "Initial state" snippet, plus any domain FAIL rules from C4. **Drop the two adaptive seed counters (`plan-silent-skip`, `plan-skipped-load-bearing-step-without-justification`)** — they pair with Phase 0.5, which convert mode does not add. Include the `improvement_suggestions: []` field when `suggestion_capture_enabled` is true; omit otherwise. Include the `validation_freshness` block when `freshness_enabled` is true (substituting `created_at`/`last_validated_at` with the current ISO 8601 UTC timestamp and applying the chosen thresholds); omit otherwise.
 9. **Write `skills/<name>/observations.json`** if `observer_enabled` is true:
    - **Empty** (per `observations_schema_v1.md` "Initial state") when retrospective seeding is disabled OR the existing `run_history.json` has no `runs[]` entries.
    - **Seeded** when retrospective seeding is enabled AND `runs[]` has entries: do a paper retrospective on each `runs[].notes`, `friction_log[]`, and any `improvement_suggestions[]` entries; produce 1+ seed `observations[]` entries with back-dated `ts` matching original run timestamps, verbatim evidence (no paraphrase), and category slugs from the standard table. `review_log[]` stays empty so the first live observer run can naturally trigger clustering against the seeded data.
@@ -910,7 +932,7 @@ Use `Edit` (not `Write`) for the SKILL.md changes so existing content is preserv
 
 ### Step C7 — Validate the converted skill
 
-Run the same checks as greenfield Step 9 (1–7 always; 8–9 when observer_enabled; 10 when `new_composed_skills` or `new_not_composed` is non-empty). Add two convert-specific checks:
+Run the same checks as greenfield Step 9 (1–7 always; 8–9 when observer_enabled; 10 when `new_composed_skills` or `new_not_composed` is non-empty). **Apply the fixed-sequence branch of Checks 3 and 3a**: audit row count MUST equal the number of domain phases, the run-plan reconciliation step + `plan-*` FAIL tags MUST be ABSENT, and no `## Phase 0.5` heading may exist. Add two convert-specific checks:
 
 10. **Original phase bodies preserved byte-identical** — diff each pre-existing phase block against the post-conversion file. Content must match exactly except for any tier annotation added in headings.
 11. **Frontmatter still parses** — confirm the new `metadata` block didn't break any existing field. Every key from the pre-conversion frontmatter must still resolve to the same value.
@@ -952,6 +974,75 @@ offending phase per the stored remediation hint.
 
 ---
 
+## Describe Mode — Generate from a natural-language problem statement
+
+This mode runs as a **separate dispatch** from greenfield and convert. The user describes a problem and what they expect in prose; the skill **qualifies** the case, **adaptively gap-fills** the generation variables (asking only for what it can't infer), then funnels into the **same build engine** greenfield uses — Steps 6.5 → 7 → 8 → 9 → 10. There is no second build path; describe mode is a smarter front-end that produces the exact same internal variable set the greenfield interview collects.
+
+**Invoke**: `/meta-self-learning-skill-gen describe <free-text problem statement>` — or simply describe the problem in prose when invoking the skill.
+
+Describe-generated skills are **adaptive** (Phase 0.5 run plan on, like greenfield).
+
+### Step D1 — Capture intent verbatim
+
+Record the user's problem statement and stated expectations **verbatim** into working state as `describe.intent`. This is the first audit-able artifact — never paraphrase it. If the statement is a single vague sentence, do not pad it; capture exactly what was said and let D3 surface the gaps.
+
+### Step D2 — Qualify
+
+Score the description against the **same six criteria as convert-mode Step C2**, adapted to a *description* rather than an existing SKILL.md:
+
+| # | Criterion | How to check against the description |
+|---|---|---|
+| 1 | Clear terminal action | Does the description name a final state-changing operation (commit, deploy, write a file, call an API)? |
+| 2 | Identifiable repeatable phases | Does the work decompose into steps that recur across invocations? |
+| 3 | A load-bearing rule | Is there a "must never" / "always" the skill has to honor? |
+| 4 | Consumes user input | Does each run take input (text, IDs, paths, structured)? |
+| 5 | Deterministic enough | Is it more than open-ended Q&A or chat? |
+| 6 | Stable / repeated enough | Is this a recurring task worth auditing, not a one-off? |
+
+Print a scorecard + verdict (same tiers as C2: **a fit** if 4+ pass; **borderline** if 3; **not a fit** if ≤2):
+- **Not a fit** → stop. Recommend a normal (non-self-learning) skill instead, naming the strongest blocker (e.g. "this is pure Q&A — an audit/ledger adds overhead with nothing to anchor on").
+- **Borderline** → surface the failing criteria and ask whether to continue anyway.
+- **A fit** → continue to D3.
+
+### Step D3 — Adaptive gap-fill loop
+
+Infer as many generation variables as possible from the description, then ask **only for what's missing or ambiguous**, looping until the set is complete. This is the "ask until we have enough" behavior — driven by the gap set, not a fixed script.
+
+The target variable set is exactly what greenfield collects:
+
+| Variable | Source |
+|---|---|
+| location + `target_dir` | usually **needs-input** (default `plugin`); validate as in Step 2 |
+| `SKILL_NAME` | propose from the intent; confirm (kebab-case, no collision — Step 2 rules) |
+| `ONE_LINE_DESCRIPTION`, `TRIGGER_KEYWORDS` | propose from the intent |
+| `LOAD_BEARING_PRINCIPLE` | propose from the strongest "must/never" in the intent |
+| terminal action + approval token | infer terminal action from the described end-state; approval token usually **needs-input** (validate: 1–4 words, lowercase) |
+| inputs (shapes + fallback) | infer from how the user described feeding the skill |
+| domain phases (+ tier, consumes-input, terminal flags per phase) | propose a phase breakdown from the described steps; confirm tiers (tiering needs user judgment) |
+| FAIL rules (Step 6) | default none unless the user described known failure modes |
+| freshness / suggestion-capture / observer toggles | apply greenfield defaults (Steps 5.4/5.5/5.6: y/y/n); ask only if the description implies otherwise |
+
+For each variable, show inferred values as **proposed** (user accepts or edits) and each unknown as **needs-input**. Present them in one consolidated block, let the user answer in bulk, and re-loop on whatever is still missing or rejected. Do NOT advance to D4 until every load-bearing variable (name, location, terminal action, approval token, ≥1 domain phase with a tier, load-bearing principle) is resolved.
+
+### Step D4 — Hand off to the build engine
+
+Once the variable set is complete, run the existing build engine unchanged:
+- **Step 6.5** (composition discovery — suggest-only)
+- **Step 7** (generation plan + wait for the literal `generate` token)
+- **Step 8** (build SKILL.md + run_history.json, including the always-on Phase 0.5)
+- **Step 9** (validate — adaptive branch of Checks 3/3a applies)
+- **Step 10** (smoke-test guidance)
+
+No build logic is duplicated — describe mode's only job was to assemble the variable set that Steps 6.5–10 consume.
+
+### Describe-mode edge cases
+
+1. **Intent too thin to qualify** (one ambiguous sentence) — don't reject outright; ask 1–2 sharpening questions first, then re-run D2. If still ≤2 criteria, stop with a recommendation.
+2. **User resists structure** (won't tier phases, won't pick an approval token) — these are load-bearing; explain why each is required and that the skill can't be generated without them. Do not invent them silently.
+3. **Description matches an existing skill's surface** — flag it (Step 6.5's scan will surface overlaps) and ask whether they want a new skill or to convert/extend the existing one.
+
+---
+
 ## Edge cases
 
 1. **Name collision**: Step 2 catches this; ask for a different name. Never overwrite.
@@ -978,9 +1069,12 @@ offending phase per the stored remediation hint.
 
 ```
 /meta-self-learning-skill-gen                              # greenfield: interview + generate a new skill
+/meta-self-learning-skill-gen describe <problem statement> # describe: qualify a prose problem, gap-fill, then generate
 /meta-self-learning-skill-gen convert <path-to-skill>      # convert: promote an existing skill to self-learning
 ```
 
-**Greenfield** walks Steps 1–10 with explicit gates and requires the literal `generate` token. The final result is a working `skills/<name>/` folder you can invoke immediately.
+**Greenfield** walks Steps 1–10 with explicit gates and requires the literal `generate` token. The final result is a working `skills/<name>/` folder you can invoke immediately. Greenfield-generated skills are adaptive (Phase 0.5 run plan on).
 
-**Convert** walks Steps C1–C8 instead, runs eligibility evaluation, extracts as much structure as possible from the existing SKILL.md, asks only for the gaps the audit + ledger pattern requires, and applies the conversion in place after the literal `convert` token. Existing phase bodies are preserved byte-identical.
+**Describe** walks Steps D1–D4 (capture intent → qualify → adaptive gap-fill → hand off), then funnels into the same build engine (Steps 6.5–10) and the same `generate` gate. Use it when you'd rather describe the problem in prose than answer a structured interview. Describe-generated skills are adaptive.
+
+**Convert** walks Steps C1–C8 instead, runs eligibility evaluation, extracts as much structure as possible from the existing SKILL.md, asks only for the gaps the audit + ledger pattern requires, and applies the conversion in place after the literal `convert` token. Existing phase bodies are preserved byte-identical. Convert-mode skills stay **fixed-sequence** (no Phase 0.5 run plan).

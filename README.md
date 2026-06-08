@@ -260,9 +260,10 @@ Skills are organized by **development phase** — find the phase you're in, pick
 | `/meta-discover-claude-features` | Scout official docs + community for new Claude Code features to adopt |
 | `/meta-experiment-feature` | Set up experiments for a specific feature you already know about |
 | `/meta-skill-audit` | Audit library for overlaps and gaps |
-| `/meta-self-learning-skill-gen` | Interactive generator for **self-learning skills** — interviews you about phases, terminal action, approval token, then assembles a working SKILL.md (audit + ledger inlined) and bootstraps run_history.json from `library/templates/self-learning-skill/`. See `documentation/SELF_LEARNING_SKILLS.md` for the pattern. |
+| `/meta-self-learning-skill-gen` | Generator for **self-learning skills**, three dispatch modes: greenfield interview, **`describe <prose>`** (qualify a natural-language problem → adaptive gap-fill → build), and `convert <path>` (retrofit an existing skill). Greenfield/describe skills are adaptive (non-skippable Phase 0.5 run plan: reuse/adapt/skip/create over the baseline); convert stays fixed-sequence. Assembles SKILL.md (audit + ledger inlined) and bootstraps run_history.json from `library/templates/self-learning-skill/`. See `documentation/SELF_LEARNING_SKILLS.md`. |
+| `/meta-research-checkpoint` | Suggestion-only, cadence-based research sweep at two levels — **L1** (the generator + pattern + templates) and **L2** (each self-learning skill, gated by the freshness AND-gate or `--all`). Orchestrates `/meta-discover-claude-features`, `/quality-upgrade-advisor`, `/quality-strategic-advisor`, `/meta-skill-audit`; aggregates findings into `documentation/RESEARCH_CHECKPOINT.md` and resets the freshness counter on researched skills. Never auto-edits. Level 3 (normal skills) out of scope. |
 
-> **Discovery workflow**: `/meta-discover-claude-features` finds what's new → you pick what's relevant → `/meta-experiment-feature` sets up the experiment → `/meta-skill-audit` checks the result fits cleanly.
+> **Discovery workflow**: `/meta-discover-claude-features` finds what's new → you pick what's relevant → `/meta-experiment-feature` sets up the experiment → `/meta-skill-audit` checks the result fits cleanly. For periodic upkeep of the self-learning machinery, `/meta-research-checkpoint` sweeps L1 + due L2 skills on demand.
 
 ---
 
@@ -352,6 +353,7 @@ claude_experiments/
 │   ├── meta-discover-claude-features/
 │   ├── meta-experiment-feature/
 │   ├── meta-project-setup/
+│   ├── meta-research-checkpoint/
 │   ├── meta-self-learning-skill-gen/
 │   ├── meta-skill-audit/
 │   └── quality-sync-docs/

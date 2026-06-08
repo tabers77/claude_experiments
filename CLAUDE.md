@@ -37,8 +37,14 @@ The 5 learning skills use `context: fork` + `agent: learning-coach` to get persi
 
 ### Self-Learning Skills Pattern
 A skill-authoring pattern for skills that improve their own `SKILL.md` based on real runs. Each skill keeps a local `run_history.json` ledger of categorical failure modes; when a counter trips its threshold, the skill auto-edits its body per a stored `remediation_hint`. Reference implementation: `shared-bug-gap-fix` (in the `intelligence-platform` repo). Templates and design doc live at:
-- `library/templates/self-learning-skill/` — `SKILL.md.tpl`, `audit-phase.md`, `ledger-phase.md`, `run_history_schema_v1.md`
+- `library/templates/self-learning-skill/` — `SKILL.md.tpl`, `run-plan-phase.md`, `audit-phase.md`, `ledger-phase.md`, `run_history_schema_v1.md`, `freshness-phase.md`, `suggestion-capture.md`, `observer-phase.md`, `observations_schema_v1.md`
 - `documentation/SELF_LEARNING_SKILLS.md` — design doc, invariants, authoring checklist
+
+**Per-run adaptive execution (Phase 0.5).** Greenfield- and describe-generated skills get a non-skippable `Phase 0.5` run-plan phase (always-on DNA, no toggle): it reads the user's request, starts from the generation-time baseline phases, and decides per step **reuse / adapt / skip / create**. The audit reconciles the plan (skip-justification rows; a baseline step in neither executed nor skipped rows is a `plan-silent-skip` FAIL; a load-bearing skip without justification is `plan-skipped-load-bearing-step-without-justification`), and the ledger persists `run_plan`. **Convert-mode-retrofitted skills stay fixed-sequence** (no Phase 0.5) to preserve their existing phase order byte-identical.
+
+**Generator dispatch modes.** `meta-self-learning-skill-gen` supports three: greenfield interview (default), **`describe <prose>`** (qualify a natural-language problem → adaptive gap-fill → same build engine), and `convert <path>` (retrofit an existing skill, fixed-sequence).
+
+**Research checkpoint.** `meta-research-checkpoint` is a suggestion-only, cadence-based sweep at two levels — **L1** (the generator + pattern + templates) and **L2** (each generated self-learning skill, gated by the `validation_freshness` AND-gate or forced with `--all`). It orchestrates existing research skills (`/meta-discover-claude-features`, `/quality-upgrade-advisor`, `/quality-strategic-advisor`, `/meta-skill-audit`), aggregates findings into `documentation/RESEARCH_CHECKPOINT.md`, and resets the freshness counter on researched L2 skills. **Level 3 (normal skills) is out of scope.** It never auto-edits a skill.
 
 ### Test-cache (shared, branch-level)
 A commit-SHA-keyed pytest result cache that's a property of the **target repo + branch**, not of any specific skill. Once a target repo opts in (one-time `conftest.py` snippet — see `documentation/TEST_CACHE_SETUP.md`), every pytest invocation in that repo participates: previously-passed tests for the current HEAD SHA are auto-deselected on a clean tree, and fresh results are auto-recorded to `documentation/test-results/<sha>.json` in the target repo. Any skill running pytest — `shared-bug-gap-fix`, `pr-merge-readiness`, `commit-ready`, raw human pytest, CI — contributes and benefits without skill-specific plumbing.
@@ -90,7 +96,7 @@ When updating roadmap status, priorities, or completed items:
 
 If a new priority item is added or an existing one is split/merged/completed, update both files in the same edit session.
 
-## Available Skills (26)
+## Available Skills (29)
 
 | Phase | Skills |
 |-------|--------|
@@ -98,9 +104,9 @@ If a new priority item is added or an existing one is split/merged/completed, up
 | Planning | `planning-impl-plan`, `planning-spec-from-text` |
 | Building | `learning-pair-programming`, `api-development-api-impl` |
 | Reviewing & Refactoring | `code-diagnosis`, `quality-bug-sweep`, `safe-changes-impact-check`, `safe-changes-refactor-safe`, `quality-sync-docs` |
-| Wrapping Up | `commit-ready` |
+| Wrapping Up | `commit-ready`, `pr-merge-readiness`, `smart-test-selection` |
 | Learning | `learning-algo-practice`, `learning-concept-recall`, `learning-debug-training`, `learning-code-review-eye` |
-| Library Maintenance | `meta-agent-teams`, `meta-discover-claude-features`, `meta-experiment-feature`, `meta-skill-audit`, `meta-self-learning-skill-gen` |
+| Library Maintenance | `meta-agent-teams`, `meta-discover-claude-features`, `meta-experiment-feature`, `meta-skill-audit`, `meta-self-learning-skill-gen`, `meta-research-checkpoint` |
 
 ## Skill Decision Guide
 

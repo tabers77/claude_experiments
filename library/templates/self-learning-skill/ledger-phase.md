@@ -34,9 +34,19 @@ Persist the audit so failure patterns become evidence over time.
      "quality_derived": "<clean|partial|failed|incomplete>",
      "invocation_mode": "<standalone | composed>",
      "parent": "<parent-skill-name | null>",
-     "parent_run_ts": "<iso8601 of parent's started_at | null>"
+     "parent_run_ts": "<iso8601 of parent's started_at | null>",
+     "run_plan": {
+       "request": "<verbatim user request from Phase 0.5>",
+       "baseline_steps": ["1", "2", "3"],
+       "reused": ["1"],
+       "adapted": [{"step": "2", "how": "<one line>"}],
+       "skipped": [{"step": "3", "justification": "<one line>", "tier": "<load-bearing|procedural|cosmetic>"}],
+       "created": [{"step": "3b", "why": "<one line>"}]
+     }
    }
    ```
+
+   **`run_plan`** is emitted ONLY by adaptive skills (those with a Phase 0.5 run plan; greenfield/describe-generated). It is the verbatim copy of the in-memory run plan Phase 0.5 built. Convert-mode fixed-sequence skills omit `run_plan` entirely — readers tolerate its absence (treat absence as "ran the full baseline"). The observer's `baseline_step_rarely_used` and `recurring_created_step` categories consume this field across runs.
 
    The three composition fields come from the skill's invocation args. Parse `invocation_mode=composed; parent=<name>; parent_run_ts=<ts>` from the args at run start (Phase 0 or Phase 1, before any phase work begins). When no `invocation_mode` arg is present, default to `invocation_mode: "standalone"` with `parent: null` and `parent_run_ts: null`.
 

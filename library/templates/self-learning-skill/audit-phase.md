@@ -30,12 +30,26 @@ The audit runs **before** the {{TERMINAL_ACTION}}. {{TERMINAL_ACTION_CAPITALIZED
 
    Each row format: `- Phase X [pass|FAIL] | <evidence>` where `<evidence>` is a literal command, output snippet, file:line reference, or quoted user input.
 
+1a. **Run-plan reconciliation** — *include this step only for adaptive skills (those with a Phase 0.5 run plan; greenfield/describe-generated). Convert-mode fixed-sequence skills omit step 1a and the adaptive FAIL rules below.*
+
+   When the skill has a Phase 0.5 run plan, the audit walks the **run plan**, not a fixed phase list:
+   - Emit one row per **executed** step (every entry in `run_plan.reused[]`, `run_plan.adapted[]`, `run_plan.created[]`) — same verbatim-evidence rules as step 1.
+   - Emit one **skip-justification row** per **skipped** baseline step: `- Phase X [skipped] | reason: "<justification from run_plan.skipped[]>" (tier: <tier>)`.
+   - **Silent-skip check:** every baseline step in `run_plan.baseline_steps` MUST appear in exactly one of the executed rows or the skip rows. A baseline step absent from both is a **silent skip** → mark FAIL with tag `plan-silent-skip`.
+   - **Load-bearing-skip check:** any load-bearing baseline step in `run_plan.skipped[]` whose justification is empty or a placeholder (`n/a`, `-`, `none`, whitespace) → mark FAIL with tag `plan-skipped-load-bearing-step-without-justification`.
+
+   The non-skippable phases (Phase 0.5, this audit, the ledger) are never expected as skip rows; if any appears in `run_plan.skipped[]`, mark FAIL (the planner misclassified machinery as domain work).
+
 2. **FAIL detection rules** — these trigger automatically; the skill cannot mark `pass` without satisfying them:
 
    **Universal FAIL rules** (every self-learning skill inherits these):
    - **`audit-paraphrased-user-input`** (load-bearing, threshold=1): any audit row that paraphrases user intent rather than quoting verbatim.
    - **`audit-no-explicit-approval-wait`** (procedural, threshold=2): skill advanced past a user-gate phase without observing the literal approval token.
    - **`tool-claim-without-call`** (load-bearing, threshold=1): audit row says "ran X" / "invoked Y" but no corresponding tool call observed in this session.
+
+   **Adaptive-execution FAIL rules** *(include only for adaptive skills with a Phase 0.5 run plan; omit for convert-mode fixed-sequence skills)*:
+   - **`plan-silent-skip`** (load-bearing, threshold=1): a baseline step (in `run_plan.baseline_steps`) is absent from both the executed rows and the skip-justification rows — i.e. it neither ran nor was explicitly skipped with a reason.
+   - **`plan-skipped-load-bearing-step-without-justification`** (load-bearing, threshold=1): a load-bearing baseline step appears in `run_plan.skipped[]` with an empty or placeholder justification.
 
    **Domain FAIL rules** (specific to this skill):
 

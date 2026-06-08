@@ -51,6 +51,29 @@ In that case, also drop `validation_freshness` from `run_history.json`.
 
 <!--
 ================================================================================
+PHASE 0.5 — Run plan (ALWAYS-ON for greenfield/describe-generated skills)
+================================================================================
+Insert the body of `library/templates/self-learning-skill/run-plan-phase.md`
+here. This phase is always-on DNA (no interview toggle) — it makes the skill
+adaptive: it reads the user's request, starts from the baseline domain phases,
+and decides per step reuse/adapt/skip/create. It is NON-SKIPPABLE.
+
+Convert-mode-retrofitted skills OMIT this phase entirely (they stay
+fixed-sequence by design). Omit it ONLY in convert mode.
+
+Substitution:
+  - `{{SKILL_NAME}}` → this skill's name
+================================================================================
+-->
+
+## Phase 0.5 — Understand this run's expectations & build the run plan (non-skippable)
+
+> **Insert here**: the body of `library/templates/self-learning-skill/run-plan-phase.md`
+> with this substitution:
+>   - `{{SKILL_NAME}}` → this skill's name
+
+<!--
+================================================================================
 DOMAIN PHASES (1 through N-2)
 ================================================================================
 Replace this section with your skill's domain phases. Each phase should have:
@@ -86,6 +109,11 @@ STANDARDIZED LAST TWO PHASES (do not customize structure)
 ================================================================================
 The audit phase and ledger phase are what make this a SELF-LEARNING skill.
 Do not modify their structure. Customize ONLY the placeholders.
+
+Together with Phase 0.5 (run plan), these two phases are NON-SKIPPABLE machinery
+— they can never appear in a run plan's skipped[] set. Domain phases (1..N-2)
+may be skipped via the run plan, but never silently (the audit reconciles every
+baseline step).
 
 To insert their bodies, copy from:
   - library/templates/self-learning-skill/audit-phase.md  (for Phase N-1)
@@ -153,6 +181,8 @@ Before the first invocation of a generated skill, verify:
 - [ ] At least one domain FAIL rule exists OR the rules section explicitly says "no domain rules yet — accumulating from runs."
 - [ ] Threshold tiers match phase severity: load-bearing=1, procedural=2, cosmetic=5.
 - [ ] The ledger phase (`Phase {{N}}`) is the last phase. No phase fires after it.
-- [ ] (Freshness opt-in only) `Phase 0 — Freshness check` is present as the FIRST phase, before Phase 1. It is non-blocking and prints nothing when fresh.
+- [ ] `Phase 0.5 — Understand this run's expectations & build the run plan` is present, non-skippable, and precedes domain Phase 1 (greenfield/describe-generated skills only; convert-retrofitted skills omit it).
+- [ ] The audit phase walks the run plan: one row per executed step + one skip-justification row per skipped baseline step. `plan-silent-skip` and `plan-skipped-load-bearing-step-without-justification` are seeded in `run_history.json`.
+- [ ] (Freshness opt-in only) `Phase 0 — Freshness check` is present as the FIRST phase, before Phase 0.5. It is non-blocking and prints nothing when fresh.
 - [ ] (Freshness opt-in only) `run_history.json` contains a `validation_freshness` block initialized to the schema's "Initial state" defaults (thresholds runs=10, days=21).
 - [ ] (Freshness opt-in only) The ledger phase contains the `validation_freshness.runs_since_validation` increment step. The skill MUST NOT self-certify freshness — only the user appends `review_log[]` entries.

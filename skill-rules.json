@@ -124,6 +124,16 @@
       "skill": "quality-bug-sweep",
       "triggers": ["find.*bug", "bug.*sweep", "scan.*project.*bug", "vulnerability.*scan", "severity.*bug", "comprehensive.*scan", "full.*project.*scan", "bug.*report"],
       "description": "Scan entire project for bugs with severity classification"
+    },
+    {
+      "skill": "meta-self-learning-skill-gen",
+      "triggers": ["self.?learning skill", "generate.*skill.*audit", "skill.*that.*improves itself", "self.?improving skill", "run.?history.*ledger", "describe.*skill.*for", "I want a skill that", "build me a skill", "create a skill.*that", "make a self.?learning"],
+      "description": "Generate a self-learning skill (greenfield, describe, or convert mode) — suggestion only"
+    },
+    {
+      "skill": "meta-research-checkpoint",
+      "triggers": ["research checkpoint", "check.*industry.*update", "latest.*update.*skill", "revalidate.*skill", "research.*improvements.*skill", "what.*new.*for.*skills", "freshness.*review.*skill", "are.*skills.*stale", "level 1.*level 2.*research"],
+      "description": "Multi-level (L1 meta + L2 self-learning skills) research checkpoint — suggestion only"
     }
   ]
 }

@@ -80,7 +80,15 @@ Append-only log, one entry per invocation:
     "3": 47,
     "...": "..."
   },
-  "quality_derived": "clean | partial | failed | incomplete"
+  "quality_derived": "clean | partial | failed | incomplete",
+  "run_plan": {
+    "request": "<verbatim user request>",
+    "baseline_steps": ["1", "2", "3"],
+    "reused": ["1"],
+    "adapted": [{"step": "2", "how": "<one line>"}],
+    "skipped": [{"step": "3", "justification": "<one line>", "tier": "procedural"}],
+    "created": [{"step": "3b", "why": "<one line>"}]
+  }
 }
 ```
 
@@ -100,6 +108,7 @@ Used to compute trends ("what fraction of runs aborted?"), correlate FAIL tags a
 | `invocation_mode` | enum | OPTIONAL. `standalone` (skill invoked directly by the user) or `composed` (skill invoked by another self-learning skill). Absent → treat as `standalone`. See "Composition" below. |
 | `parent` | string | OPTIONAL. When `invocation_mode == "composed"`, the name of the parent skill that invoked this one. Null/absent when standalone. |
 | `parent_run_ts` | ISO 8601 | OPTIONAL. When `invocation_mode == "composed"`, the `started_at` value of the parent's run. Lets the parent's ledger correlate child runs to the right parent run when computing `quality_derived`. |
+| `run_plan` | object | OPTIONAL. Present only for adaptive skills (those with a Phase 0.5 run plan). Records the per-run reuse/adapt/skip/create decisions over the generation-time baseline. Absent → the skill is fixed-sequence (ran the full baseline). See "Run plan" below. |
 
 ### Quality derivation
 
@@ -116,9 +125,39 @@ The observer phase uses `quality_derived` as the denominator when comparing wall
 
 ### Backward compatibility
 
-All five new fields (`started_at`, `ended_at`, `duration_seconds`, `phase_durations`, `quality_derived`) are OPTIONAL. Readers MUST tolerate their absence on any run. Pre-instrumentation runs simply don't participate in efficiency analysis — they still count for FAIL trends and friction logs.
+All five timing/quality fields (`started_at`, `ended_at`, `duration_seconds`, `phase_durations`, `quality_derived`) plus `run_plan` are OPTIONAL. Readers MUST tolerate their absence on any run. Pre-instrumentation runs simply don't participate in efficiency analysis — they still count for FAIL trends and friction logs. Fixed-sequence (convert-retrofitted) runs simply omit `run_plan`.
 
 The three composition fields (`invocation_mode`, `parent`, `parent_run_ts`) are also OPTIONAL — absence implies `standalone` invocation, which is the most common case.
+
+The `run_plan` object is also OPTIONAL — absence implies a fixed-sequence skill that ran its full baseline. Readers MUST NOT treat absence as an error.
+
+### Run plan
+
+Adaptive skills (greenfield/describe-generated, which carry a Phase 0.5 run-plan phase) record per-run adaptivity in `run_plan`. Convert-mode-retrofitted skills are fixed-sequence and omit it.
+
+```json
+"run_plan": {
+  "request": "<verbatim user request from Phase 0.5>",
+  "baseline_steps": ["1", "2", "3"],
+  "reused":  ["1"],
+  "adapted": [{"step": "2", "how": "<one line>"}],
+  "skipped": [{"step": "3", "justification": "<one line>", "tier": "procedural"}],
+  "created": [{"step": "3b", "why": "<one line>"}]
+}
+```
+
+| Field | Type | Meaning |
+|---|---|---|
+| `request` | string | Verbatim user request that Phase 0.5 planned against. Never paraphrased. |
+| `baseline_steps` | array | The generation-time baseline domain phase ids. Every id MUST appear in exactly one of `reused` / `adapted` / `skipped`. |
+| `reused` | array | Baseline step ids run as written. |
+| `adapted` | array | `{step, how}` — baseline steps run with a per-run modification. |
+| `skipped` | array | `{step, justification, tier}` — baseline steps not run. Load-bearing skips require a substantive justification (enforced by the `plan-skipped-load-bearing-step-without-justification` FAIL rule). |
+| `created` | array | `{step, why}` — steps added beyond the baseline for this run's needs. |
+
+**Invariant:** the union of `reused`, the `step` values of `adapted`, and the `step` values of `skipped` MUST equal `baseline_steps`. A baseline step missing from all three is a silent skip (the `plan-silent-skip` FAIL rule catches it at audit time). The non-skippable phases (Phase 0.5, audit, ledger) never appear in `skipped`.
+
+This field gives the observer real signal: a baseline step that lands in `skipped[]` on most runs is a demote/remove candidate (`baseline_step_rarely_used`); a `created` step that recurs across runs is a promote-into-baseline candidate (`recurring_created_step`). The observer stays suggestion-only — neither it nor the planner auto-edits the baseline.
 
 ### Composition
 
@@ -307,6 +346,24 @@ For a freshly-generated skill, initialize with the **universal seed FAIL rules**
       "occurrences": [],
       "remediation_hint": "Audit phase MUST verify the actual tool-call trace, not narration. Mark FAIL when the audit row says 'invoked X' but no Skill/Bash/Read call for X exists in the session.",
       "applied_at": null
+    },
+    "plan-silent-skip": {
+      "count": 0,
+      "threshold": 1,
+      "phase": "0.5",
+      "description": "A baseline domain step neither ran nor was explicitly skipped with a reason in the run plan — it vanished silently.",
+      "occurrences": [],
+      "remediation_hint": "Tighten Phase 0.5: every baseline step MUST land in exactly one of reused/adapted/skipped. Tighten the audit's run-plan reconciliation to FAIL when a baseline_steps id is absent from both executed rows and skip rows.",
+      "applied_at": null
+    },
+    "plan-skipped-load-bearing-step-without-justification": {
+      "count": 0,
+      "threshold": 1,
+      "phase": "0.5",
+      "description": "A load-bearing baseline step was skipped with an empty or placeholder justification.",
+      "occurrences": [],
+      "remediation_hint": "Tighten Phase 0.5: load-bearing baseline steps may be skipped ONLY with a substantive justification. Tighten the audit to FAIL when a load-bearing skip row has an empty/placeholder reason (n/a, -, none, whitespace).",
+      "applied_at": null
     }
   },
   "runs": [],
@@ -326,6 +383,8 @@ For a freshly-generated skill, initialize with the **universal seed FAIL rules**
   }
 }
 ```
+
+Include the two `plan-silent-skip` and `plan-skipped-load-bearing-step-without-justification` counters ONLY for adaptive skills (greenfield/describe-generated, which carry a Phase 0.5 run plan). Convert-mode fixed-sequence skills OMIT both — they have no run plan, so the rules can never trip.
 
 Omit the trailing `"improvement_suggestions": []` line when the generated skill opts OUT of the Mid-run suggestion capture block. The default for `meta-self-learning-skill-gen` is to include it; opt-out is reserved for skills that don't fit the pattern (single-phase, pure-interview, one-shot generators).
 

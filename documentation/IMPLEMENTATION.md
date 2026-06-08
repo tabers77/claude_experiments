@@ -1,11 +1,11 @@
 # Implementation Plan
 
-> Last updated: 2026-03-20
+> Last updated: 2026-06-08
 > Source: `/meta-discover-claude-features` audit + `/meta-skill-audit` gap analysis + `/quality-strategic-advisor` roadmap
 
 ## Current State
 
-The plugin has **24 skills**, **2 agents** (code-reviewer, learning-coach), **6 hook handlers** across 4 events (SessionStart, UserPromptSubmit, PreToolUse, PostToolUse), **4 rules**. Skills are organized by development phase (Setup → Plan → Build → Review → Wrap up → Learn).
+The plugin has **29 skills**, **2 agents** (code-reviewer, learning-coach), **6 hook handlers** across 4 events (SessionStart, UserPromptSubmit, PreToolUse, PostToolUse), **4 rules**. Skills are organized by development phase (Setup → Plan → Build → Review → Wrap up → Learn).
 
 **Discovery sources**: [Claude Code CHANGELOG.md](https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md), [official plugin docs](https://code.claude.com/docs/en/plugins), [undeadlist/claude-code-agents](https://github.com/undeadlist/claude-code-agents) (community agents + workflows).
 
@@ -79,6 +79,15 @@ Consolidated from the original problem statement. Tracks what motivated this pro
 - [x] **1.2 PreToolUse additionalContext**: Created `scripts/sensitive-file-hook.py` — injects context-aware guidance before editing sensitive files (auth, config, migration, secrets, security patterns). Replaced old PostToolUse alert.
 - [x] **1.3 SessionStart hook**: Created `scripts/session-start-hook.py` — validates plugin and shows skill count on new sessions. Added `SessionStart` hook to `plugin.json`.
 - [x] **0.6 Skill Description Optimization**: Updated 18 of 22 skill descriptions with "Use when..." trigger phrases and explicit keywords for auto-activation.
+
+### Session 2026-06-08
+
+- [x] **Adaptive skill generation + multi-level research checkpoint** (plan: `documentation/ADAPTIVE_SKILLGEN_AND_RESEARCH_CHECKPOINT_PLAN.md`). Three parts landed:
+  - **Part B — per-run adaptive execution (always-on DNA):** new `library/templates/self-learning-skill/run-plan-phase.md` (non-skippable Phase 0.5: reuse/adapt/skip/create over the baseline); `audit-phase.md` run-plan reconciliation + 2 FAIL rules (`plan-silent-skip`, `plan-skipped-load-bearing-step-without-justification`); `ledger-phase.md` + schema persist optional `run_plan`; observer gets `baseline_step_rarely_used` / `recurring_created_step`. Convert mode stays fixed-sequence (strips all adaptive blocks).
+  - **Part A — describe mode:** `meta-self-learning-skill-gen` gains a `describe <prose>` dispatch (Steps D1–D4: capture → qualify → adaptive gap-fill → same build engine).
+  - **Part C — `meta-research-checkpoint` skill:** suggestion-only L1 (meta layer) + L2 (due self-learning skills via freshness gate) sweep; orchestrates existing research skills; writes `documentation/RESEARCH_CHECKPOINT.md`; resets the freshness counter. L3 out of scope.
+- [x] Deleted empty `skills/log-decision/`; reconciled skill count to **29** (also surfaced `pr-merge-readiness` + `smart-test-selection` that were undocumented). Synced CLAUDE.md, README.md, `SELF_LEARNING_SKILLS.md`, `skill-rules.json`, `tests/test_skills.py` (floor → 29). All validation green (7/7).
+- [ ] **NEXT STEP — smoke test (plan §6.5):** generate one skill via `describe` mode, then run it twice with different prompts to exercise reuse/adapt/skip/create and confirm the audit emits skip-justification rows (and that a silent skip FAILs `plan-silent-skip`). Also run `/meta-research-checkpoint --level 1` and against one L2 skill. Not yet done.
 
 ---
 

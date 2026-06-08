@@ -427,6 +427,19 @@
       "proposed_audit_tag": null,
       "invocation_mode": "standalone",
       "parent": null
+    },
+    {
+      "ts": "2026-06-08T17:52:00+02:00",
+      "run_ref": "2026-06-08T17:51:00+02:00",
+      "target": "bot/t-l4-20260608 -> dev (input: 'merge this branch into dev')",
+      "category": "dev_env_friction",
+      "_theme_slug": "docker-daemon-not-running-at-skill-start",
+      "phase": "3",
+      "evidence": "Phase 3 first container command `docker compose -f docker-compose.test.yml ps` returned `error during connect: this error may indicate that the docker daemon is not running: Get \"http://%2F%2F.%2Fpipe%2Fdocker_engine/...\": open //./pipe/docker_engine: The system cannot find the file specified.` — the Docker daemon was entirely off at skill start (not a stale/misconfigured container). I then started a PowerShell host-tooling probe (checking for host-installed python / ruff / backend .venv / Docker Desktop process) which the user REJECTED mid-call; user instead started Docker Desktop and typed verbatim 'now is deamon running'. After the daemon came up (ServerVersion 25.0.3), all container tiers ran cleanly first try (ruff All checks passed!, smoke 442/1, unit 1070/6, integration 56/6).",
+      "interpretation": "Distinct from the three prior dev_env_friction themes (dev-stack-staleness = stale container deps; test-container-cannot-reach-host-localhost = live-UI networking; test-container-no-db-credentials = compose env vars) — this is the daemon being OFF entirely when the skill starts. Two actionable observations: (1) the skill discovers the daemon-down state only mid-Phase-3 via a raw Windows named-pipe error that is hard to read; a one-line preflight (`docker info` or `docker compose version`) at the ENTRY of Phase 3 (the first phase needing the container, given this project's standing preference to run pytest via docker-compose.test.yml per user MEMORY.md) would fail fast with a plain-English 'Docker daemon not reachable — start Docker Desktop and tell me when ready' before any tier command. (2) When the daemon is down, the right move is to prompt the user to start it, NOT to probe for host-installed python/ruff fallbacks — the user rejected exactly that probe. Count=1, new theme, no matching improvement_suggestions[] entry → no convergence, below threshold, NO suggestions.md proposal written. Per the observer's narrow exception for dev_env_friction, also appended to run_history.json:friction_log[].",
+      "proposed_audit_tag": null,
+      "invocation_mode": "standalone",
+      "parent": null
     }
   ],
   "review_log": [
