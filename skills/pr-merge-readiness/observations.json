@@ -453,6 +453,19 @@
       "proposed_audit_tag": "3-implementation-md-status-not-reported",
       "invocation_mode": "standalone",
       "parent": null
+    },
+    {
+      "ts": "2026-06-09T16:47:30+02:00",
+      "run_ref": "2026-06-09T16:46:49+02:00",
+      "target": "this branch into dev (current=bot/o-l3-20260609; head=e03224d; base=dev)",
+      "category": "missing_audit_category",
+      "_theme_slug": "performance-skip-predicate-misses-db-query-files",
+      "phase": "5",
+      "evidence": "Phase 5 step 1a: the skip_performance_category relevance predicate (triggers services/**, tools/**, registry/**, mcp/**) had 0 diff-path matches because the only changed source file is backend/intelligence_platform/auth/dependencies.py (auth/, not in the trigger globs). Per the predicate the performance category should be skipped — but the change IS an N+1->1 batched-select performance fix, so I overrode the prefilter and ran the performance category, recording the override in the Phase 5 evidence + audit row. The immediately-prior O-L2 run (2026-06-09, bot/o-l2-20260609, routes.py N+1 fix) hit the identical situation per its run_history note (verbatim): 'skip_performance_category predicate had 0 trigger matches (no services/tools/registry/mcp; change is in api/routes.py) but ran anyway since change is a perf fix'. Two consecutive bot N+1 closures (O-L2 in api/routes.py, O-L3 in auth/dependencies.py) both required a manual override of the performance-skip predicate.",
+      "interpretation": "The project's skip_performance_category triggers (services/tools/registry/mcp) omit two common DB-query file locations where N+1 / performance fixes actually land: api/routes.py and auth/dependencies.py. When a perf fix touches only those files, the relevance prefilter would suppress the single most relevant code-diagnosis category, requiring a manual override each time. This is a CONFIG-tuning signal (operator-side per the RELEVANCE_PREDICATES CRITICAL note that downstream projects MUST tune the globs), NOT a SKILL.md design defect — remediation is to add `**/api/routes.py` and `**/auth/**` to skip_performance_category.triggers so genuine perf fixes in those paths run the category without override. Count=1 in observations.json (2 real-world incl. the O-L2 run_history note); no matching improvement_suggestions[] entry -> no convergence; below threshold (3). Recording for cross-run clustering; no suggestions.md proposal this run.",
+      "proposed_audit_tag": null,
+      "invocation_mode": "standalone",
+      "parent": null
     }
   ],
   "review_log": [
