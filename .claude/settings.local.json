@@ -20,7 +20,9 @@
       "Bash(cp /c/Users/delacruzribadenc/Documents/Repos/my_own_projects/claude_experiments/scripts/pytest_test_cache.py /c/Users/delacruzribadenc/Documents/Repos/intelligence-platform/scripts/pytest_test_cache.py)",
       "Bash(cp /c/Users/delacruzribadenc/Documents/Repos/my_own_projects/claude_experiments/scripts/test_cache.py /c/Users/delacruzribadenc/Documents/Repos/intelligence-platform/scripts/test_cache.py)",
       "Bash(./venv/Scripts/python.exe -m pytest --help)",
-      "Bash(./venv/Scripts/python.exe -m pytest --collect-only -q)"
+      "Bash(./venv/Scripts/python.exe -m pytest --collect-only -q)",
+      "Bash(grep -c '`write changelog`' skills/changelog-entry-writer/SKILL.md)",
+      "PowerShell(Remove-Item *)"
     ]
   }
 }

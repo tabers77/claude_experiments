@@ -88,6 +88,7 @@ Consolidated from the original problem statement. Tracks what motivated this pro
   - **Part C — `meta-research-checkpoint` skill:** suggestion-only L1 (meta layer) + L2 (due self-learning skills via freshness gate) sweep; orchestrates existing research skills; writes `documentation/RESEARCH_CHECKPOINT.md`; resets the freshness counter. L3 out of scope.
 - [x] Deleted empty `skills/log-decision/`; reconciled skill count to **29** (also surfaced `pr-merge-readiness` + `smart-test-selection` that were undocumented). Synced CLAUDE.md, README.md, `SELF_LEARNING_SKILLS.md`, `skill-rules.json`, `tests/test_skills.py` (floor → 29). All validation green (7/7).
 - [ ] **NEXT STEP — smoke test (plan §6.5):** generate one skill via `describe` mode, then run it twice with different prompts to exercise reuse/adapt/skip/create and confirm the audit emits skip-justification rows (and that a silent skip FAILs `plan-silent-skip`). Also run `/meta-research-checkpoint --level 1` and against one L2 skill. Not yet done.
+  - Note (2026-06-09): a throwaway probe via `describe` mode (`changelog-entry-writer`) confirmed the end-to-end flow works — generation + Step 9 validation green, and two live runs exercised reuse-all vs. a justified load-bearing skip with a correct skip-justification audit row. Probe artifacts were discarded afterward; the formal smoke test (incl. an *unjustified* load-bearing skip to trip the FAIL, plus the research-checkpoint leg) is still outstanding.
 
 ---
 
