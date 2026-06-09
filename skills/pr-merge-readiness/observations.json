@@ -440,6 +440,19 @@
       "proposed_audit_tag": null,
       "invocation_mode": "standalone",
       "parent": null
+    },
+    {
+      "ts": "2026-06-09T09:10:44Z",
+      "run_ref": "2026-06-09T09:10:44Z",
+      "target": "this branch into dev (current=feat/documents; head=7655e43; base=dev)",
+      "category": "missing_audit_category",
+      "_theme_slug": "implementation-md-status-not-checked-by-default",
+      "phase": "3",
+      "evidence": "User asked mid-Phase-8 (verbatim): 'is documentation\\implementation_docs\\implementation.md up to date after this impletation ?' The skill had passed Phase 3's protected-files check by confirming implementation.md was NOT in the diff (correct per CLAUDE.md doc-sync + protected-files rules) but never proactively reported whether the doc REFLECTS the implemented work. On check: Stream P still marked 🟡 with all 12 P-steps ❌, and the implementation diverged materially from the documented plan (Azure Document Intelligence not Docling; text-embedding-3-large@1536 not ada-002; single uploaded-docs collection not per-project; migrations 0029+0030 not 0030-only; personal-project doc space built though the plan parked 'my files'/Option C as deferred at lines 321/340). User then stated (verbatim, captured as improvement_suggestions[] tag=0-always-check-implementation-md-status): 'we should aleys check the status of the impletmation file , and I THINK IT SHOULD be updateed in this branch since the next step will be to merge to dev directly'.",
+      "interpretation": "Two coupled signals. (1) The skill has no step that proactively reports implementation.md status vs. the branch's implemented work — Phase 3's protected-files check only confirms the file is ABSENT from the diff, which the user reads as 'not checked'. A Phase 3 (or Phase 5) sub-step should, when the diff implements a roadmap stream, read the relevant implementation.md section and report (a) whether step statuses still show ❌/🟡 and (b) whether the implementation diverged from the documented plan — surfacing both to Phase 7 as an informational item. (2) The user challenges the protected-files assumption itself: for a direct `git merge --ff-only feat/X dev` model (here 0 behind dev), updating implementation.md on the feature branch IS updating it on dev, so the user wants the status flip + divergence notes captured IN-BRANCH rather than as a separate dev-side commit. This CONTRADICTS the documented CLAUDE.md Documentation Sync Rule ('Never on a feature branch') + shared-pre-commit-check protected-files list — so it is a HUMAN-ADJUDICATION item, NOT a skill self-edit: resolving it may require a CLAUDE.md rule change, not just a SKILL.md change. Related but distinct from the 2026-05-18 observation askuserquestion-option-description-too-terse-for-workflow-consequence (that was about the option DESCRIPTION not explaining post-merge workflow; this is about the skill not CHECKING/REPORTING impl.md status at all, plus the in-branch-vs-dev policy question). Convergence rule trips: 1 observation (this) + matching improvement_suggestions[] entry this run (tag=0-always-check-implementation-md-status). Proposal written to suggestions.md flagging the documented-rule tension for human review.",
+      "proposed_audit_tag": "3-implementation-md-status-not-reported",
+      "invocation_mode": "standalone",
+      "parent": null
     }
   ],
   "review_log": [
@@ -630,6 +643,24 @@
       "suggestion_written_to": "skills/pr-merge-readiness/suggestions.md",
       "applied_at": "2026-05-22T00:00:00+02:00",
       "applied_via": "Added Phase 7 step 2a (Pre-edit verification for tightening fixes only) with mechanical tightening-fix detector (operator strictness, membership collapse, range tightening, whitelist narrowing, pattern strictness) and a verification sequence that runs the failing-state test BEFORE applying the edit. On actual != proposed precise value, surfaces discrepancy with three options instead of applying-then-reverting. Added FAIL tag `7-fix-now-applied-without-failing-state-observation` (procedural, threshold=2) to Phase 8 audit. Matching improvement_suggestions[] entry (2026-05-22T13:24:00, tag=verify-actual-state-before-tightening-assertions) marked applied."
+    },
+    {
+      "ts": "2026-06-09T09:10:44Z",
+      "trigger": "convergence",
+      "clustered_theme": "implementation-md-status-not-checked-by-default (skill confirms implementation.md is absent from the diff per protected-files rule but never reports whether the doc reflects the implemented work; user also challenges whether the status flip should happen in-branch for direct-ff-to-dev merges — a documented-rule tension needing human adjudication)",
+      "category": "missing_audit_category",
+      "observations_referenced": [
+        "2026-06-09T09:10:44Z"
+      ],
+      "matching_improvement_suggestions": [
+        {
+          "ts": "2026-06-09T09:10:44Z",
+          "tag": "0-always-check-implementation-md-status"
+        }
+      ],
+      "suggestion_written_to": "skills/pr-merge-readiness/suggestions.md",
+      "applied_at": null,
+      "applied_via": null
     }
   ]
 }
