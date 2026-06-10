@@ -466,6 +466,28 @@
       "proposed_audit_tag": null,
       "invocation_mode": "standalone",
       "parent": null
+    },
+    {
+      "ts": "2026-06-10T08:09:15Z",
+      "run_ref": "2026-06-10T08:09:15Z",
+      "target": "this branch into dev (current=bot/o-l4-20260610; head=3707d1d; base=dev)",
+      "category": "missing_audit_category",
+      "_theme_slug": "performance-skip-predicate-misses-db-query-files",
+      "phase": "5",
+      "evidence": "Phase 5 performance category SKIPPED via skip_performance_category predicate (triggers **/services/** **/tools/** **/registry/** **/mcp/** had 0 matches) because the only production file in the diff is backend/intelligence_platform/api/routes.py (under api/, not the predicate's globs). Yet routes.py contains the member-listing SELECT/JOIN (session.execute(_select(User.id,...).join(UserGroup,...).where(...).order_by(...))) AND the O-L4 change deliberately alters DB transaction shape (listing now runs in the SAME txn as the INSERT, relying on autoflush). The performance/N+1/transaction scan was suppressed on a change whose whole point is a DB-access pattern.",
+      "interpretation": "Second independent occurrence of the 2026-06-09 signal (same _theme_slug). The skip_performance_category predicate keys on service-layer dirs but api/routes.py is a first-class home for DB queries on this project. Cluster now at 2 (threshold 3). If it recurs once more, propose adding **/routes.py (and possibly **/api/**) to skip_performance_category.triggers so DB-query-bearing route handlers keep the performance scan.",
+      "proposed_audit_tag": null
+    },
+    {
+      "ts": "2026-06-10T08:09:15Z",
+      "run_ref": "2026-06-10T08:09:15Z",
+      "target": "this branch into dev (current=bot/o-l4-20260610; head=3707d1d; base=dev)",
+      "category": "user_friction",
+      "_theme_slug": "user-unsure-what-token-advances-the-gate",
+      "phase": "5",
+      "evidence": "After Phase 5 diagnosis output (before the Phase 7 resolution prompt) the user wrote verbatim: 'ok , shoudl I contnue , what should I type to proceed ? I odnt understand'. The skill had rendered findings but had not yet made explicit that it was waiting on the user nor what literal action advances the flow.",
+      "interpretation": "The skill's mid-run output assumes the operator knows the gate mechanic (resolve items -> 'merge approved'). A less-experienced operator could not tell whether the skill was working, blocked, or waiting on them. Distinct theme from phase-7-item-label-not-self-explanatory (2026-05-12) and askuserquestion-option-description-too-terse (2026-05-18): those are about WHICH option to pick; this is about WHETHER/HOW to advance at a phase boundary. Count=1, below threshold, no proposal. If it recurs, candidate remediation: at each user-gate phase transition, print a one-line 'where we are / what to type next' banner.",
+      "proposed_audit_tag": null
     }
   ],
   "review_log": [
