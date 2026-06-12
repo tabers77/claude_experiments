@@ -180,6 +180,46 @@
   },
   "runs": [
     {
+      "ts": "2026-06-12T16:30:42+02:00",
+      "target": "this branch (chat code) into dev (branch mode; target=feat/nonproject-chat-core; head=fc46ea9; base=dev)",
+      "outcome": "closed",
+      "verdict": "GREEN",
+      "phases_failed": [],
+      "started_at": "2026-06-12T16:12:12+02:00",
+      "ended_at": "2026-06-12T16:30:42+02:00",
+      "duration_seconds": 1110,
+      "phase_durations": {
+        "1": 60,
+        "2": 90,
+        "3": 200,
+        "4": 130,
+        "5": 520,
+        "7": 60
+      },
+      "quality_derived": "clean",
+      "notes": "Non-project chat feature (orchestrator streaming+citations+default-chat, project_documents chat-scoping, routes.py, settings env-override, db/models, migrations 0031+0032, large frontend). Input arrived as 'merge this branch into dev' while HEAD was feat/auth-route-protection; user re-invoked with 'this branch (chat code)' -> retargeted to feat/nonproject-chat-core (branch mode). Phase 1 scope=full, shallow=no. Phase 2 clean: old-form merge-tree showed 'changed in both' on BUGS_AND_GAPS.md (no conflict markers); authoritative worktree test-merge exit 0, 0 unmerged. Phase 3 smoke 515/1, ruff clean, ESLint+tsc clean, migrations 0031->0032 chain valid no collision (dev tops at 0030), env-secrets=no-env-files, relevance-skipped=none. Phase 4 smoke+unit+integration 1237 pass/15 skip +515 cached = 1752 passing; integration exercised the new migrations; live UI skipped (LIVE_UI_TEST_COMMAND=null, not FAIL). Phase 5 code-diagnosis observed (Bugs/Smells/Security/Performance/Opportunities all ran): 0 bugs / 1 branch-new benign smell (doc-cap TOCTOU) / 2 opportunities; falsifiable-claims none added. USER-REQUESTED ADR reconciliation vs chat_product_boundaries.md: honors §3 one-access-plane (no second DB path; same build_default_orchestrator->_resolve_project_tools->allowed_capabilities gate) but §5 data_access tier + §4 ProductTierCeiling NOT implemented (grep-confirmed absent) -- unbound none-tier ceiling enforced by seeded default_chat.tool_set + user grants (policy) not by construction; 0031 comment concedes admins can widen the row. Phase 7: 1 surfaced (ADR §5/§4 deferral), resolved via AskUserQuestion explicit choice 'Accept deferral, proceed (recommended)' = skip-with-logged-justification, §5 tracked as follow-up. User approval verbatim: 'merge approved'. Order note: merge before feat/auth-route-protection (auth built on this branch)."
+    },
+    {
+      "ts": "2026-06-12T16:05:38+02:00",
+      "target": "merge this branch into dev (current=bot/fa-1-20260612; head=04a9c77; base=dev)",
+      "outcome": "closed",
+      "verdict": "GREEN",
+      "phases_failed": [],
+      "started_at": "2026-06-12T15:52:05+02:00",
+      "ended_at": "2026-06-12T16:05:38+02:00",
+      "duration_seconds": 813,
+      "phase_durations": {
+        "1": 20,
+        "2": 15,
+        "3": 75,
+        "4": 160,
+        "5": 220,
+        "7": 90
+      },
+      "quality_derived": "clean",
+      "notes": "FA-1 lazy DuckDB rehydrate (tools/file_analytics.py + test + Flow-8 docs). Phase 1 scope=full (tools/ HIGH_BLAST), shallow-clone=no. Phase 2 clean (merge-tree exit 0, 0 conflict markers). Phase 3 smoke 508 passed/1 skipped, ruff 'All checks passed!', frontend lint skipped (no FE paths in diff), env-secrets=no-env-files. Phase 4 smoke+unit 1654 passed/6 skipped, test_file_analytics.py 20/20 incl new test_lazy_rehydrate_after_table_drop, mypy 0 net-new (2 findings pre-exist on untouched lines L37/L67), live UI skipped (LIVE_UI_TEST_COMMAND=null — honest exception, not a FAIL). Phase 5 code-diagnosis Skill call observed: 0 bugs / 1 code-moved follow-up smell / 3 refactoring opportunities; security category skipped per relevance predicate; TL;DR rendered first; diff-anomaly none; closure-pairing skipped (1 TRACKER_FILE) but FA-1 row-removal verified manually; 4/4 closure-narrative falsifiable claims reconciled in-session (ruff, file-smoke 9-of-20, smoke+unit 1654, mypy 0 net-new). Phase 7: 2 surfaced (1654 + mypy claims), both resolved by in-session re-run (verified, not skipped), 0 remaining. User approval verbatim: 'merge approved'."
+    },
+    {
       "ts": "2026-05-07T18:18:00+02:00",
       "target": "merge this branch into dev (current=feat/auth-foundation; head=7b7fd50ab97e4bfadfc1c97a7042e80b44a8eff0; base=dev)",
       "outcome": "closed",
@@ -439,6 +479,14 @@
       "parent": null,
       "parent_run_ts": null,
       "notes": "Stream Q (Tool Sensitivity Classification & Default Tool Tiers, Q-1…Q-5) feature-branch merge readiness. Diff: 19 files (+1292/-17): new mcp/tool_access.py (classification source of truth: TOOL_ACCESS dict, default-deny=REGULATED, access_of/allowed_levels/is_within_ceiling/ceiling_from_classification, _MCP_NAME_ALIASES); mcp/gateway.py (list_tools/list_tools_with_schema + _filter_by_access, max_access=None default); registry/capability_registry.py (list_capabilities/find_relevant_tools accept max_access, expose `access` tier); services/orchestrator.py (Q-3 call-time ceiling enforcement in dispatch loop with policy_denied event/log/tool_call_log; build_default_orchestrator Q-4 DEFAULT_CHATBOT_ACCESS_TIER); services/business_case_orchestrator.py (derive ceiling from agent.data_classification); api/routes.py + schemas.py (expose access tier on /capabilities + tool catalog); conf/settings.py (DEFAULT_CHATBOT_ACCESS_TIER setting); conf/logging_config.py (allow-list +ceiling +reason keys); frontend AgentsTab.tsx (Access tier Select picker, sends data_classification on edit); 6 test files; ARCHITECTURE.md Tool Governance section (+54); implementation.md Stream Q ✅; new tool_confidential_promotion_review.md. NOTE: per-phase clock boundaries not stamped at phase entry/exit; started_at/ended_at real wall-clock, phase_durations omitted (Phase 4 dominated: smoke 46.65s + changed-surface modules 36.33s). Phase 0: freshness NUDGE FIRED (21d>=21 AND runs_since_validation=12>=10, both conditions met) — printed the one-line block, proceeded to Phase 1 (non-blocking). Phase 1: mode=current; head=feat/tool-classification (89ceb08); base=dev; user input verbatim 'this branch into dev'; branch exists local+remote (both 89ceb08); shallow-clone=no (git rev-parse --is-shallow-repository=false); scope=full; reason=19 changed files (>10) AND HIGH_BLAST_PATHS matched (routes.py, orchestrator.py, business_case_orchestrator.py, mcp/gateway.py, mcp/tool_access.py, registry/capability_registry.py). Phase 2 clean: git 2.37.0.windows.1 lacks --write-tree (usage error exit 129) -> legacy 3-arg `git merge-tree <merge-base=a29dd25> origin/dev feat/tool-classification`; conflict-marker count=0, no 'changed in both'/'added in both' lines, pipeline exit=0. Phase 3: rules-source=.claude/skills/shared-pre-commit-check.md; smoke=505 passed/1 skipped/1193 deselected (46.65s, in container); lint=pass (ruff `All checks passed!` on 9 changed .py in container; frontend eslint clean; tsc --noEmit clean); protected=none-violated (implementation.md + ARCHITECTURE.md are in-PR Stream Q doc updates, allowed per COLLABORATION 'in the same PR' rule); ownership=warn (cross-stream feature: engine services/registry/mcp + shared routes/schemas/settings + frontend AgentsTab — single dev Carlos, expected; surfaced to Phase 7, acknowledged); safety=ok; env-secrets=no-env-files; relevance-skipped=none (phase3_smoke matched intelligence_platform/** + tests/**; phase3_lint_python matched *.py; phase3_lint_frontend matched frontend/** + *.tsx — all three ran). Phase 4: tiers via docker-compose.test.yml — smoke 505 passed/1 skipped/1193 deselected (46.65s), changed-surface modules [test_orchestrator, test_business_case_orchestrator, test_mcp_gateway, test_capability_registry, test_tool_access, test_tool_registry, test_api_integration] 332 passed/1 deselected (36.33s), 0 failures; ruff 9 changed files clean; frontend eslint+tsc clean; test-cache verbatim `[test-cache] disabled: no git HEAD (FileNotFoundError)` both pytest runs (container has no .git mount, fresh runs); live UI SKIPPED — HIGH_BLAST_PATHS hit so mandatory by blast-radius BUT LIVE_UI_TEST_COMMAND=null (honest no-infra exception) AND dev stack down (preflight curl http://localhost:8000/marketing/projects = HTTP 000, no dev containers in docker compose -f docker-compose.dev.yml ps) AND user justification recorded -> 4-live-test-skipped-without-justification does NOT trip. DEVIATION: ran smoke + changed-surface modules directly rather than delegating to claude-library:smart-test-selection — the changed-module↔test-file mapping was unambiguous (each changed source has a co-named test file in the diff); execution + telemetry produced verbatim. Phase 5: Skill(claude-library:code-diagnosis, full diff of 10 changed production files) OBSERVED; relevance prefilter: BOTH security category (routes.py matched skip_security_category triggers -> ran) AND performance category (services/registry/mcp matched skip_performance_category triggers -> ran) — no categories skipped. Findings: 0 BUGS / 0 blocks-merge; 1 LOW follow-up (_MCP_NAME_ALIASES dup of gateway._MCP_TO_FUNC @tool_access.py:48-53, self-documented deliberate trade-off deferred to Q-3 optional refactor); 2 refactoring opportunities (AgentsTab.tsx:121 create-path doesn't set data_classification — backend defaults internal so no functional gap; allowed_levels() set rebuild per is_within_ceiling call — negligible 4-element enum). Verified backward-compat: every new param defaults None/unbounded; default-deny=REGULATED protects unclassified FUTURE tools; all v1 tools <=INTERNAL so existing default-internal agents' executable set byte-for-byte unchanged (confirmed by passing characterization/invariant tests in test_tool_access.py); Q-3 rejects BEFORE tool lookup/dynamic-resolution (jailbreak-proof) + composes with Stream O by intersection; logging_config allow-list correctly extended with ceiling/reason keys matching new extra={} payloads. TL;DR rendered BEFORE detail: '0 block merge / 1 follow-up / 2 pure refactoring'. The 1 follow-up + 2 opportunities did NOT auto-route to Phase 7 (informational per Phase 5 step 5). Step 4 diff-anomaly: BUGS_AND_GAPS.md NOT in diff (no anomaly). Step 4b closure-pairing: FORMALLY SKIPPED (only 1 TRACKER_FILE configured, needs >=2). Step 4c falsifiable-claim reconciliation: no closure narratives in TRACKER_FILES/COMPLETED_STREAMS (neither in diff); implementation.md (not a TRACKER_FILE) marks Stream Q ✅ Complete with no falsifiable test-count/no-regressions claim matching the 4c regex set — nearest phrase 'full suite green with no test edits' is Q-5 acceptance-criteria text, corroborated regardless by this session's smoke 505-pass + 332-pass changed-surface with zero test edits needed. NOT tripped. User asked mid-audit whether implementation docs are updated post-implementation: verified YES in-PR (implementation.md Stream Q header+5 steps flipped 📋/❌ -> ✅ and roadmap moved to Closed; ARCHITECTURE.md Tool Governance section added; tool_confidential_promotion_review.md added) — flagged one plan-vs-implementation divergence: Stream Q 'Primary files' line still lists authz.py + sql_policy.py which the diff does NOT touch (shared allowed_levels helper implemented inside tool_access.py instead of factored from sql_policy — Q-3 marked that optional; Stream O intersection achieved by composition so authz.py needed no edit) — descriptive-prose staleness, not a status inaccuracy, not a blocker. Phase 7: 1 surfaced / 1 resolved with explicit choice — Item 1 (live UI tier): user selected verbatim 'Skip with justification (recommended)' via AskUserQuestion; recommendation gate marked that option (recommended) with smallest-blast-radius + config-states-no-infra rationale. Items 2-3 informational (ownership warn = warn not failure; alias-map = follow-up bucket, no auto-route). User then typed verbatim 'proceed to audit'. Phase 8: 6-row audit table (scope=full verbose form), 0 FAIL tags; user asked the impl-docs question (answered, audit rows unchanged), then typed verbatim 'merge approved'. Phase 8 step 5: 0 mid-run captures, 0 final-call entries. quality_derived=clean (closed + 0 phases_failed + 0 negative-sentiment suggestions). FAIL counters: NONE tripped. 4-live-test-skipped-without-justification NOT tripped (LIVE_UI_TEST_COMMAND=null no-infra honest skip + dev stack down preflight HTTP 000 + user justification). 5-code-diagnosis-narration-only NOT tripped (Skill call observed). 5-closure-narrative-falsifiable-claims-not-reconciled NOT tripped (no closure narratives in tracker/completed-streams files)."
+    },
+    {
+      "ts": "2026-06-11T14:28:09+02:00",
+      "target": "this branch into dev (fix/admin-home-ux-bugs)",
+      "outcome": "closed",
+      "phases_failed": [],
+      "ended_at": "2026-06-11T14:28:09+02:00",
+      "notes": "GREEN verdict. scope=full. Clean merge (mb f1c2cd3, 0 conflicts). ruff+eslint+tsc clean; smoke 507p; changed-area 181p; migration 15p on fresh volume. code-diagnosis: 0 bugs / 2 smells / 3 opps; both smells fixed-now (warning in _resolve_scoped_tool_names + typed ScopedToolsRequest/Response). 3 closure-narrative claims reconciled (incl fresh-DB re-run). Phase7: 2 surfaced / 2 resolved (push user-deferred; smells fix-now). started_at not stamped at Phase0 -> timing/quality fields omitted per skill rule. Branch not yet pushed; fix-now edits uncommitted (user committing)."
     }
   ],
   "friction_log": [
@@ -461,6 +509,12 @@
       "phase": "3",
       "evidence": "Phase 3 first container command `docker compose -f docker-compose.test.yml ps` returned `error during connect: ... the docker daemon is not running ... open //./pipe/docker_engine: The system cannot find the file specified.` — daemon entirely off at skill start. User started Docker Desktop mid-run (verbatim 'now is deamon running'); after ServerVersion 25.0.3 came up all tiers ran clean (ruff pass, smoke 442/1, unit 1070/6, integration 56/6). User rejected my preceding PowerShell host-tooling probe (python/ruff/venv/docker checks).",
       "interpretation": "New dev_env_friction theme distinct from dev-stack-staleness / test-container networking / test-container-no-db-credentials. Actionable skill-side remediation: a one-line `docker info` (or `docker compose version`) preflight at the ENTRY of Phase 3 that fails fast with a plain-English 'Docker daemon not reachable — start Docker Desktop' before the first tier command, instead of surfacing a raw Windows named-pipe error mid-phase; and prompt to start the daemon rather than probing host-installed python/ruff fallbacks. Count=1, no matching improvement_suggestions[] entry → below threshold, no suggestions.md proposal. Recorded here per the observer's narrow dev_env_friction exception."
+    },
+    {
+      "ts": "2026-06-12T16:06:00+02:00",
+      "run_ref": "2026-06-12T16:05:38+02:00",
+      "theme": "parallel-bash-cwd-leak-causes-false-green-test-run",
+      "detail": "Background smoke command inherited backend/ cwd from a parallel host `cd backend` call, failed to find docker-compose.test.yml, but reported exit 0 with pytest never running. Caught by reading the output file; re-ran from absolute repo-root path -> 508 passed/1 skipped. Lesson: invoke compose from an absolute path; verify pass-counts, not the wrapper exit code."
     }
   ],
   "improvement_suggestions": [
@@ -620,7 +674,7 @@
     "last_validated_at": "2026-05-21T00:00:00+02:00",
     "last_research_at": null,
     "last_overlap_check_at": null,
-    "runs_since_validation": 13,
+    "runs_since_validation": 16,
     "thresholds": {
       "runs": 10,
       "days": 21
