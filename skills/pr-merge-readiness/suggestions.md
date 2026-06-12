@@ -12,7 +12,7 @@ The observer never edits this file's existing sections — it only appends new p
 
 | Category | Theme | Count | Notes |
 |---|---|---|---|
-| `dev_env_friction` | `dev-stack-staleness` | 2 | Cross-run pattern at 2/3 threshold. One more occurrence flips to a `friction_log[]` proposal (per the observer's narrow exception). No SKILL.md edit proposed — environmental, not skill-logic. |
+| `dev_env_friction` | `dev-stack-staleness` | 3 | Threshold 3/3 reached on 2026-06-12 (feat/auth-route-protection: test container bakes pyproject.toml, so branch's `no_auth_override` marker warns as unknown across all tiers). Recorded to `run_history.json:friction_log[]` per the observer's narrow exception — no SKILL.md edit (environmental). Project-side fix candidate: mount `./backend/pyproject.toml:/app/pyproject.toml:ro` in docker-compose.test.yml. |
 | `missing_audit_category` | `tracker-closure-drift` | 1 | **Will trip the convergence rule on the first live observer run** because `improvement_suggestions[].tag = 5-impl-vs-tracker-check` already exists with matching theme. Proposed audit tag: `5-tracker-closure-without-row-removal`. |
 | `missing_audit_category` | `pre-existing-vs-regression` | 1 | Below threshold. Proposed audit tag: `3-pre-existing-vs-regression-not-distinguished`. |
 | `missing_audit_category` | `skipped-test-rationale` | 1 | Below threshold. Weak signal; observer would not propose at bootstrap. |

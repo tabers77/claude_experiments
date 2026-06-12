@@ -180,6 +180,15 @@
   },
   "runs": [
     {
+      "ts": "2026-06-12T17:35:00+02:00",
+      "target": "this branch into dev (current mode; head=feat/auth-route-protection; sha=ea8957f; base=dev)",
+      "outcome": "closed",
+      "verdict": "GREEN",
+      "phases_failed": [],
+      "quality_derived": "clean",
+      "notes": "Stream I step-69 route-level auth: routes.py gains decorator-level dependencies=[AUTHENTICATED|ADMIN_ONLY] (append-only, no handler signatures touched), conftest autouse _default_auth_override synthetic-admin migration shim + no_auth_override opt-out marker, new test_api_auth_smoke.py (401/403/200 per route family via dependency_overrides), frontend fetch->apiFetch token-injection migration + AdminGate console gate. Phase 1 scope=full (routes.py+auth/** HIGH_BLAST, 23 files), shallow=no. Phase 2 clean: git 2.37 lacks merge-tree --write-tree -> authoritative worktree probe (merge --no-commit --no-ff ea8957f into origin/dev) exit 0, 0 unmerged. Phase 3 smoke 515/1, ruff clean (container), ESLint+tsc exit 0, env-secrets=no-env-files, relevance-skipped=none; protected=implementation.md+testing_lessons.md (in-PR docs, allowed); ownership=warn cross-stream (BE shared routes.py append-only + FE Stream C + tests, legit for auth feature). Phase 4 smoke 515p/1s + unit 1191p/6s + integration 61p/11s all green in test container; test-cache disabled (no .git in container); live UI skipped LIVE_UI_TEST_COMMAND=null + user-accepted (not FAIL). Phase 5 code-diagnosis observed (skip_categories=[performance]): 0 bugs / 0 security / 2 branch-new low smells (no_auth_override marker warns because docker-compose.test.yml bakes pyproject.toml not mounts it -> dev_env_friction; autouse synthetic-admin false-green risk) / 1 opportunity; TL;DR rendered first; tracker 4b skipped (needs >=2 TRACKER_FILES), 4c no closure narratives; verified fetch->apiFetch migration complete (0 leftover raw fetch(${API_URL}), SSE via useSSE bearer token). Phase 7: 2 surfaced / 2 resolved explicit. Item1[phase4] real-token/JWKS uncovered -> user 'Skip w/ logged justification (recommended)' + 'proceed with option 1' (accepted: branch only wires pre-existing separately-tested deps onto /marketing). Item2[phase5] follow-up smells -> user 'Track as follow-up, don't fix now (recommended)'. Approval verbatim: 'merge approved'. Timing fields omitted (no reliable clock this session; not fabricated). Order note: feat/nonproject-chat-core already in dev (merge-base fc46ea9); auth built atop it."
+    },
+    {
       "ts": "2026-06-12T16:30:42+02:00",
       "target": "this branch (chat code) into dev (branch mode; target=feat/nonproject-chat-core; head=fc46ea9; base=dev)",
       "outcome": "closed",
@@ -515,6 +524,16 @@
       "run_ref": "2026-06-12T16:05:38+02:00",
       "theme": "parallel-bash-cwd-leak-causes-false-green-test-run",
       "detail": "Background smoke command inherited backend/ cwd from a parallel host `cd backend` call, failed to find docker-compose.test.yml, but reported exit 0 with pytest never running. Caught by reading the output file; re-ran from absolute repo-root path -> 508 passed/1 skipped. Lesson: invoke compose from an absolute path; verify pass-counts, not the wrapper exit code."
+    },
+    {
+      "ts": "2026-06-12T17:35:00+02:00",
+      "run_ref": "2026-06-12T17:35:00+02:00",
+      "target": "this branch into dev (current=feat/auth-route-protection; sha=ea8957f)",
+      "category": "dev_env_friction",
+      "_theme_slug": "dev-stack-staleness",
+      "phase": "3/4",
+      "evidence": "All three tiers (smoke 515/1, unit 1191/6, integration 61/11) emitted `PytestUnknownMarkWarning: Unknown pytest.mark.no_auth_override` even though the branch registers that marker in backend/pyproject.toml:131. Root cause: docker-compose.test.yml mounts ./backend/intelligence_platform, ./backend/tests, ./conftest.py and ./scripts but NOT pyproject.toml — pytest reads the marker registry / addopts / ruff+pytest config from the image-baked pyproject (image built ~27h before this branch added the marker). Cosmetic this run (get_closest_marker resolves regardless; no --strict-markers; code-under-test is live-mounted so results valid).",
+      "interpretation": "Third occurrence of the dev-stack-staleness theme (2026-05-07 + 2026-05-08 were the dev container missing fastapi-azure-auth / per-file-ignore), now extended to the TEST container: because pyproject.toml is baked not mounted, ANY pyproject change (markers, deps, ruff/pytest config) silently fails to reach the running tiers until an image rebuild. Threshold (3/3) reached. Per the tracker note and the observer's narrow dev_env_friction exception, this is recorded as a friction_log entry rather than a SKILL.md edit — environmental, not skill-logic. Candidate (non-skill) remediation for the project: add ./backend/pyproject.toml:/app/pyproject.toml:ro to the test backend volume mounts, OR a Phase-4-adjacent preflight that diffs image-baked pyproject vs the branch's. Not proposed as a skill change."
     }
   ],
   "improvement_suggestions": [
@@ -674,7 +693,7 @@
     "last_validated_at": "2026-05-21T00:00:00+02:00",
     "last_research_at": null,
     "last_overlap_check_at": null,
-    "runs_since_validation": 16,
+    "runs_since_validation": 17,
     "thresholds": {
       "runs": 10,
       "days": 21

@@ -3,6 +3,17 @@
   "_seed_note": "Bootstrapped from a paper retrospective on runs 1-2 of run_history.json (auth-foundation, bug-gap-skill-test). Back-dated to original run timestamps; review_log empty so cross-run clustering can fire on the first live observer run. Full retrospective at documentation/OBSERVER_RETROSPECTIVE_PR_MERGE_READINESS.md. Theme tracker-closure-drift will trip the convergence rule on first observer run because improvement_suggestions[] already contains 5-impl-vs-tracker-check.",
   "observations": [
     {
+      "ts": "2026-06-12T17:35:00+02:00",
+      "run_ref": "2026-06-12T17:35:00+02:00",
+      "target": "this branch into dev (current=feat/auth-route-protection; sha=ea8957f; base=dev)",
+      "category": "dev_env_friction",
+      "_theme_slug": "dev-stack-staleness",
+      "phase": "3/4",
+      "evidence": "smoke 515/1, unit 1191/6, integration 61/11 all emitted `PytestUnknownMarkWarning: Unknown pytest.mark.no_auth_override` despite the branch registering that marker at backend/pyproject.toml:131. docker-compose.test.yml mounts ./backend/intelligence_platform, ./backend/tests, ./conftest.py, ./scripts but NOT pyproject.toml -> container reads the image-baked (stale) pyproject.",
+      "interpretation": "Third occurrence of dev-stack-staleness (prior two: dev container missing fastapi-azure-auth / per-file-ignore on 2026-05-07 and 2026-05-08), now extended to the TEST container and to the pyproject marker/config surface. Threshold 3/3 reached. dev_env_friction has no SKILL.md fix -> recorded in run_history.json:friction_log[] per the observer's narrow exception, not proposed as a skill edit. Project-side remediation candidate: mount ./backend/pyproject.toml:ro into the test backend service.",
+      "proposed_audit_tag": null
+    },
+    {
       "ts": "2026-05-07T18:18:00+02:00",
       "run_ref": "2026-05-07T18:18:00+02:00",
       "target": "merge this branch into dev (current=feat/auth-foundation; head=7b7fd50ab97e4bfadfc1c97a7042e80b44a8eff0; base=dev)",
@@ -749,6 +760,21 @@
         }
       ],
       "suggestion_written_to": "skills/pr-merge-readiness/suggestions.md",
+      "applied_at": null,
+      "applied_via": null
+    },
+    {
+      "ts": "2026-06-12T17:35:00+02:00",
+      "trigger": "threshold",
+      "clustered_theme": "dev-stack-staleness (container images don't pick up branch pyproject.toml/dependency changes until rebuild — 2026-05-07 + 2026-05-08 were the dev container missing fastapi-azure-auth / per-file-ignore; this run extends it to the TEST container baking pyproject.toml, so a branch-registered pytest marker warns as unknown across all tiers)",
+      "category": "dev_env_friction",
+      "observations_referenced": [
+        "2026-05-07T18:18:00+02:00",
+        "2026-05-08T00:00:00+02:00",
+        "2026-06-12T17:35:00+02:00"
+      ],
+      "matching_improvement_suggestions": [],
+      "suggestion_written_to": "run_history.json:friction_log[] (NOT suggestions.md — dev_env_friction has no SKILL.md fix per the observer's narrow exception; project-side remediation candidate is mounting ./backend/pyproject.toml:ro into the test backend service in docker-compose.test.yml)",
       "applied_at": null,
       "applied_via": null
     }
