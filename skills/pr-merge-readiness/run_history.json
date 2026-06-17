@@ -180,6 +180,17 @@
   },
   "runs": [
     {
+      "ts": "2026-06-16T14:33:40Z",
+      "target": "this branch into dev (current mode; head=fix/admin-home-ux-bugs; sha=f218e7c; base=dev)",
+      "outcome": "closed",
+      "verdict": "GREEN",
+      "phases_failed": [],
+      "started_at": "2026-06-16T14:33:40Z",
+      "ended_at": null,
+      "quality_derived": "clean",
+      "notes": "fix/admin-home-ux-bugs = Section-6 PW-1..PW-7 prod-walkthrough fixes (one commit per issue) + identity preflight. New files: services/chat_intent.py (PW-3 intent gate), services/identity_preflight.py (RBAC preflight). Phase 1 scope=full (routes.py+orchestrator.py+business_case_orchestrator.py HIGH_BLAST, 34 files), shallow-clone=no. Phase 2 clean: git 2.37 lacks merge-tree --write-tree (exit 129) -> old-form merge-tree(merge-base 832e774) 0 conflict markers + authoritative worktree probe (merge --no-commit --no-ff onto origin/dev) 0 unmerged paths; probe failed ONLY on Windows unlink lock of BUGS_AND_GAPS.md (filesystem artifact, NOT a conflict) -> recovered via checkout -f (tree clean, _mtprobe deleted). Phase 3 smoke 520p/1s (30.23s container), ruff 'All checks passed!' container, ESLint+tsc clean, env-secrets=no-env-files, relevance-skipped=none; protected=none (ARCHITECTURE.md+BUGS_AND_GAPS.md non-status-bearing); ownership=warn multi-stream (A eval_sampler + B orchestrator/BCO/registry + C frontend + shared routes/schemas/settings). Phase 4 smoke 520p/1s + unit 1240p/6s + integration 63p/11s all green test container; test-cache '[test-cache] disabled: no git HEAD (FileNotFoundError)'; live UI required=y but LIVE_UI_TEST_COMMAND=null -> no infra (not FAIL); ran full backend tiers directly (not smart-test-selection) -- conservative given broad high-blast diff. Phase 5 code-diagnosis Skill observed (skip_categories=[]): 0 bugs / 0 security / 1 low branch-new smell (_crucial_info_banner roundabout bullet build in business_case_orchestrator.py) / 2 opportunities (chat_intent dead 'hey there' frozenset entry; small-talk all-vocab edge comment); TL;DR rendered FIRST (0 blocks merge / 1 follow-up / 2 refactoring); tracker step4 BUGS_AND_GAPS +17/-1 normal filed content no anomaly, 4b skipped (1 TRACKER_FILE <2), 4c clean (0 falsifiable claims in added lines). Phase 7: 1 surfaced / 1 resolved explicit (ownership warn -> user 'Confirm intentional, log & skip , but also move that stream to completed streams' (recommended)). User-initiated tracker-archive directive surfaced a convention conflict: Section 6 rows are '🟡 Fixed (pending live verify)' not ✅, and convention (BUGS_AND_GAPS.md line 10) archives resolved items in the status-flip commit -> offered 3 options, user selected 'Defer until live-verified (recommended)' -> NO working-tree change made. COMPLETED_STREAMS.md confirmed at documentation/archive/COMPLETED_STREAMS.md. Approval verbatim: 'merge approved'. ended_at/duration/phase_durations omitted (no reliable wall-clock this session; not fabricated)."
+    },
+    {
       "ts": "2026-06-12T17:35:00+02:00",
       "target": "this branch into dev (current mode; head=feat/auth-route-protection; sha=ea8957f; base=dev)",
       "outcome": "closed",
@@ -693,7 +704,7 @@
     "last_validated_at": "2026-05-21T00:00:00+02:00",
     "last_research_at": null,
     "last_overlap_check_at": null,
-    "runs_since_validation": 17,
+    "runs_since_validation": 18,
     "thresholds": {
       "runs": 10,
       "days": 21
