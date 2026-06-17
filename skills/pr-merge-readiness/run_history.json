@@ -507,6 +507,13 @@
       "phases_failed": [],
       "ended_at": "2026-06-11T14:28:09+02:00",
       "notes": "GREEN verdict. scope=full. Clean merge (mb f1c2cd3, 0 conflicts). ruff+eslint+tsc clean; smoke 507p; changed-area 181p; migration 15p on fresh volume. code-diagnosis: 0 bugs / 2 smells / 3 opps; both smells fixed-now (warning in _resolve_scoped_tool_names + typed ScopedToolsRequest/Response). 3 closure-narrative claims reconciled (incl fresh-DB re-run). Phase7: 2 surfaced / 2 resolved (push user-deferred; smells fix-now). started_at not stamped at Phase0 -> timing/quality fields omitted per skill rule. Branch not yet pushed; fix-now edits uncommitted (user committing)."
+    },
+    {
+      "ts": "2026-06-17T10:02:00+02:00",
+      "target": "THIS BRANCH INTO DEV",
+      "outcome": "closed",
+      "phases_failed": [],
+      "quality_derived": "clean"
     }
   ],
   "friction_log": [
@@ -704,7 +711,7 @@
     "last_validated_at": "2026-05-21T00:00:00+02:00",
     "last_research_at": null,
     "last_overlap_check_at": null,
-    "runs_since_validation": 18,
+    "runs_since_validation": 19,
     "thresholds": {
       "runs": 10,
       "days": 21

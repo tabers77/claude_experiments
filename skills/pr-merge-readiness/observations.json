@@ -565,6 +565,17 @@
       "evidence": "Phase 2 step 2 ran `git merge-tree --write-tree --name-only origin/dev fix/admin-home-ux-bugs` -> exit 129, stderr `usage: git merge-tree <base-tree> <branch1> <branch2>` (git version 2.37.0.windows.1; --write-tree needs 2.38+). Old-form `git merge-tree <merge-base 832e774> origin/dev <head>` ran clean (exit 0, 0 conflict markers). I then ran an authoritative worktree probe but implemented it as a TEMP-BRANCH CHECKOUT IN THE LIVE WORKING TREE (`git branch -f _mtprobe origin/dev; git checkout _mtprobe; git merge --no-commit --no-ff <head>`). On Windows this failed mid-merge: `error: unable to unlink old 'documentation/implementation_docs/BUGS_AND_GAPS.md': Invalid argument` (filesystem lock), exit 128, leaving HEAD detached on _mtprobe with the branch's changes spilled across the live tree as uncommitted modifications. Recovered via `git checkout -f fix/admin-home-ux-bugs` (lock was transient/held by the in-flight merge) + `git branch -D _mtprobe`; verified tree clean + diff-vs-branch empty. The 2026-05-11 observation already proposed the correct fallback shape (`git worktree add --detach $TMPDIR origin/dev` in an ISOLATED dir, not the live tree) — had that been the prescribed Phase 2 fallback, the live-tree lock + recovery dance would not have occurred.",
       "interpretation": "Third real-world occurrence of the git-version-compat theme (2026-05-08 + 2026-05-11 noted prior; this run is the third), and the first to demonstrate a concrete FAILURE of the ad-hoc fallback rather than a benign degrade: improvising the worktree probe as a live-tree temp-branch checkout caused a Windows unlink lock that briefly corrupted the working-tree/HEAD state and required `checkout -f` recovery. The SKILL.md still prescribes only `git merge-tree --write-tree` (2.38+) with no codified fallback, so each run re-improvises. Proper remediation (a Phase 2 sub-step): parse `git --version`; if <2.38, use EITHER the read-only old-form `git merge-tree <merge-base> origin/<BASE> <head>` (scan stdout for conflict markers + `changed in both` — which worked cleanly first this run) OR an ISOLATED `git worktree add --detach $TMP origin/<BASE>` + `git merge --no-commit --no-ff <head>` + read `git diff --diff-filter=U` + `git worktree remove --force` — NEVER a temp-branch checkout in the live working tree. observations.json count for this theme is now 2 (2026-05-11 + this); threshold 3 / no matching improvement_suggestions[] entry this run -> no proposal yet, recorded for clustering.",
       "proposed_audit_tag": "2-git-version-fallback-not-automatic"
+    },
+    {
+      "ts": "2026-06-17T10:02:00+02:00",
+      "run_ref": "2026-06-17T10:02:00+02:00",
+      "target": "THIS BRANCH INTO DEV",
+      "category": "user_friction",
+      "_theme_slug": "unclear-next-steps-at-decision-points",
+      "phase": "cross-phase",
+      "evidence": "User mid-run, verbatim: \"again , you are not bein clear about next steps, what should I do now ?\"",
+      "interpretation": "The skill advanced through phases without leading each user-facing pause with an explicit 'what you should do now' instruction; the user had to ask twice. Phase 7/8 prompts state the approval token but earlier inter-phase narration buried the next action.",
+      "proposed_audit_tag": null
     }
   ],
   "review_log": [
