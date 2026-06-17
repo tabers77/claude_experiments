@@ -58,7 +58,7 @@ The user can switch modes mid-session by saying "I'll take this one", "you handl
 
 ### 1) Understand the Task
 
-**First**: Check your memory for existing progress (`pair-programming.md`). If found, load the learner's patterns practiced, decisions made, and areas where they needed guidance. Greet with context: "Welcome back — last time you worked on [X] and did well with [Y]. Let's build on that."
+**First**: Check your memory for existing progress (`pair-programming.md`). If found, load the learner's patterns practiced, decisions made, areas where they needed guidance, and the `Session preferences` from last time's feedback (driver-split bias, hint timing, pacing). Apply those preferences from the start of this session. Greet with context: "Welcome back — last time you worked on [X] and did well with [Y]. You asked me to [preference, e.g. 'let you drive more before hinting'], so I'll do that. Let's build on that."
 
 Read the relevant code and ask clarifying questions:
 - What exactly needs to be built/changed?
@@ -199,7 +199,17 @@ After all steps are complete:
 [Confirm the implementation is complete and working]
 ```
 
-**After the recap**: Save all progress to memory. Update `pair-programming.md` with patterns practiced, key decisions made, and areas where guidance was needed. Update `MEMORY.md` with a concise session summary.
+**After the recap, ask for feedback on the session itself.** The recap describes what *you* observed; this asks the user how the pairing *felt* so future sessions adapt. Ask directly:
+
+> **"Before we close — how did that session feel?"**
+> - Was the **driver split** right, or did you want to drive more / less?
+> - Were the **hints** well-timed, or did I jump in too early / leave you stuck too long?
+> - Was the **pace** right — too much hand-holding, or too fast?
+> - Anything you want me to do differently next time?
+
+Treat the answer as a directive for future sessions, not just a comment. Map it to concrete adjustments — e.g. "drive more" → bias the adaptive driver toward user-driven steps next time; "hints too early" → wait longer before escalating the hint ladder.
+
+**After the feedback**: Save all progress to memory. Update `pair-programming.md` with patterns practiced, key decisions made, areas where guidance was needed, **and a `Session preferences` section capturing the user's feedback as actionable adjustments** (driver-split bias, hint timing, pacing). On the next session's greeting (Step 1), load these preferences and honor them. Update `MEMORY.md` with a concise session summary.
 
 ---
 
