@@ -666,3 +666,42 @@ Add the corresponding counter to `run_history.json:fail_counters`:
 **Status:** unreviewed
 **Applied at:** null
 **Applied via:** null
+
+## 2026-06-24 — Theme: git-version-compat-not-handled-in-skill
+
+**Pattern observed in 5 runs:**
+- 2026-05-11T17:00:00+02:00: `git merge-tree --write-tree` exit 129 (git <2.38), ad-hoc fallback to old-form merge-tree.
+- 2026-05-20T17:30:00+02:00: same exit-129 fallback recorded.
+- 2026-06-16T14:33:40Z: exit 129 → old-form merge-tree + worktree merge probe.
+- 2026-06-18T13:15:31Z: exit 129 → old-form merge-tree + rev-list descendant check.
+- 2026-06-24T12:51:55Z: exit 129 → old-form `git merge-tree bf59bbb origin/dev HEAD` (0 conflicts) + authoritative `git merge --no-commit --no-ff origin/dev` (exit 0, 0 unmerged, aborted clean).
+- 2026-06-24T14:14:04Z: exit 129 → old-form `git merge-tree bf59bbb origin/dev HEAD` reported **0 conflict markers (FALSE CLEAN)**, but authoritative `git merge --no-commit --no-ff origin/dev` caught a real `CONFLICT (modify/delete) routes.py` (exit 1, 1 unmerged). The text-marker scan structurally cannot see modify/delete conflicts (they carry no `<<<<<<<` markers). **Had the operator trusted the old-form marker scan alone, the skill would have green-lit a merge that drops Stream S security code.**
+
+**Interpretation:** SKILL.md Phase 2 step 2 prescribes `git merge-tree --write-tree --name-only origin/<BASE_BRANCH> <head>` as the primary probe. This host runs git 2.37, where `--write-tree` does not exist — the command exits 129 (usage error) on *every* run, and the operator improvises a fallback each time. It has never once succeeded on this host across 5 recorded runs. The fallback works, so it is non-blocking, but the prescribed-then-failing primary path is pure recurring friction and makes the Phase 2 audit-row evidence inconsistent run-to-run.
+
+**Proposed change to SKILL.md:**
+- In Phase 2, BEFORE the merge-tree probe, add a step: "Detect the git version (`git --version`). If ≥ 2.38, use `git merge-tree --write-tree --name-only origin/<BASE_BRANCH> <head>`. If < 2.38, skip straight to the old-form `git merge-tree $(git merge-base origin/<BASE_BRANCH> <head>) origin/<BASE_BRANCH> <head>` conflict-marker scan **plus** an authoritative worktree probe (`git merge --no-commit --no-ff origin/<BASE_BRANCH>` → inspect unmerged paths → `git merge --abort`)." This removes the guaranteed exit-129 on older git and makes the Phase 2 evidence shape deterministic per host.
+- Alternatively, add audit FAIL tag `2-git-version-fallback-not-automatic` (procedural, threshold=2) for when Phase 2 runs the unsupported form without a version pre-check.
+- **Strengthened by the 2026-06-24T14:14:04Z run:** make the authoritative `git merge --no-commit --no-ff` probe MANDATORY on every run (not just the old-git fallback). The text-marker scan structurally misses modify/delete conflicts — relying on `merge-tree` marker output alone can false-clean a real conflict.
+
+**Status:** unreviewed
+**Applied at:** null
+**Applied via:** null
+
+## 2026-06-24 — Theme: relevance-predicate-globs-drift-from-real-paths (RELEVANCE_PREDICATES trigger globs silently stop matching after refactors, wrongly skipping load-bearing-adjacent checks)
+
+**Pattern observed in 3 runs (2 channels):**
+- 2026-06-09T16:47:30+02:00: `skip_performance_category` triggers (`services/`, `tools/`, `registry/`, `mcp/`) omit common DB-query file locations — a diff touching only those would wrongly skip the performance category.
+- 2026-06-10T08:09:15Z: second independent occurrence of the same performance-predicate gap.
+- 2026-06-24T14:14:04Z: `skip_security_category` trigger `**/routes.py` matches a *file* named routes.py, not files inside a `routes/` package. After this run's god-file→package split, the glob matched ZERO changed paths and would have skipped the security category on freshly-ported **project-access enforcement** code. Operator overrode and ran security explicitly.
+
+**Interpretation:** `RELEVANCE_PREDICATES` trigger globs are a hand-maintained positive whitelist. They are brittle to two forces: (a) incomplete enumeration (the performance case — real DB-query dirs never listed), and (b) layout refactors that invalidate a path literal (the security case — `**/routes.py` dies the moment `routes.py` becomes `routes/`). Both produce the same failure: a stale glob silently suppresses a security/performance scan on exactly the code that needed it. The prefilter is "conservative-by-default" only if the globs are correct; a stale glob inverts that — it skips by omission. This is the dangerous direction (false skip), not the safe one (false run).
+
+**Proposed change to SKILL.md:**
+- In Phase 3 step 1a and Phase 5 step 1a, add a **fail-safe override**: before honoring a `skip_*` predicate, also test the changed paths against a coarse content signal for that category — for security, any changed file whose path contains `auth`, `authz`, `security`, `route`, `permission`, `access`, `policy`, OR whose diff body adds/removes `Depends(`, `HTTPException(403`, `is_admin`, `_enforce_`, `_can_access` → force the security category to RUN regardless of the glob predicate. The glob whitelist may only *trigger* a check, never *suppress* one that the content signal demands.
+- Alternatively (lighter): document in the config block's CRITICAL note that path-literal globs like `**/routes.py` MUST be re-tuned after any package/layout refactor, and add audit FAIL tag `3-or-5-predicate-glob-stale-after-refactor` (procedural, threshold=2) for when the operator manually overrides a predicate's skip decision (the override itself is the signal the glob is stale).
+- Project-specific follow-up for *this* repo: broaden `skip_security_category.triggers` from `**/routes.py` to `**/routes.py` + `**/routes/**` so the predicate survives the routes-package split this run validated.
+
+**Status:** unreviewed
+**Applied at:** null
+**Applied via:** null

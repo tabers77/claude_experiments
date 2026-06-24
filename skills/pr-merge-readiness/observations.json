@@ -576,6 +576,74 @@
       "evidence": "User mid-run, verbatim: \"again , you are not bein clear about next steps, what should I do now ?\"",
       "interpretation": "The skill advanced through phases without leading each user-facing pause with an explicit 'what you should do now' instruction; the user had to ask twice. Phase 7/8 prompts state the approval token but earlier inter-phase narration buried the next action.",
       "proposed_audit_tag": null
+    },
+    {
+      "ts": "2026-06-18T13:15:31.324213+00:00",
+      "run_ref": "2026-06-18T13:15:31.324213+00:00",
+      "target": "this branch into dev (current=feat/gap-009-issue-intelligence; sha=4626ef2; base=dev)",
+      "category": "missing_audit_category",
+      "_theme_slug": "git-version-compat-not-handled-in-skill",
+      "phase": "2",
+      "evidence": "Phase 2 ran `git merge-tree --write-tree --name-only origin/dev HEAD` -> exit 129 (git 2.37.0.windows.1; --write-tree needs 2.38+). Fell back to old-form `git merge-tree 9996faa origin/dev HEAD` (0 conflict markers) + `git rev-list --left-right --count origin/dev...HEAD` = `0  3` (strict descendant). Same exit-129 fallback recorded 2026-05-11 (observer) and 2026-05-08 (run_history notes).",
+      "interpretation": "Recurring: SKILL.md Phase 2 prescribes `merge-tree --write-tree` which fails on git <2.38 the operator runs, forcing ad-hoc fallback every run. Third+ real occurrence of git-version-compat-not-handled-in-skill. Remediation (per 2026-05-11 obs): parse `git --version` and auto-branch to old-form/worktree below 2.38. No matching improvement_suggestions[] entry yet -> convergence does not trip; recording for clustering.",
+      "proposed_audit_tag": "2-git-version-fallback-not-automatic"
+    },
+    {
+      "ts": "2026-06-18T13:15:31.324213+00:00",
+      "run_ref": "2026-06-18T13:15:31.324213+00:00",
+      "target": "this branch into dev (current=feat/gap-009-issue-intelligence)",
+      "category": "missing_audit_category",
+      "_theme_slug": "doc-count-guard-drifts-when-branch-adds-tests",
+      "phase": "4",
+      "evidence": "Phase 4 integration tier failed `test_doc_test_counts.py::test_documented_test_counts_match_live_suite` solely because the branch added 21 tests (test_issue_intelligence.py) pushing live unit 1278 past documented ~1200 (>5%). Fix = documented `scripts/check_test_counts.py --update` -> CLAUDE.md tidied 540/1300/70/1900 -> guard re-run passed. Follow-on: the CLAUDE.md edit was reverted in the working tree after the guard re-run (harness flagged external/intentional modification back to ~520/~1200/~71/~1789), so the guard will fail again at merge unless re-refreshed.",
+      "interpretation": "Any branch adding non-trivial tests trips the integration-tier doc-count guard; the skill discovers it only as a Phase 4 failure. Cheap improvement: when Phase 1 diff shows added/changed test files, pre-note likely doc-count drift and pre-stage the check_test_counts.py --update refresh as recommended fix-now. First occurrence; below threshold, recorded for clustering.",
+      "proposed_audit_tag": null
+    },
+    {
+      "ts": "2026-06-22T09:04:57Z",
+      "run_ref": "THIS BRANCH INTO DEV (2026-06-22)",
+      "target": "THIS BRANCH INTO DEV",
+      "category": "dev_env_friction",
+      "_theme_slug": "windows-worktree-path-length",
+      "phase": "cross-phase",
+      "evidence": "git worktree add into deep scratchpad temp path failed: 'error: unable to create file backend/intelligence_platform/vendor/base_agents/assistant_agent_with_fact_checking.py: Filename too long' then 'fatal: Could not reset index file to revision HEAD'. Retrying with a short root (C:/ipmerge) succeeded.",
+      "interpretation": "Worktree-based merge-testing on Windows breaks when the worktree root is a long path (MAX_PATH 260): the deep vendor filename overflows. Use a short worktree root. Also: a failed `cd $wt` in a compound `cd && git merge` line silently ran the merge in the MAIN repo — use `git -C` instead of cd-chaining for destructive git in worktree flows.",
+      "proposed_audit_tag": null
+    },
+    {
+      "ts": "2026-06-23T07:56:30Z",
+      "run_ref": "2026-06-23T07:56:12Z",
+      "target": "this branch into dev (current=bot/pt-2-20260623; head=b56f10d; base=dev)",
+      "category": "redundant_phase",
+      "_theme_slug": "smart-test-selection-bypassed-when-full-tiers-required-for-closure-reconciliation",
+      "phase": "4",
+      "evidence": "Phase 4 ran the full backend tiers directly (smoke 543p/1s, unit 1304p/6s, integration 63p/11s in the test container) rather than delegating to claude-library:smart-test-selection as Phase 4 step 1 mandates. Reason recorded verbatim: the PT-2 closure narrative added to COMPLETED_STREAMS.md asserts exact per-tier counts ('smoke tier -> 543 passed, 1 skipped', 'unit tier -> 1304 passed', 'integration tier -> 63 passed') which Phase 5 step 4c requires reconciling against this session's actual evidence; smart-test-selection's pruning of irrelevant tiers would make full-tier-count reconciliation impossible. Same bypass occurred on run 2026-06-16T14:33:40Z ('ran full backend tiers directly (not smart-test-selection) -- conservative given broad high-blast diff').",
+      "interpretation": "When a diff is broadly high-blast AND/OR a closure narrative asserts full-tier pass counts that Phase 5 step 4c must reconcile, the Phase 4 smart-test-selection delegation is structurally counterproductive — a pruned subset cannot verify a full-tier claim. The operator correctly bypasses it each time, but as an undocumented per-run deviation that costs a Phase 7 surfaced item + user round-trip. Possible remediation: add an explicit Phase 4 step 1 branch — 'If Phase 5 step 4c will reconcile a closure-narrative tier-count claim OR the diff matches >=N HIGH_BLAST_PATHS globs, run the full tiers directly and record the smart-test-selection bypass as a documented branch (not a Phase 7 deviation).' This converts a recurring user-confirmed deviation into first-class skill logic.",
+      "proposed_audit_tag": null,
+      "invocation_mode": "standalone",
+      "parent": null
+    },
+    {
+      "ts": "2026-06-24T12:51:55Z",
+      "run_ref": "2026-06-24T12:51:49Z",
+      "target": "this branch into dev (head=bot/fa-3-20260624; sha=62c80fb)",
+      "category": "missing_audit_category",
+      "_theme_slug": "git-version-compat-not-handled-in-skill",
+      "phase": "2",
+      "evidence": "Phase 2 ran `git merge-tree --write-tree --name-only origin/dev HEAD` -> exit 129 (usage error; git 2.37 lacks --write-tree, needs 2.38+). Fell back to old-form `git merge-tree bf59bbb origin/dev HEAD` (0 conflict markers) + authoritative `git merge --no-commit --no-ff origin/dev` (exit 0, 0 unmerged paths, aborted clean). 5th recorded occurrence (prior: 2026-05-11, 2026-05-20, 2026-06-16, 2026-06-18).",
+      "interpretation": "Recurring across every run on this host: SKILL.md Phase 2 prescribes the 2.38+ `merge-tree --write-tree` form which always exits 129, forcing an ad-hoc fallback each time. Count now 5 (>=3 threshold). No review_log proposal written for this theme yet; writing one now. Remediation: parse `git --version` once in Phase 2 and dispatch to the supported form automatically instead of probing-then-falling-back.",
+      "proposed_audit_tag": "2-git-version-fallback-not-automatic"
+    },
+    {
+      "ts": "2026-06-24T14:14:04Z",
+      "run_ref": "2026-06-24T14:14:04Z",
+      "target": "this branch into dev (current mode; head=refactor/routes-package-split; sha=fbf6730)",
+      "category": "missing_audit_category",
+      "_theme_slug": "relevance-predicate-globs-drift-from-real-paths",
+      "phase": "5",
+      "evidence": "Phase 5 skip_security_category triggers are ['**/auth/**','**/authz/**','**/security/**','**/routes.py','**/dependencies.py']. This run ported project-ACCESS enforcement gates into backend/intelligence_platform/api/routes/*.py (projects.py, analysis.py, business_case.py, conversations_sharing.py). The glob '**/routes.py' matches a FILE named routes.py, NOT files inside a routes/ package — so after the very package split this run validated, the security predicate would match ZERO changed paths and wrongly skip the security category on access-control code. Operator overrode and ran security explicitly.",
+      "interpretation": "Same root cause as the 2026-06-09/2026-06-10 performance-skip-predicate observations: RELEVANCE_PREDICATES trigger globs are a hand-maintained whitelist that drifts from the project's real layout (here, a god-file->package refactor invalidated '**/routes.py'). The skip decision is load-bearing-adjacent: a stale glob silently suppresses the security scan on security-sensitive code. Cross-channel meta-theme now at 3 occurrences (2 performance + 1 security).",
+      "proposed_audit_tag": null
     }
   ],
   "review_log": [
@@ -797,6 +865,36 @@
       ],
       "matching_improvement_suggestions": [],
       "suggestion_written_to": "run_history.json:friction_log[] (NOT suggestions.md — dev_env_friction has no SKILL.md fix per the observer's narrow exception; project-side remediation candidate is mounting ./backend/pyproject.toml:ro into the test backend service in docker-compose.test.yml)",
+      "applied_at": null,
+      "applied_via": null
+    },
+    {
+      "ts": "2026-06-24T12:51:55Z",
+      "trigger": "threshold",
+      "clustered_theme": "git-version-compat-not-handled-in-skill (Phase 2 prescribes `git merge-tree --write-tree` which exits 129 on git <2.38, the version on the operator's host; every run pays an ad-hoc fallback)",
+      "category": "missing_audit_category",
+      "observations_referenced": [
+        "2026-05-11T17:00:00+02:00",
+        "2026-05-20T17:30:00+02:00",
+        "2026-06-16T14:33:40Z",
+        "2026-06-18T13:15:31.324213+00:00",
+        "2026-06-24T12:51:55Z"
+      ],
+      "suggestion_written_to": "skills/pr-merge-readiness/suggestions.md",
+      "applied_at": null,
+      "applied_via": null
+    },
+    {
+      "ts": "2026-06-24T14:14:04Z",
+      "trigger": "threshold",
+      "clustered_theme": "RELEVANCE_PREDICATES trigger globs drift from the project's real paths, silently skipping load-bearing-adjacent checks",
+      "category": "missing_audit_category",
+      "observations_referenced": [
+        "2026-06-09T16:47:30+02:00",
+        "2026-06-10T08:09:15Z",
+        "2026-06-24T14:14:04Z"
+      ],
+      "suggestion_written_to": "skills/pr-merge-readiness/suggestions.md",
       "applied_at": null,
       "applied_via": null
     }

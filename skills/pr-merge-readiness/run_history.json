@@ -180,6 +180,54 @@
   },
   "runs": [
     {
+      "ts": "2026-06-24T14:14:04Z",
+      "target": "this branch into dev (current mode; head=refactor/routes-package-split; sha=909f80f->fbf6730 post-merge; base=dev)",
+      "outcome": "closed",
+      "verdict": "GREEN",
+      "phases_failed": [],
+      "started_at": "2026-06-24T13:40:11Z",
+      "ended_at": "2026-06-24T14:14:04Z",
+      "duration_seconds": 2033,
+      "quality_derived": "clean",
+      "notes": "Routes god-file split (routes.py -> routes/ package, 23 files). Phase 1 scope=full (routes.py HIGH_BLAST), shallow-clone=no. Branch was NOT on origin -> user 'Push, then validate' -> pushed 909f80f. Branch 17 ahead/4 behind origin/dev (dev advanced by Stream S project-access + FA-3 multi-sheet + RAG research). Phase 2 INITIAL FAIL surfaced correctly (NOT silent-passed, so 2-merge-conflict-not-blocked did NOT trip): git 2.37 lacks merge-tree --write-tree (exit 129); old-form merge-tree 0 text markers BUT authoritative `git merge --no-commit --no-ff origin/dev` exit 1 CONFLICT(modify/delete) routes.py (deleted in HEAD, modified in origin/dev by Stream S). Root cause: Stream S (5c43c12) + FA-3 (84010a6) modified old routes.py post-divergence; new package built from pre-Stream-S routes.py -> missing both features; naive 'keep delete' would drop project-access SECURITY enforcement. dev author left a MERGE-MAP comment in the Stream S diff. User chose 'Merge dev into branch' then 'cant you rebase and then we continue' -> RESOLVED in-session: merged origin/dev (ONLY routes.py conflicted; schemas/authz/models/migration0034/frontend/tests merged clean), git rm routes.py (kept deletion), ported Stream S (_enforce_project_access + _filter_projects_for_user + _principal_granted_to_project -> _shared.py [last helper moved to _shared not projects.py per merge-map, to avoid sibling-import cycle]; /projects/{id}/access GET/POST/DELETE + grant helpers -> projects.py; access gates on list_projects/get_project/list_instances/get_instance -> projects.py; orchestrate(+stream) -> analysis.py; 4x solve -> business_case.py; solve_workflow_stream -> workflow.py; create/list/share conversation gates -> conversations_sharing.py) + FA-3 (sheets=[...] on upload_file+list_files -> file_upload.py). Committed fbf6730, pushed (909f80f..fbf6730, remote==local verified). Re-probe: origin/dev is-ancestor of HEAD = YES -> clean fast-forward into dev (0 behind/5 ahead). Phase 3 ruff routes/ 'All checks passed!'; env-secrets=no-env-files; migrations linear 0030->0034 no collision (FA-3=0033, Stream S=0034); relevance-skipped=phase3_lint_frontend (dev's already-reviewed frontend; my ports Python-only). Phase 4 test container: pytest 'smoke or unit or integration' 1990 passed/19 skipped (167s); targeted test_project_access+test_file_analytics+test_document_management 68 passed (incl /access grant-list-revoke roundtrip + share gating); app import 141 routes both /access register; mypy 542 total but 0 in newly-added helpers (all pre-existing strict-annotation class; +1 vs stale 541 pre-Stream-S baseline = dev's merged code, not the port); test-cache disabled (no git HEAD); live UI required=y (routes HIGH_BLAST) but LIVE_UI_TEST_COMMAND=null -> no infra (not FAIL). Phase 5 code-diagnosis Skill OBSERVED, path-scoped to 7 ported files, security category run EXPLICITLY (predicate globs **/routes.py are stale post-package-split and would wrongly skip security -> SKILL SUGGESTION worth filing); cross-checked all 17 gated endpoints + access-ordering invariants (404-before-403, admin bypass, personal/default_chat allow, share membership-required) vs dev original; TL;DR 0 blocks/0 follow-up/2 pure-refactoring (FA-3 comprehension dup + cross-module helper split, both pre-existing in dev design). Phase 7 no hard unresolved (blocker resolved+revalidated in-session; Phase 5 items informational per step 5). DEVIATION noted transparently in audit: skill normally never runs git merge -- ran actual merge+commit+push because user explicitly directed it (authorized, not silent override). Phase 8 audit confirmed. Approval verbatim: 'merge approved'. Push-merge decision: user 'Push to origin'. phase_durations omitted (not per-phase stamped; not fabricated). duration_seconds=2033 real wall-clock. NOTE: on entry, run_history.json was malformed (FA-3 12:51:49Z entry missing its opening brace after a prior prepend); fixed in the same ledger write."
+    },
+    {
+      "ts": "2026-06-24T13:41:24Z",
+      "target": "feat/project-access-groups into dev (branch mode; head=92dedc0->58cce4d after fixes; base=dev; merged by user as PR 6397 / dev tip 5c43c12)",
+      "outcome": "closed",
+      "verdict": "GREEN",
+      "phases_failed": [],
+      "started_at": "2026-06-24T13:02:42Z",
+      "ended_at": "2026-06-24T13:41:24Z",
+      "duration_seconds": 2322,
+      "quality_derived": "clean",
+      "notes": "Stream S (project access by group/user). 12 files: routes.py +355 (HIGH_BLAST), authz.py, models.py (ProjectPolicy), schemas.py, alembic 0033_project_policies, ARCHITECTURE.md, implementation.md, 2 frontend admin tabs, 2 test files. Phase 1 scope=full (routes.py HIGH_BLAST + alembic migration + authz/security paths), shallow-clone=no; branch 8 ahead/6 behind origin/dev. Phase 2 clean: git 2.37 lacks merge-tree --write-tree (exit 129) -> old-form merge-tree(merge-base bf59bbb) 0 conflict markers + authoritative `git merge --no-commit --no-ff origin/dev` 'Automatic merge went well' 0 unmerged; re-confirmed twice post-fix-commits (still auto-merged routes.py/schemas.py/COMPLETED_STREAMS.md clean). Phase 3 rules-source=.claude/skills/shared-pre-commit-check.md; ruff intelligence_platform/+tests/ 'All checks passed!' (container); frontend npm lint+typecheck clean; protected=CLAUDE.md+implementation.md+ARCHITECTURE.md+COMPLETED_STREAMS.md (in-PR Stream S doc-sync, allowed); ownership=warn (shared routes.py/schemas.py + db/alembic, cohesive Stream S); env-secrets=no-env-files; relevance-skipped=none. Phase 5 code-diagnosis Skill observed (skip_categories=[]): 1 blocks-merge bug = alembic revision collision (branch 0033_project_policies rev0033/down0032 == dev's already-merged 0033_uploaded_files_sheets) / 2 low follow-up smells (_DEFAULT_CHAT_PROJECT_ID dup; polymorphic principal_id no-FK orphan risk, consistent w/ conversation_shares) / 1 opportunity (_enforce_project_access -> dependency); TL;DR rendered FIRST. Tracker: BUGS_AND_GAPS.md not in diff -> no anomaly; 4b 1 TRACKER_FILE <2 -> skipped clean (manually verified impl.md->archive pairing in commit 3443376); 4c CLAUDE.md count claim reconciled vs Phase 4 live merged (full 2005/unit 1384/smoke 551/integ 73) -> all within tolerance after fix. Phase 7: 4 items surfaced / 4 resolved explicit -- (1) migration collision -> AskUserQuestion 'Renumber to 0034 (recommended)'; (2) Stream S not archived -> 'Move it now (recommended)'; (3) routes refactor-style -> 'Add a merge-map note (recommended)'; (4) doc-count guard FAIL (full ~1900 vs live 2005) -> applied fix-now ~2000 (commit 58cce4d). FIXES APPLIED (2 commits): 3443376 renumber 0033->0034 (file rename + rev/down_revision + models.py/ARCHITECTURE.md refs) + move Stream S detail implementation.md->COMPLETED_STREAMS.md (+ archived-list/critical-path lines) + routes.py merge-map note for refactor/routes-package-split; 58cce4d CLAUDE.md full ~1900->~2000. VALIDATION on merged tree: alembic heads=0034 single linear chain; pytest smoke-or-unit-or-integration 1989 passed/19 skipped/1 failed (doc-count) -> after CLAUDE.md fix doc-count re-run 1 passed; live UI required=y (routes.py HIGH_BLAST) but LIVE_UI_TEST_COMMAND=null -> no infra (not FAIL). Approval verbatim: 'merge approved'. User merged independently (PR 6397, dev tip 5c43c12) carrying BOTH fix commits; verified post-hoc both in origin/dev. Now on refactor/routes-package-split (the 'merge later' branch the merge-map note targets). No FAIL tags tripped. duration 2322s wall-clock incl. two long container test waits."
+    },
+    {
+      "ts": "2026-06-24T12:51:49Z",
+      "target": "this branch into dev (current mode; head=bot/fa-3-20260624; sha=62c80fb; base=dev)",
+      "outcome": "closed",
+      "verdict": "GREEN",
+      "phases_failed": [],
+      "started_at": "2026-06-24T12:31:07Z",
+      "ended_at": "2026-06-24T12:51:49Z",
+      "duration_seconds": 1242,
+      "quality_derived": "clean",
+      "notes": "FA-3 closure: register every worksheet of multi-sheet xlsx uploads. 8 files (tools/file_analytics.py +163/-58 core; api/routes.py + api/schemas.py FileSheetSchema/FileColumnSchema plumbing; conf/logging_config.py 'sheet_count' allowlist; db/alembic/versions/0033_uploaded_files_sheets.py additive JSONB ADD COLUMN; tests/test_file_analytics.py +283; COMPLETED_STREAMS.md +1 closure row; BUGS_AND_GAPS.md -FA-3 row +FA-4 renumber 2->1). Phase 1 scope=full (routes.py + tools/ HIGH_BLAST + alembic migration), shallow-clone=no; branch 1 ahead/1 behind origin/dev (dev advanced by f3d7e52 'foundry analysis added' touching only a research doc -> no overlap). Phase 2 clean: git 2.37 lacks merge-tree --write-tree (exit 129) -> old-form merge-tree(merge-base bf59bbb) 0 conflict markers + authoritative `git merge --no-commit --no-ff origin/dev` exit 0 'Automatic merge went well' 0 unmerged paths, aborted clean. Phase 3 rules-source=.claude/skills/shared-pre-commit-check.md; ruff intelligence_platform/+tests/ 'All checks passed!' (container); protected=COMPLETED_STREAMS.md+BUGS_AND_GAPS.md (in-PR FA-3 closure docs, allowed by doc-sync same-PR rule); ownership=warn (Stream B tools/ + shared routes.py/schemas.py + db/alembic + conf, cohesive FA-3 fix); env-secrets=no-env-files; migration 0033 next after 0032 single linear chain (only 0033 revises 0032); relevance-skipped=phase3_lint_frontend:no frontend paths in diff. Phase 4 test container docker-compose.test.yml: pytest -m 'smoke or unit or integration' -> 1966 passed/19 skipped (142.58s); targeted test_file_analytics.py -> 39 passed (9.62s); test-cache '[test-cache] disabled: no git HEAD (FileNotFoundError)'; live UI required=y (routes.py HIGH_BLAST) but LIVE_UI_TEST_COMMAND=null -> no infra (not FAIL); mypy package baseline-diff origin/dev 541 == HEAD 541 -> 0 net-new. Phase 5 code-diagnosis Skill observed (skip_categories=[] -- security via routes.py, performance via tools/): 0 bugs / 2 low branch-new smells (file_analytics.py:151-174 orphan per-sheet tables on mid-loop CTAS failure; :86-99 leaked tempfiles on mid-loop write failure) / 2 opportunities (empty-sheet read_csv_auto raise; FILE_QUERY_TOOL_DESC per-sheet discoverability); TL;DR rendered FIRST (0 blocks / 2 follow-up / 2 refactoring). Tracker: step4 no anomaly (BUGS_AND_GAPS FA-3 row removed + FA-4 renumbered; lone remaining FA-3 mention is historical 'Last updated' changelog text not an active row); 4b skipped (1 TRACKER_FILE <2; manually verified pairing: FA-3 closure added to COMPLETED_STREAMS + row removed from BUGS_AND_GAPS same diff); 4c ALL 4 falsifiable claims reconciled & VERIFIED TRUE vs this session: test_file_analytics 39==39, smoke-or-unit-or-integration 1966/19 == 1966/19, ruff 'All checks passed!', mypy 0 net-new (541==541). Phase 7: 2 surfaced / 2 resolved explicit -- item1 ownership warn -> user verbatim 'Confirm intentional, log & skip' (recommended); item2 branch-new follow-up smells -> user verbatim 'Note & skip (track informally)' (recommended). Follow-up smells + opportunities informational (not routed per step 5). Approval verbatim: 'merge approved'. phase_durations omitted (not reliably per-phase stamped; not fabricated). duration_seconds=1242 from started_at->ended_at real wall-clock."
+    },
+    {
+      "ts": "2026-06-23T07:56:12Z",
+      "target": "this branch into dev (current mode; head=bot/pt-2-20260623; sha=b56f10d; base=dev)",
+      "outcome": "closed",
+      "verdict": "GREEN",
+      "phases_failed": [],
+      "started_at": "2026-06-23T07:35:54Z",
+      "ended_at": "2026-06-23T07:56:12Z",
+      "duration_seconds": 1218,
+      "quality_derived": "clean",
+      "notes": "PT-2 fix: ProjectRegistry.save_project un-swallows DB failure when use_db=True (logger.debug+in-memory-fallback -> logger.exception+raise) so a failed write surfaces as 5xx instead of false success that 'vanishes' on next request; create_project gains 400 guard rejecting payloads with neither data_sources nor agent_team; ProjectsTab.tsx Create button disabled when isNew && missing id/name/sources+agents. 7 files (routes.py + registry/project_registry.py + 2 test files + COMPLETED_STREAMS.md + BUGS_AND_GAPS.md + ProjectsTab.tsx). Phase 1 scope=full (routes.py + registry/** HIGH_BLAST), shallow-clone=no; branch exactly 1 ahead/0 behind origin/dev. Phase 2 clean: git 2.37 lacks merge-tree --write-tree (exit 129 usage) -> git merge-base --is-ancestor origin/dev HEAD exit 0 = pure fast-forward, 0 conflicts possible. Phase 3 rules-source=.claude/skills/shared-pre-commit-check.md; smoke 543p/1s (37.35s container), ruff 'All checks passed!', ESLint clean, tsc clean; protected=COMPLETED_STREAMS.md+BUGS_AND_GAPS.md (in-PR closure docs, allowed); ownership=warn (Stream B registry + Stream C frontend + shared routes.py, cohesive PT-2 cross-stack fix); env-secrets=no-env-files; relevance-skipped=none (smoke+lint_python+lint_frontend all triggered). Phase 4 smoke 543p/1s + unit 1304p/6s + integration 63p/11s all green test container; test-cache '[test-cache] disabled: no git HEAD (FileNotFoundError)'; live UI required=y (routes.py HIGH_BLAST) but LIVE_UI_TEST_COMMAND=null -> no infra (not FAIL); DEVIATION: ran full backend tiers directly not via smart-test-selection (needed to reconcile closure-narrative per-tier count claims; user-confirmed intentional). mypy on 2 changed files: 186 pre-existing baseline errors (untyped routes.py region >5000 + unchanged signatures), 0 net-new (no function signatures touched by diff). Phase 5 code-diagnosis Skill observed (skip_categories=[] — security matched via routes.py, performance matched via registry/**): 0 bugs / 0 security / 0 perf / 1 low branch-new smell (routes.py:1727 unconditional 400 guard on upsert route while frontend gates isNew-only) / 1 pre-existing opportunity (routes.py:1739 if-not-success near-unreachable after re-raise); TL;DR rendered FIRST (0 blocks / 1 follow-up / 1 refactoring). Tracker: step4 no anomaly (BUGS_AND_GAPS -2/+1 PT-2 row removed + PT-3 renumbered 3->2; COMPLETED_STREAMS +1 PT-2 closure row); 4b skipped (1 TRACKER_FILE <2; manually verified pairing correct — closure added to COMPLETED_STREAMS + row removed from BUGS_AND_GAPS same diff); 4c ALL 7 falsifiable claims reconciled & VERIFIED TRUE vs this session: smoke 543/1, unit 1304/6, integration 63/11, ruff clean, frontend clean, mypy 0 net-new, live skipped. Phase 7: 2 surfaced / 2 resolved explicit — item1 ownership warn -> 'Confirm intentional, log & skip (recommended)'; item2 test-selection deviation -> 'Confirm intentional, log & skip (recommended)'. Follow-up smell + refactoring opportunity informational (not routed to Phase 7 per step 5). Approval verbatim: 'merge approved'. phase_durations omitted (not reliably per-phase stamped; not fabricated). duration_seconds=1218 from started_at->ended_at real wall-clock."
+    },
+    {
       "ts": "2026-06-16T14:33:40Z",
       "target": "this branch into dev (current mode; head=fix/admin-home-ux-bugs; sha=f218e7c; base=dev)",
       "outcome": "closed",
@@ -514,6 +562,27 @@
       "outcome": "closed",
       "phases_failed": [],
       "quality_derived": "clean"
+    },
+    {
+      "ts": "2026-06-18T13:12:50.251535+00:00",
+      "target": "this branch into dev (branch mode; head=feat/gap-009-issue-intelligence; sha=4626ef2; base=dev)",
+      "outcome": "closed",
+      "verdict": "GREEN",
+      "phases_failed": [],
+      "quality_derived": "clean",
+      "notes": "GAP-009 Issue Intelligence (read-only mine->cluster->rank) + feedback-UX fix. Branch 3 commits ahead of origin/dev (FF). Phase 1 scope=full (routes.py HIGH_BLAST + 6 prod-code files), shallow-clone=no, REMOTE_MISSING -> user 'Run validation locally first'. Phase 2: git 2.37 no merge-tree --write-tree (exit 129) -> old-form merge-tree(9996faa) 0 conflict markers + rev-list left-right 0/3 (strict descendant). Phase 3: rules=shared-pre-commit-check.md; smoke 535 pass; ruff clean + ESLint/tsc/build exit0; env-secrets=no-env-files; ownership=warn (new services/issue_intelligence.py + Stream-C frontend + shared routes/schemas appended); relevance-skipped=none. Phase 4: pytest -m 'smoke or unit or integration' 2 failed/1869 passed/16 skipped. Fail1 doc-count guard (unit 1278 vs ~1200 drift) -> branch added 21 tests -> user 'Fix now: refresh counts' -> CLAUDE.md tidied to 540/1300/70/1900 -> guard re-run 1 passed. Fail2 TestAnalyzePipeline::test_full_pipeline_with_direct_spec (assert 0>0, fact_marketing_data unseeded in test container) -> PRE-EXISTING (8-file diff touches no KPI/analyze/seed) -> user 'Skip w/ justification + note to file' -> filed T-M2 (Medium). live UI required=y (routes.py) but LIVE_UI_TEST_COMMAND=null -> no infra (not FAIL). test-cache disabled (no git HEAD in container). Ran tiers directly (high-blast, conservative). Phase 5: code-diagnosis Skill observed, skip_categories=[]; TL;DR first = 0 blocks/3 follow-up/1 refactor; 0 bugs 0 security; 1 med perf smell (pure-Python O(N^2) dot product in _cluster_signals embedding path) + 2 low smells (unbounded window_days/max_signals query params; signals_by_source computed pre-truncation). diff-anomaly: only GAP-009+N-M5(+T-M2 user-directed) rows; 4b skipped (1 TRACKER_FILE); 4c no falsifiable claims added. Phase 7: 3 surfaced/3 resolved explicit. Approval verbatim: 'merge approved'. Uncommitted at verdict: CLAUDE.md + BUGS_AND_GAPS.md(T-M2). Branch must be pushed before PR. Timing fields omitted (no reliable wall-clock this session; not fabricated)."
+    },
+    {
+      "ts": "2026-06-22T09:04:25Z",
+      "target": "THIS BRANCH INTO DEV",
+      "outcome": "closed",
+      "phases_failed": [],
+      "started_at": "2026-06-22T08:31:55Z",
+      "ended_at": "2026-06-22T09:04:25Z",
+      "duration_seconds": 1950,
+      "phase_durations": {},
+      "quality_derived": "clean",
+      "notes": "head=feat/schema-pool-brain c733dd6; clean merge into dev; smoke 543 + relevant 117 pass on merged tree; surfaced ruff(2 unused imports)+committed edit_log artifact, both fixed in c733dd6; live UI no-infra(null); 0 FAIL tags."
     }
   ],
   "friction_log": [
@@ -552,6 +621,11 @@
       "phase": "3/4",
       "evidence": "All three tiers (smoke 515/1, unit 1191/6, integration 61/11) emitted `PytestUnknownMarkWarning: Unknown pytest.mark.no_auth_override` even though the branch registers that marker in backend/pyproject.toml:131. Root cause: docker-compose.test.yml mounts ./backend/intelligence_platform, ./backend/tests, ./conftest.py and ./scripts but NOT pyproject.toml — pytest reads the marker registry / addopts / ruff+pytest config from the image-baked pyproject (image built ~27h before this branch added the marker). Cosmetic this run (get_closest_marker resolves regardless; no --strict-markers; code-under-test is live-mounted so results valid).",
       "interpretation": "Third occurrence of the dev-stack-staleness theme (2026-05-07 + 2026-05-08 were the dev container missing fastapi-azure-auth / per-file-ignore), now extended to the TEST container: because pyproject.toml is baked not mounted, ANY pyproject change (markers, deps, ruff/pytest config) silently fails to reach the running tiers until an image rebuild. Threshold (3/3) reached. Per the tracker note and the observer's narrow dev_env_friction exception, this is recorded as a friction_log entry rather than a SKILL.md edit — environmental, not skill-logic. Candidate (non-skill) remediation for the project: add ./backend/pyproject.toml:/app/pyproject.toml:ro to the test backend volume mounts, OR a Phase-4-adjacent preflight that diffs image-baked pyproject vs the branch's. Not proposed as a skill change."
+    },
+    {
+      "ts": "2026-06-22T09:04:57Z",
+      "signal": "windows-worktree-path-length",
+      "detail": "worktree checkout into deep temp path hit MAX_PATH on vendor file; short root works. Prefer git -C over cd-chaining."
     }
   ],
   "improvement_suggestions": [
@@ -711,7 +785,7 @@
     "last_validated_at": "2026-05-21T00:00:00+02:00",
     "last_research_at": null,
     "last_overlap_check_at": null,
-    "runs_since_validation": 19,
+    "runs_since_validation": 25,
     "thresholds": {
       "runs": 10,
       "days": 21
