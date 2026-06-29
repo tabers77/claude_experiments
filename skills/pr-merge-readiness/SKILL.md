@@ -56,6 +56,13 @@ TRACKER_FILES:
   # Empty list → skip the diff-anomaly check.
   - "documentation/implementation_docs/BUGS_AND_GAPS.md"
 
+ROADMAP_STATUS_DOC: documentation/implementation_docs/implementation.md
+  # Roadmap / implementation tracker whose per-stream status markers Phase 5
+  # step 4d reports against (informational, non-blocking). The skill READS and
+  # REPORTS only — it never edits this file on a feature branch (per the
+  # project's CLAUDE.md Documentation Sync Rule, status flips land on the base
+  # branch after merge). null → skip the roadmap-doc status check entirely.
+
 LIVE_UI_TEST_COMMAND: null
   # Command to run the live UI tier in Phase 4. Set to a real command when the project has live UI test infra.
   # Examples:
@@ -132,22 +139,62 @@ RELEVANCE_PREDICATES:
       # Security category scans for input validation / injection / hardcoded
       # secrets / unsafe deserialization / missing access control. Skip when
       # no auth/security/routes paths in diff.
+      # NOTE: `**/routes/**` is listed alongside `**/routes.py` so the predicate
+      # survives a god-file → package refactor (routes.py → routes/ package) —
+      # the bare `**/routes.py` literal matched ZERO paths after exactly that
+      # split on 2026-06-24, which would have skipped the security category on
+      # freshly-ported access-enforcement code (caught only by operator override).
       triggers:
         - "**/auth/**"
         - "**/authz/**"
         - "**/security/**"
         - "**/routes.py"
+        - "**/routes/**"
+        - "**/permissions/**"
+        - "**/policies/**"
         - "**/dependencies.py"
       skip_note: "no auth/security/routes paths in diff (security category not applicable)"
     skip_performance_category:
       # Performance category scans for N+1, blocking calls in async, missing
-      # caching. Skip when no Python service code in diff.
+      # caching. Skip when no Python service/data-access code in diff.
+      # DB-query directories (repositories / dao / db / models / queries) are
+      # listed because performance regressions most often live there — the
+      # original narrower list (services/tools/registry/mcp) omitted them and
+      # would have wrongly skipped the performance category on a DB-only diff
+      # (observed 2026-06-09 and 2026-06-10).
       triggers:
         - "**/services/**"
         - "**/tools/**"
         - "**/registry/**"
         - "**/mcp/**"
-      skip_note: "no service/tool/registry/mcp paths in diff (performance category not applicable)"
+        - "**/repositories/**"
+        - "**/dao/**"
+        - "**/db/**"
+        - "**/models/**"
+        - "**/queries/**"
+      skip_note: "no service/tool/registry/mcp/data-access paths in diff (performance category not applicable)"
+
+  content_signal_overrides:
+    # FAIL-SAFE OVERRIDE — applies to every `skip_*` predicate above.
+    # A skip_* glob whitelist may only TRIGGER a check, never SUPPRESS one that
+    # a content signal demands. Before honoring ANY skip_* decision, test the
+    # changed paths (case-insensitive substring) AND the diff body against the
+    # category's signal; if the signal fires, the category RUNS regardless of
+    # the glob predicate. This survives both forces that rot hand-maintained
+    # globs: (a) incomplete enumeration, and (b) layout refactors that
+    # invalidate a path literal. The override can only force a check ON, never
+    # OFF — the safe direction. When the override fires on a category whose
+    # glob triggers matched zero diff paths, the glob has drifted and
+    # `3-or-5-predicate-glob-stale-after-refactor` is recorded so it gets re-tuned.
+    security:
+      path_substrings: ["auth", "authz", "security", "route", "permission", "access", "policy"]
+      diff_body_patterns: ["Depends(", "HTTPException(401", "HTTPException(403", "is_admin", "_enforce_", "_can_access", "current_user"]
+    performance:
+      # Path-focused (diff-body perf signals like `for `/`await ` are too noisy
+      # to gate on). Any changed path containing a data-access substring forces
+      # the performance category to run.
+      path_substrings: ["service", "tool", "registry", "mcp", "repositor", "dao", "/db/", "model", "query", "orm"]
+      diff_body_patterns: [".all()", ".filter(", "session.execute", "selectinload", "joinedload"]
 ```
 
 **How configuration is consumed**:
@@ -350,20 +397,46 @@ The ledger phase (9) does NOT stamp its own duration — Phase 9 IS the ledger w
 
 ## Phase 2 — Clean-merge probe
 
-Verify the feature branch will merge cleanly into `BASE_BRANCH` *as it stands right now*. The probe is read-only — it does NOT touch the working tree or create commits.
+Verify the feature branch will merge cleanly into `BASE_BRANCH` *as it stands right now*. The conflict-marker pre-screen (step 3) is read-only; the authoritative arbiter (step 4) briefly stages a merge in the working tree and immediately aborts it (no commit is created), so the working tree must be clean before this phase runs.
 
 1. **Fetch latest base**:
    ```powershell
    git fetch origin <BASE_BRANCH>
    ```
-2. **Probe with `git merge-tree`** (the modern three-arg form returns a tree-ish + reports conflicts):
+
+2. **Detect git version** (the primary probe form depends on it):
    ```powershell
-   git merge-tree --write-tree --name-only origin/<BASE_BRANCH> <head>
-   # Capture exit code and stdout
+   git --version
    ```
-   - Exit code `0` and empty stdout → **clean**. Pass.
-   - Exit code non-zero OR stdout contains paths → **conflicts**. List the conflicting paths verbatim. Mark FAIL (`2-merge-conflict-not-blocked`) and proceed to Phase 7 with a hard "must resolve before merge" item.
-3. **Capture evidence verbatim** for the audit: the command run (with `<BASE_BRANCH>` resolved) and the first/last few lines of output (or "empty stdout, exit 0").
+   Parse `major.minor`. `git merge-tree --write-tree --name-only` exists only in **git ≥ 2.38**; on older git it exits 129 (usage error) on *every* run. Branch on the parsed version in step 3 so the Phase 2 evidence shape is deterministic per host instead of relying on an ad-hoc exit-129 fallback discovered fresh each run.
+
+3. **Conflict-marker probe** (version-dispatched — a fast pre-screen, NOT the authority):
+   - **git ≥ 2.38**:
+     ```powershell
+     git merge-tree --write-tree --name-only origin/<BASE_BRANCH> <head>
+     # Capture exit code and stdout
+     ```
+     Exit `0` + empty stdout → no textual conflicts detected. Exit non-zero OR stdout lists paths → conflicts; capture the paths verbatim.
+   - **git < 2.38** (no `--write-tree`): use the old-form three-arg merge-tree against the merge base and scan for conflict markers:
+     ```powershell
+     git merge-tree (git merge-base origin/<BASE_BRANCH> <head>) origin/<BASE_BRANCH> <head>
+     # Scan stdout for <<<<<<< / ======= / >>>>>>> markers
+     ```
+     Markers present → textual conflicts; capture the marked paths verbatim. No markers → no *textual* conflicts detected — but this form **structurally cannot see modify/delete conflicts** (they carry no `<<<<<<<` markers), so a clean result here is NOT authoritative on its own. Step 4 decides.
+
+4. **Authoritative worktree merge probe (MANDATORY on every run — load-bearing arbiter)**: the step-3 marker probe is a pre-screen only. On EVERY run, regardless of git version or step-3 outcome, run a real (immediately aborted) merge to catch conflict classes the marker scan misses (modify/delete, rename/rename, etc.):
+   ```powershell
+   git merge --no-commit --no-ff origin/<BASE_BRANCH>
+   # Inspect: git status --porcelain for unmerged (U) paths; capture exit code
+   git merge --abort
+   ```
+   - Exit `0` AND zero unmerged paths → **clean**. Pass.
+   - Exit non-zero OR any unmerged path → **conflicts**. List the unmerged paths verbatim (including modify/delete entries). Mark FAIL (`2-merge-conflict-not-blocked`) and proceed to Phase 7 with a hard "must resolve before merge" item.
+   - If the working tree is dirty and the merge probe cannot run, do NOT silently fall back to the marker scan: surface to Phase 7 that the authoritative probe could not run and why. Skipping it → `2-authoritative-merge-probe-not-run` FAIL.
+
+   When step 3 (marker scan) and step 4 (authoritative probe) disagree — e.g. the marker scan reports clean but step 4 finds a modify/delete conflict — **step 4 wins**. The verdict trusts the authoritative probe, never the marker scan alone.
+
+5. **Capture evidence verbatim** for the audit: the `git --version` output, the dispatched step-3 command (with `<BASE_BRANCH>` resolved) + its exit/conflict result, and the step-4 authoritative `git merge --no-commit --no-ff` exit code + unmerged-path list (or "0 unmerged, aborted clean").
 
 ## Phase 3 — Pre-commit-check rules sweep
 
@@ -379,6 +452,8 @@ Apply the project's pre-commit-check rules (resolved from `PRE_COMMIT_RULES_PATH
    - Phase 7 user-resolution gate (load-bearing — any item already surfaced by an earlier phase still requires explicit choice; only the prefilter suppression is recorded as evidence).
 
    Conservative-by-default: when a predicate's `triggers` list is empty, the predicate matches nothing and the sub-check always runs. Tune predicates per project — see the config block's CRITICAL note.
+
+   **Fail-safe content-signal override**: the same one-directional override defined for Phase 5 (`RELEVANCE_PREDICATES.content_signal_overrides`) applies here for any Phase 3 sub-check that has a matching `content_signal_overrides.<sub-check>` entry. A skip glob may only *trigger* a sub-check, never *suppress* one a content signal demands. When the content signal forces a sub-check to run AND its glob `triggers` matched zero diff paths, the glob has drifted — record `3-or-5-predicate-glob-stale-after-refactor` (shared with Phase 5) so it gets re-tuned. By default only `security` and `performance` (both Phase 5 categories) ship with content signals; projects may add Phase 3 entries (e.g. a `smoke` content signal) as their layout demands.
 
 2. **Default checks** (when no rules file is found):
    - Smoke tests pass (`DEFAULT_TEST_COMMANDS.smoke`).
@@ -460,6 +535,11 @@ This is the principle-anchor — the skill cannot mark Phase 5 `pass` without an
 
 1a. **Per-category relevance prefilter**: the Skill call above is load-bearing and ALWAYS fires. Within the Skill call's args, evaluate each `RELEVANCE_PREDICATES.phase5_code_diagnosis_categories.skip_*` predicate against the diff path list. For each tripped predicate (no diff path matches any glob in `triggers`), include an explicit `skip_categories=[...]` instruction in the Skill call's prompt so the sub-skill suppresses that category's scan, and record the `skip_note` verbatim. Skipped categories appear as one-line skip notes in the Phase 5 report (and in the Phase 8 audit row's Phase 5 evidence string). Categories not listed in `RELEVANCE_PREDICATES` (e.g. Bugs, Smells, Opportunities) always run — those are the principle-anchor categories.
 
+   **Fail-safe content-signal override (evaluate BEFORE honoring any `skip_*` decision)**: for each category with a `skip_*` predicate, also test the changed paths and diff body against `RELEVANCE_PREDICATES.content_signal_overrides.<category>`:
+   - If any changed file's path contains any `path_substrings` entry (case-insensitive), OR the diff body (`git diff origin/<BASE_BRANCH>...<head>`) adds/removes any `diff_body_patterns` string → **force that category to RUN**, regardless of whether the glob `triggers` matched. A skip glob may only *trigger* a check, never *suppress* one the content signal demands.
+   - When the content signal forces a category to run AND that category's glob `triggers` matched ZERO diff paths (so the glob alone would have skipped it), the glob whitelist has drifted from the project's real paths. Record `3-or-5-predicate-glob-stale-after-refactor` and note which predicate's globs were stale, so it gets re-tuned. The override kept this run safe; the FAIL counter ensures the stale glob is fixed before it bites a run where the content signal happens not to fire.
+   - The override is one-directional: it can only switch a category ON. It never suppresses a category that the glob `triggers` already selected.
+
 2. **Surface findings** in a "Sweep results" block. For each finding: severity, file:line, one-line description.
 
 2a. **Lead with a one-line merge-impact TL;DR** before the per-finding detail. The TL;DR must answer, in a single sentence: `"<N1> items block merge / <N2> items track as follow-up / <N3> items are pure refactoring."` Mapping rule from the sub-skill's triage shape:
@@ -498,6 +578,16 @@ This is the principle-anchor — the skill cannot mark Phase 5 `pass` without an
    - Record every matched claim verbatim in the Phase 5 sub-report alongside the Phase 4 actual-result row (or `"no Phase 4 evidence for this tier"`), so the user can scan the reconciliation table without re-deriving it.
 
    If no closure-narrative paragraph is added in this diff, record `"closure-narrative reconciliation skipped: no closure narratives added"` and proceed.
+
+4d. **Roadmap-doc status check** (informational, non-blocking): when `ROADMAP_STATUS_DOC` is non-null AND the diff touches files that implement a stream documented there, `Read` the matching stream section and report to Phase 7 as an **informational** item (it never auto-blocks the merge):
+
+   - the stream's current status marker (e.g. 🟡 in-progress / ✅ done / ❌ not started),
+   - any step still marked ❌/🟡 *despite* being implemented in THIS diff (status drift — the work shipped but the marker wasn't flipped),
+   - any plan-vs-implementation divergence detected (the diff implemented something materially different from the documented plan — a different library, a different schema/migration, a deferred option built early, etc.).
+
+   This is a **REPORT, not an edit**: the skill does NOT modify `ROADMAP_STATUS_DOC` on the feature branch. Per this project's CLAUDE.md *Documentation Sync Rule*, roadmap status flips happen on the base branch *after* the feature merges — the report exists so that the eventual base-branch commit is accurate, and so the user is never surprised by a stale ❌ on work that's actually done. (Whether the flip *should* be allowed on the feature branch for a direct-ff merge model is a separate, unresolved policy question for the repo owner — see `suggestions.md` 2026-06-09 signal 2; the skill does not pre-empt that decision.)
+
+   If `ROADMAP_STATUS_DOC` is null or no documented stream matches the diff, record `"roadmap-doc status check skipped: <no ROADMAP_STATUS_DOC configured | no matching stream in diff>"` and proceed.
 
 5. Any item in the **"blocks merge"** bucket of the TL;DR → mark Phase 5 FAIL and surface to Phase 7. Items in **"track as follow-up"** or **"pure refactoring"** do NOT auto-route to Phase 7 — they are informational unless the user explicitly asks to fix-now or to register as a gap.
 
@@ -613,10 +703,10 @@ The audit runs **before** the print. Print cannot fire until the user explicitly
    | Phase | Status | Evidence |
    |-------|--------|----------|
    | 1 | pass | input parsed: <mode> <target>; user input verbatim: "<literal quote>"; shallow-clone=<yes-unshallowed\|no>; scope=<lite\|full>; reason=<matching condition> |
-   | 2 | pass | git merge-tree --write-tree --name-only origin/<BASE_BRANCH> <head>: exit=<code>; conflicts: <none\|<paths>> |
+   | 2 | pass\|FAIL | git=<version>; probe=<merge-tree --write-tree\|old-form merge-tree>: exit=<code>, markers=<none\|<paths>>; authoritative `git merge --no-commit --no-ff origin/<BASE_BRANCH>`: exit=<code>, unmerged=<none\|<paths>>, aborted=<yes> |
    | 3 | pass\|FAIL | rules-source=<resolved PRE_COMMIT_RULES_PATH or "defaults">; outcomes: smoke=<...>, lint=<...>, protected=<...>, ownership=<...>, safety=<...>, env-secrets=<no-env-files\|pass\|FAIL+files>, relevance-skipped=<none\|<sub-check>:<skip_note>; ...> |
    | 4 | pass\|FAIL | tiers run: <list>; results: <pass/fail/skipped per tier>; test-cache: <verbatim lines or "not wired">; live UI: <ran\|skipped + reason> |
-   | 5 | pass\|FAIL | claude-library:code-diagnosis Skill call observed: <yes/no>; findings: <count> at <file:line list> |
+   | 5 | pass\|FAIL | claude-library:code-diagnosis Skill call observed: <yes/no>; findings: <count> at <file:line list>; category-skips: <none\|<category>:<skip_note>; ...>; content-signal-forced: <none\|<category>(glob-stale=<yes\|no>)>; roadmap-doc: <reported: <stream> status=<marker>, divergences=<N>\|skipped: <reason>> |
    | 7 | pass\|FAIL | unresolved items: <N surfaced> / <M resolved-with-explicit-choice>; user input verbatim: "<literal quote>" |
    ```
 
@@ -641,7 +731,9 @@ The audit runs **before** the print. Print cannot fire until the user explicitly
 
    **Domain FAIL rules** (specific to this skill):
 
-   - **`2-merge-conflict-not-blocked` FAIL** (load-bearing, threshold=1): Phase 2 marked `pass` but `git merge-tree` output contains conflict markers (`<<<<<<<`, `=======`, `>>>>>>>`) OR exit code was non-zero.
+   - **`2-merge-conflict-not-blocked` FAIL** (load-bearing, threshold=1): Phase 2 marked `pass` but the authoritative worktree probe (`git merge --no-commit --no-ff origin/<BASE_BRANCH>`, step 4) exited non-zero OR left any unmerged path, OR the step-3 conflict-marker scan contained markers (`<<<<<<<`, `=======`, `>>>>>>>`). The authoritative probe is decisive — a clean step-3 marker scan does NOT clear this rule if step 4 found a conflict.
+   - **`2-git-version-fallback-not-automatic` FAIL** (procedural, threshold=2): Phase 2 ran the `git merge-tree --write-tree` form on a host with git < 2.38 (yielding exit 129) instead of detecting the version in step 2 and dispatching to the old-form probe. Detected when the Phase 2 audit row shows `git=<2.38` but the probe field records the `--write-tree` form with exit=129. Threshold=2 because a single occurrence may be a first run on a new host before version-detect was internalized; two means the dispatch is being skipped (the guaranteed exit-129 friction this remediation removed).
+   - **`2-authoritative-merge-probe-not-run` FAIL** (load-bearing, threshold=1): Phase 2 marked `pass` without an observed authoritative `git merge --no-commit --no-ff origin/<BASE_BRANCH>` probe (step 4) in this session — i.e. the audit row's authoritative-probe segment is absent. Load-bearing because the step-3 marker scan structurally misses modify/delete and other markerless conflict classes; relying on it alone can green-light a merge that silently drops code (observed near-miss: 2026-06-24 modify/delete CONFLICT on routes.py that the old-form marker scan reported as clean).
    - **`4-live-test-skipped-without-justification` FAIL** (load-bearing, threshold=1): live UI test skipped AND any diff path matches a glob in `HIGH_BLAST_PATHS` AND `LIVE_UI_TEST_COMMAND` is non-null AND no user-provided skip reason recorded AND `DEV_STACK_PREFLIGHT_URL` preflight (when set) did NOT explicitly fail.
    - **`5-code-diagnosis-narration-only` FAIL** (load-bearing, threshold=1): Phase 5 narrated diagnosis findings without an observed `Skill(skill="claude-library:code-diagnosis", ...)` tool call in this session.
    - **`5-tracker-closure-without-row-removal` FAIL** (load-bearing, threshold=1): Phase 5 sub-step 4b detected a closure narrative added to one `TRACKER_FILE` without a matching row removal in the paired tracker. Load-bearing because it defeats the documentation-implementation pairing invariant.
@@ -654,6 +746,7 @@ The audit runs **before** the print. Print cannot fire until the user explicitly
    - **`7-fix-now-applied-without-failing-state-observation` FAIL** (procedural, threshold=2): a Phase 7 `Fix it now` flow applied a tightening edit (per the tightening-fix detector in Phase 7 step 2a) WITHOUT recording the pre-edit verification sequence in the audit row evidence. Detection: scan the audit row for the Phase 7 step 2a evidence ("Pre-edit verification: actual=<X>, expected=<Y>, match=<y|n>"); if the row applied a tightening edit and that evidence string is absent, fail. Threshold=2 because a single occurrence may be a non-tightening edit the detector misclassified; two means the verification step is being skipped — the very failure mode this step exists to prevent.
    - **`1-scope-classifier-not-applied` FAIL** (procedural, threshold=2): Phase 1 audit row missing the `scope=lite|full; reason=<...>` evidence segment introduced by the 2026-05-19 scope-classifier remediation. Threshold=2 because a single occurrence may be the skill's first run on a new project before the operator has internalized the classifier; two means the gate logic is drifting.
    - **`3-or-5-relevance-prefilter-not-applied` FAIL** (procedural, threshold=2): Phase 3 or Phase 5 ran a sub-check whose `RELEVANCE_PREDICATES` predicate would have tripped given the diff content, but the prefilter step (Phase 3 step 1a or Phase 5 step 1a) was not invoked — i.e. the Phase 3 aggregate row is missing the `relevance-skipped=...` field entirely (not just `relevance-skipped=none`), OR Phase 5 evidence does not mention category skips when a predicate's triggers had zero diff-path matches. Threshold=2 because a single occurrence may be the skill's first run on a project before the predicates are tuned; two means the prefilter step is being bypassed.
+   - **`3-or-5-predicate-glob-stale-after-refactor` FAIL** (procedural, threshold=2): a `skip_*` predicate's `triggers` globs matched ZERO diff paths (so the glob whitelist alone would have skipped the category/sub-check) BUT the fail-safe content-signal override (`RELEVANCE_PREDICATES.content_signal_overrides`) fired and forced the category/sub-check to run — meaning the glob whitelist has drifted from the project's real paths (incomplete enumeration, or a layout refactor invalidated a path literal such as `**/routes.py` after a `routes.py` → `routes/` split). The override kept the run safe; the stale glob still needs re-tuning. Threshold=2 because one occurrence may be a novel path the globs legitimately don't cover yet; two means a glob needs updating. Detection: the Phase 3/5 evidence records a content-signal-forced run alongside a zero-match glob predicate.
    - **`1-shallow-clone-not-unshallowed` FAIL** (procedural, threshold=2): Phase 1 step 2a was not invoked OR `git rev-parse --is-shallow-repository` returned `true` and the clone was not unshallowed before Phase 1 step 3 / Phase 2's ancestry probes ran. Detected when the Phase 1 audit row is missing the `shallow-clone=<yes-unshallowed|no>` evidence segment, OR the row records `shallow-clone=yes-not-unshallowed`. Threshold=2 because a single occurrence may be the skill's first run on a new host before the operator has internalized the check; two means the gate is drifting.
    - **`7-recommendation-default-on-all-multi-option-prompts` FAIL** (procedural, threshold=2): Phase 7 rendered a multi-option prompt without marking exactly one option as `(recommended)` plus a one-line rationale (whether by the narrow Recommendation gate or the softer-heuristic fallback). Detected when the audit's Phase 7 evidence shows a surfaced item resolved through a neutral option block. Threshold=2 because a single occurrence may be a borderline call; two means the broadened recommendation rule is drifting.
 

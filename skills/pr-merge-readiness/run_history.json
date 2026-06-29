@@ -180,6 +180,18 @@
   },
   "runs": [
     {
+      "ts": "2026-06-25T09:43:13Z",
+      "target": "this branch into dev (current mode; head=bot/pt-3-20260625; sha=c20a3ce; base=dev)",
+      "outcome": "closed",
+      "verdict": "GREEN",
+      "phases_failed": [],
+      "started_at": "2026-06-25T09:33:46Z",
+      "ended_at": "2026-06-25T09:43:13Z",
+      "duration_seconds": 567,
+      "quality_derived": "clean",
+      "notes": "PT-3 Flow-8 closure: 1-line fix at planner.py:454 (dropped `or sorted(constraint)` widening in embeddings-off branch) + 1 new regression test (test_planner_embedding_unavailable_does_not_widen_to_stale_constraint) + COMPLETED_STREAMS.md closure row added + PT-3 row removed from BUGS_AND_GAPS.md. Phase 1 scope=lite (4 files: 1 prod .py, 1 test, 2 docs; no HIGH_BLAST/migrations/auth/env), shallow-clone=no, branch already on origin@c20a3ce, 4 ahead/1 behind origin/dev. Phase 2: git 2.37 lacks 3-arg merge-tree --write-tree (exit 129) -> authoritative `git merge --no-commit --no-ff origin/dev` = 'Automatic merge went well' exit 0, no conflicts, aborted clean. Phase 3 (test container docker-compose.test.yml): ruff(planner.py,test)=All checks passed!; env-secrets=no-env-files; relevance-skipped=phase3_lint_frontend (no frontend in diff). Phase 4 (test container): planner-file=10 passed; smoke=551 passed/1 skipped; unit=1377 passed/9 skipped; mypy planner.py=clean (Success no issues); test-cache disabled (no git HEAD in container); live UI NOT required (planner.py not in HIGH_BLAST_PATHS) + LIVE_UI_TEST_COMMAND=null -> no infra (not a FAIL). smart-test-selection sub-skill NOT invoked -- inline tier selection given lite scope (transparent deviation noted in audit; no coverage skipped). Phase 5: claude-library:code-diagnosis Skill OBSERVED, path-scoped to planner.py+test, security category skipped per phase5 prefilter (no auth/routes), performance category run (services/ path); TL;DR 0 blocks/1 follow-up/0 refactoring -- the 1 follow-up (planner.py:398 B5 short-circuit emits sorted(constraint) unfiltered = same over-count class) is PRE-EXISTING, not branch-introduced, informational only. Tracker 4b: config has 1 TRACKER_FILE so formal pairing skipped (needs >=2) but observed pairing clean (row removed + closure added same diff). Tracker 4c: closure narrative made 5 falsifiable claims (10/551+1skip/1377+9skip/0-mypy-net-new/ruff-clean) -- ALL reconciled against this session's actual runs, all matched, no discrepancy, nothing escalated. Phase 7: 0 unresolved items -> auto-pass. Phase 8 audit confirmed. Approval verbatim: 'merge approved'. phase_durations omitted (not per-phase stamped; not fabricated). duration_seconds=567 real wall-clock. Skill runs from external repo (my_own_projects/claude_experiments) -- ledger write is outside the IP working tree, no IP-repo staging."
+    },
+    {
       "ts": "2026-06-24T14:14:04Z",
       "target": "this branch into dev (current mode; head=refactor/routes-package-split; sha=909f80f->fbf6730 post-merge; base=dev)",
       "outcome": "closed",
@@ -785,7 +797,7 @@
     "last_validated_at": "2026-05-21T00:00:00+02:00",
     "last_research_at": null,
     "last_overlap_check_at": null,
-    "runs_since_validation": 25,
+    "runs_since_validation": 26,
     "thresholds": {
       "runs": 10,
       "days": 21
