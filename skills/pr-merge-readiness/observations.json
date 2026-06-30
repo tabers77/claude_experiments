@@ -3,6 +3,17 @@
   "_seed_note": "Bootstrapped from a paper retrospective on runs 1-2 of run_history.json (auth-foundation, bug-gap-skill-test). Back-dated to original run timestamps; review_log empty so cross-run clustering can fire on the first live observer run. Full retrospective at documentation/OBSERVER_RETROSPECTIVE_PR_MERGE_READINESS.md. Theme tracker-closure-drift will trip the convergence rule on first observer run because improvement_suggestions[] already contains 5-impl-vs-tracker-check.",
   "observations": [
     {
+      "ts": "2026-06-29T16:55:14Z",
+      "run_ref": "2026-06-29T16:55:14Z",
+      "target": "this branch into dev (current=feat/reasoning-summary-personal; sha=c4c52b0; base=dev)",
+      "category": "missing_audit_category",
+      "_theme_slug": "live-verification-gap-for-llm-behavior-features",
+      "phase": "4",
+      "evidence": "Phase 4 recorded the live UI tier as 'no infra configured (LIVE_UI_TEST_COMMAND=null)' and the full automated suite was GREEN (2066 passed/17 skipped). The headline feature (reasoning-summary streaming) was nonetheless INERT end-to-end: under the real 5571-char default_chat+native-contract prompt, summary:'auto' (orchestrator.py:1571) made gpt-5.4 emit reasoning TOKENS but 0 summary TEXT -> 0 reasoning_summary SSE events. Only the user's explicit demand ('Run a live query testing the reasoning capability ... then check the logs for evidence') surfaced it; the same live pass also found a latent doubling bug in _extract_reasoning_summary (880=440x2 on streamed responses). Fix (auto->detailed) verified live: real SSE turn streamed 72 reasoning_summary events.",
+      "interpretation": "LLM-behavior features (does the model actually emit X under the REAL production prompt, with REAL tool/streaming options) have a correctness surface that unit/integration tests with mocked LLM clients structurally cannot cover -- every automated test passed while the feature shipped inert. The skill's live-UI gate treats LIVE_UI_TEST_COMMAND=null as a clean non-FAIL pass, so a model-interaction feature can reach a GREEN-heading verdict while being non-functional. Candidate skill change: when the diff touches LLM-call option/prompt-contract surfaces (reasoning=, summary=, system-prompt footers, native tool-calling) AND no live infra is configured, the live-UI gate should ESCALATE to require explicit user live-verification (or a recorded skip reason) rather than auto-accepting 'no infra'. The in-container-against-live-LLM technique used here (build the real orchestrator, drive generate_text vs the live model, isolate auto-vs-detailed) is a reusable pattern when HTTP auth blocks the endpoint.",
+      "proposed_audit_tag": "4-llm-behavior-feature-needs-live-verification"
+    },
+    {
       "ts": "2026-06-12T17:35:00+02:00",
       "run_ref": "2026-06-12T17:35:00+02:00",
       "target": "this branch into dev (current=feat/auth-route-protection; sha=ea8957f; base=dev)",
