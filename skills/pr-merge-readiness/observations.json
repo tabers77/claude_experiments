@@ -3,6 +3,28 @@
   "_seed_note": "Bootstrapped from a paper retrospective on runs 1-2 of run_history.json (auth-foundation, bug-gap-skill-test). Back-dated to original run timestamps; review_log empty so cross-run clustering can fire on the first live observer run. Full retrospective at documentation/OBSERVER_RETROSPECTIVE_PR_MERGE_READINESS.md. Theme tracker-closure-drift will trip the convergence rule on first observer run because improvement_suggestions[] already contains 5-impl-vs-tracker-check.",
   "observations": [
     {
+      "ts": "2026-07-02T10:09:36Z",
+      "run_ref": "2026-07-02T10:09:36Z",
+      "target": "this branch into dev (current=feat/per-user-file-analytics; sha=b279f2b; base=dev)",
+      "category": "missing_audit_category",
+      "_theme_slug": "high-blast-glob-missing-routes-package",
+      "phase": "1",
+      "evidence": "Phase 1 diff included `backend/intelligence_platform/api/routes/file_upload.py` -- a routes file inside a routes/ PACKAGE. HIGH_BLAST_PATHS lists `**/routes.py` (god-file literal) but NOT `**/routes/**`, so this route-layer file matched ZERO HIGH_BLAST globs. scope=full was still reached this run, but ONLY via the orchestrator.py / tools/file_analytics.py / mcp/tool_access.py matches -- the routes/ file contributed nothing to the classification or the live-UI gate trigger. Had the diff touched ONLY api/routes/file_upload.py (a route-only change), it would have under-matched HIGH_BLAST exactly as the 2026-06-30 run's schema_pool.py did.",
+      "interpretation": "Second occurrence of the same latent gap first filed 2026-06-30: the 2026-06-24 routes.py->routes/ package refactor invalidated the `**/routes.py` literal in HIGH_BLAST_PATHS, which was never patched to add `**/routes/**` (the Phase-5 security RELEVANCE_PREDICATE already got that mirror fix on 2026-06-24). Cluster now 2/3 -- below the count>=3 proposal threshold and no matching user improvement_suggestions[] entry, so no suggestions.md proposal this run. If a third route-package run recurs, the candidate skill edit is a one-line config change: add `**/routes/**` to HIGH_BLAST_PATHS alongside `**/routes.py`. Impact remains low while LIVE_UI_TEST_COMMAND=null on this project, but escalates on any project with live infra where a route-only change could be misclassified and skip the mandatory live tier.",
+      "proposed_audit_tag": "1-high-blast-glob-stale-after-routes-package-split"
+    },
+    {
+      "ts": "2026-06-30T07:38:02Z",
+      "run_ref": "2026-06-30T07:38:02Z",
+      "target": "this branch into dev (current=bot/sp-6-20260630; sha=103f33c; base=dev)",
+      "category": "missing_audit_category",
+      "_theme_slug": "high-blast-glob-missing-routes-package",
+      "phase": "1",
+      "evidence": "Phase 1 scope classifier marked scope=lite. One changed file was `backend/intelligence_platform/api/routes/schema_pool.py` -- a routes file inside a routes/ PACKAGE. HIGH_BLAST_PATHS lists `**/routes.py` (god-file literal) but NOT `**/routes/**`, so the package file matched ZERO HIGH_BLAST globs and did not trigger full-mode / the mandatory live-UI gate. The Phase-5 security RELEVANCE_PREDICATE was already patched on 2026-06-24 to list `**/routes/**` alongside `**/routes.py` for exactly this routes.py->routes/ split; HIGH_BLAST_PATHS carries the same latent gap unpatched.",
+      "interpretation": "The 2026-06-24 routes.py->routes/ package refactor invalidated the `**/routes.py` literal in TWO config lists, but only the Phase-5 security predicate was updated. HIGH_BLAST_PATHS still under-matches any file in a routes/ package, so a route-layer change can be classified scope=lite and skip the mandatory live-UI gate. Low impact THIS run (lite is verbosity-only; load-bearing gates fired; LIVE_UI_TEST_COMMAND=null anyway), but on a project WITH live infra a routes-package change could silently bypass the mandatory live tier. Candidate skill change: add `**/routes/**` to HIGH_BLAST_PATHS in the config block (mirror of the security-predicate fix). No FAIL tag covers HIGH_BLAST glob drift (3-or-5-predicate-glob-stale-after-refactor is scoped to Phase 3/5 RELEVANCE_PREDICATES, not the Phase-1 classifier).",
+      "proposed_audit_tag": "1-high-blast-glob-stale-after-routes-package-split"
+    },
+    {
       "ts": "2026-06-29T16:55:14Z",
       "run_ref": "2026-06-29T16:55:14Z",
       "target": "this branch into dev (current=feat/reasoning-summary-personal; sha=c4c52b0; base=dev)",
