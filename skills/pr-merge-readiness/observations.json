@@ -677,6 +677,28 @@
       "evidence": "Phase 5 skip_security_category triggers are ['**/auth/**','**/authz/**','**/security/**','**/routes.py','**/dependencies.py']. This run ported project-ACCESS enforcement gates into backend/intelligence_platform/api/routes/*.py (projects.py, analysis.py, business_case.py, conversations_sharing.py). The glob '**/routes.py' matches a FILE named routes.py, NOT files inside a routes/ package — so after the very package split this run validated, the security predicate would match ZERO changed paths and wrongly skip the security category on access-control code. Operator overrode and ran security explicitly.",
       "interpretation": "Same root cause as the 2026-06-09/2026-06-10 performance-skip-predicate observations: RELEVANCE_PREDICATES trigger globs are a hand-maintained whitelist that drifts from the project's real layout (here, a god-file->package refactor invalidated '**/routes.py'). The skip decision is load-bearing-adjacent: a stale glob silently suppresses the security scan on security-sensitive code. Cross-channel meta-theme now at 3 occurrences (2 performance + 1 security).",
       "proposed_audit_tag": null
+    },
+    {
+      "ts": "2026-07-20T11:51:04Z",
+      "run_ref": "2026-07-20T11:51:04Z",
+      "target": "dev vs dev_stable stability review (dev@412eba7)",
+      "category": "dev_env_friction",
+      "_theme_slug": "dev-stack-staleness",
+      "phase": "3",
+      "evidence": "Phase 3 first smoke run: '1 failed, 576 passed' — test_app_mcp_mount.py::test_mcp_external_host_not_misdirected 'AssertionError: External Host rejected by DNS-rebinding protection — got 421'. Probe showed the cached test image had fastmcp 3.4.3 / mcp 1.28.1 (unpinned latest) despite pyproject pinning fastmcp==3.1.0/mcp==1.26.0; default TransportSecuritySettings()=enable_dns_rebinding_protection=True + allowed_hosts=[] rejects all hosts. After 'docker compose -f docker-compose.test.yml build --no-cache backend' installed the pinned 3.1.0/1.26.0: 7/7 MCP tests pass, smoke '577 passed, 1 skipped'.",
+      "interpretation": "The test container bakes deps at build time; a stale cached image silently used unpinned latest deps and produced a FALSE smoke FAILURE. Same dev-stack-staleness theme as 2026-05-08 (stale container missing new pyproject dep) but escalated from cosmetic warning to a false test VERDICT — and symmetrically could produce a false PASS masking a real regression. Nearly cost a false RED on a correct branch.",
+      "proposed_audit_tag": null
+    },
+    {
+      "ts": "2026-07-20T11:51:04Z",
+      "run_ref": "2026-07-20T11:51:04Z",
+      "target": "dev vs dev_stable stability review (dev@412eba7)",
+      "category": "missing_audit_category",
+      "_theme_slug": "test-image-not-verified-against-branch-dep-pins",
+      "phase": "3",
+      "evidence": "The skill trusted the first (stale-image) container test run's 1-FAIL result with no check that the image reflected the branch's dependency pins, even though backend/pyproject.toml was IN the diff (pinning fastmcp==3.1.0/mcp==1.26.0). Only an ad-hoc version probe (importlib.metadata) revealed fastmcp 3.4.3/mcp 1.28.1 were actually installed. No Phase 3/4 audit row asserts installed deps == pinned deps before trusting test tiers.",
+      "interpretation": "When pyproject.toml / lockfiles are in the diff, Phase 3/4 results from a cached image can be false in either direction. A guard — force a fresh --no-cache build (or assert installed versions match the pins) before trusting the tiers — would make the verdict robust. This is a SKILL-side gap, not purely environmental.",
+      "proposed_audit_tag": "3-test-image-stale-vs-branch-dep-pins"
     }
   ],
   "review_log": [
@@ -883,8 +905,8 @@
         }
       ],
       "suggestion_written_to": "skills/pr-merge-readiness/suggestions.md",
-      "applied_at": null,
-      "applied_via": null
+      "applied_at": "2026-07-21T10:14:09Z",
+      "applied_via": "Signal 1 applied — Phase 5 step 4d (Roadmap-doc status check, informational/non-blocking) + ROADMAP_STATUS_DOC config key present in SKILL.md. Signal 2 (in-branch status flip for direct-ff merges) NOT auto-applied: routed to repo owner as an open CLAUDE.md policy question per the proposal's own DO-NOT-auto-apply instruction."
     },
     {
       "ts": "2026-06-12T17:35:00+02:00",
@@ -914,8 +936,8 @@
         "2026-06-24T12:51:55Z"
       ],
       "suggestion_written_to": "skills/pr-merge-readiness/suggestions.md",
-      "applied_at": null,
-      "applied_via": null
+      "applied_at": "2026-07-21T10:14:09Z",
+      "applied_via": "Applied — Phase 2 step 2 (git --version detect) + version-dispatched step 3 conflict-marker probe + MANDATORY step 4 authoritative `git merge --no-commit --no-ff` probe (step-4-wins tie-break) present in SKILL.md; FAIL rules `2-git-version-fallback-not-automatic` (procedural, threshold=2) and `2-authoritative-merge-probe-not-run` (load-bearing, threshold=1) present in Phase 8 and now seeded in run_history.json:fail_counters."
     },
     {
       "ts": "2026-06-24T14:14:04Z",
@@ -926,6 +948,21 @@
         "2026-06-09T16:47:30+02:00",
         "2026-06-10T08:09:15Z",
         "2026-06-24T14:14:04Z"
+      ],
+      "suggestion_written_to": "skills/pr-merge-readiness/suggestions.md",
+      "applied_at": "2026-07-21T10:14:09Z",
+      "applied_via": "Applied — RELEVANCE_PREDICATES.content_signal_overrides config block (security + performance content signals), Phase 3 step 1a + Phase 5 step 1a fail-safe one-directional override text, and broadened triggers (skip_security_category +`**/routes/**`; skip_performance_category +data-access dirs) present in SKILL.md; FAIL rule `3-or-5-predicate-glob-stale-after-refactor` (procedural, threshold=2) present in Phase 8 and now seeded in run_history.json:fail_counters."
+    },
+    {
+      "ts": "2026-07-20T11:51:04Z",
+      "trigger": "threshold",
+      "clustered_theme": "dev-stack-staleness RE-TRIPPED + escalated: stale cached test image (unpinned deps) produced a FALSE smoke verdict (421) on a branch whose pyproject pins the fix's deps; passed only after --no-cache rebuild. Prior proposal (2026-06-12) framed this as cosmetic/environmental; this run shows verdict-correctness impact + a SKILL-side guard candidate.",
+      "category": "dev_env_friction",
+      "observations_referenced": [
+        "2026-05-07T18:18:00+02:00",
+        "2026-05-08T00:00:00+02:00",
+        "2026-06-12T17:35:00+02:00",
+        "2026-07-20T11:51:04Z"
       ],
       "suggestion_written_to": "skills/pr-merge-readiness/suggestions.md",
       "applied_at": null,

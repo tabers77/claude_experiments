@@ -176,9 +176,52 @@
       "occurrences": [],
       "remediation_hint": "In Phase 5 step 4c, for each closure-narrative paragraph added in TRACKER_FILES diff (and in COMPLETED_STREAMS.md when present), parse for falsifiable phrases using regex candidates `\\b\\d{2,5}\\s+(unit|integration|smoke)?\\s*tests?\\s+pass`, `\\bno regressions?\\b`, `\\bsmoke (?:tier\\s+)?clean\\b`, `\\ball tests pass\\b`, `\\bN/?A failures?\\b`. For each matched claim, reconcile against Phase 4 actual results — if Phase 4 has not run the corresponding tier in this session and the claim mentions a tier, surface to Phase 7 as an unresolved item demanding either (a) re-run the tier or (b) explicit user acceptance of the claim. If Phase 4 results contradict the claim, surface the discrepancy to Phase 7 as a hard item (load-bearing FAIL). Cheaper fallback: emit a Phase 5 sub-report row that quotes each claim verbatim alongside the Phase 4 actual result and routes any narrative claim to Phase 7 for explicit user reconciliation.",
       "applied_at": null
+    },
+    "2-git-version-fallback-not-automatic": {
+      "count": 0,
+      "threshold": 2,
+      "phase": "2",
+      "description": "Phase 2 ran the `git merge-tree --write-tree` form on a host with git < 2.38 (yielding exit 129) instead of detecting the version in step 2 and dispatching to the old-form probe. Detected when the Phase 2 audit row shows git=<2.38 but the probe field records the `--write-tree` form with exit=129.",
+      "occurrences": [],
+      "remediation_hint": "In Phase 2, BEFORE the merge-tree probe, detect the git version (`git --version`) and parse major.minor. If >= 2.38, use `git merge-tree --write-tree --name-only origin/<BASE_BRANCH> <head>`. If < 2.38, skip straight to the old-form `git merge-tree $(git merge-base origin/<BASE_BRANCH> <head>) origin/<BASE_BRANCH> <head>` conflict-marker scan. This removes the guaranteed exit-129 on older git and makes the Phase 2 evidence shape deterministic per host. Threshold=2 because a single occurrence may be a first run on a new host before version-detect was internalized; two means the dispatch is being skipped.",
+      "applied_at": "2026-07-21T10:14:09Z",
+      "applied_via": "Seeded alongside applying suggestions.md 2026-06-24 git-version-compat-not-handled-in-skill. Phase 2 step 2 (detect git version) + version-dispatched step 3 conflict-marker probe already present in SKILL.md; FAIL rule `2-git-version-fallback-not-automatic` (procedural, threshold=2) present in Phase 8 step 2. This counter completes the ledger wiring."
+    },
+    "2-authoritative-merge-probe-not-run": {
+      "count": 0,
+      "threshold": 1,
+      "phase": "2",
+      "description": "Phase 2 marked pass without an observed authoritative `git merge --no-commit --no-ff origin/<BASE_BRANCH>` probe (step 4) in this session — i.e. the audit row's authoritative-probe segment is absent. Load-bearing because the step-3 marker scan structurally misses modify/delete and other markerless conflict classes; relying on it alone can green-light a merge that silently drops code (near-miss 2026-06-24: modify/delete CONFLICT on routes.py that the old-form marker scan reported as clean).",
+      "occurrences": [],
+      "remediation_hint": "In Phase 2, make the authoritative worktree merge probe MANDATORY on every run (not just the old-git fallback): `git merge --no-commit --no-ff origin/<BASE_BRANCH>`, inspect `git status --porcelain` for unmerged (U) paths + capture exit code, then `git merge --abort`. Exit 0 AND zero unmerged => clean. When step 3 (marker scan) and step 4 (authoritative probe) disagree, step 4 wins. The text-marker scan cannot see modify/delete conflicts (no `<<<<<<<` markers). Threshold=1 (load-bearing) — a single skipped authoritative probe can false-clean a real conflict.",
+      "applied_at": "2026-07-21T10:14:09Z",
+      "applied_via": "Seeded alongside applying suggestions.md 2026-06-24 git-version-compat-not-handled-in-skill (strengthened-by clause). Phase 2 step 4 (authoritative worktree merge probe, MANDATORY on every run, step-4-wins tie-break) already present in SKILL.md; FAIL rule `2-authoritative-merge-probe-not-run` (load-bearing, threshold=1) present in Phase 8 step 2. This counter completes the ledger wiring."
+    },
+    "3-or-5-predicate-glob-stale-after-refactor": {
+      "count": 0,
+      "threshold": 2,
+      "phase": "3 or 5",
+      "description": "A `skip_*` predicate's `triggers` globs matched ZERO diff paths (so the glob whitelist alone would have skipped the category/sub-check) BUT the fail-safe content-signal override (RELEVANCE_PREDICATES.content_signal_overrides) fired and forced the category/sub-check to run — meaning the glob whitelist has drifted from the project's real paths (incomplete enumeration, or a layout refactor invalidated a path literal such as `**/routes.py` after a routes.py -> routes/ split). The override kept the run safe; the stale glob still needs re-tuning.",
+      "occurrences": [],
+      "remediation_hint": "In Phase 3 step 1a and Phase 5 step 1a, before honoring any `skip_*` decision, test the changed paths (case-insensitive substring) AND the diff body against the category's content signal (RELEVANCE_PREDICATES.content_signal_overrides.<category>). If the signal fires, the category/sub-check RUNS regardless of the glob predicate — the override can only force a check ON, never OFF. When the override fires AND the glob triggers matched zero diff paths, record this tag so the glob gets re-tuned. Project-specific: keep `skip_security_category.triggers` covering both `**/routes.py` and `**/routes/**` so the predicate survives a god-file->package split; keep `skip_performance_category.triggers` covering data-access dirs (repositories/dao/db/models/queries). Threshold=2 because one occurrence may be a novel path the globs legitimately don't cover yet; two means a glob needs updating.",
+      "applied_at": "2026-07-21T10:14:09Z",
+      "applied_via": "Seeded alongside applying suggestions.md 2026-06-24 relevance-predicate-globs-drift-from-real-paths (adopted the fail-safe content-signal override approach). RELEVANCE_PREDICATES.content_signal_overrides config block (security + performance signals), Phase 3 step 1a + Phase 5 step 1a fail-safe override text, and broadened skip_security_category (+`**/routes/**`) / skip_performance_category (+data-access dirs) triggers already present in SKILL.md; FAIL rule `3-or-5-predicate-glob-stale-after-refactor` (procedural, threshold=2) present in Phase 8 step 2. This counter completes the ledger wiring."
     }
   },
   "runs": [
+    {
+      "ts": "2026-07-20T11:51:04Z",
+      "target": "dev vs dev_stable stability review (base override: head=dev, base=dev_stable; user-directed promotion check, not a feature-branch merge; final state dev@412eba7)",
+      "outcome": "closed",
+      "verdict": "GREEN",
+      "phases_failed": [],
+      "started_at": "2026-07-20T10:19:09Z",
+      "ended_at": "2026-07-20T11:51:04Z",
+      "duration_seconds": 5515,
+      "quality_derived": "clean",
+      "phase_durations": {"1": 60, "2": 30, "3": 420, "4": 210, "5": 320, "7": 2100, "8": 120},
+      "notes": "Direction adapted per user: BASE_BRANCH overridden to dev_stable, head=dev (promotion/stability check, not a feature-branch merge). dev = 4 ahead / 0 behind dev_stable, merge-base=dev_stable=7cd57a4 → pure fast-forward descendant; 12 files +346/-12; scope=full (HIGH_BLAST mcp/**, registry/**); shallow=no; git 2.37.0 → old-form merge-tree. Four dev commits evaluated: 63088ea (tool-less personal chat answers instead of policy_denied — guard now `request.project_id and not orch._tools`), 477566e (default_chat visible to non-admins — _filter_projects_for_user switched to user_can_access_project gate), 81bc314 (reject blank/whitespace project_id at route 400 + registry ValueError), d108aca (MCP Host 421 fix: MCPHostNormalizeMiddleware rewrites Host→localhost:8000 + pin fastmcp==3.1.0/mcp==1.26.0). Phase 2 clean (merge-tree exit0/0 markers; authoritative merge 'Already up to date'/0 unmerged). Phase 3: ruff clean; smoke FIRST run 576p/1 FAIL (test_mcp_external_host_not_misdirected → 421) caused by a STALE cached test image resolving unpinned latest fastmcp 3.4.3/mcp 1.28.1 (latest default TransportSecuritySettings = enable_dns_rebinding_protection=True + allowed_hosts=[] → rejects ALL hosts incl localhost:8000); `docker compose build --no-cache backend` installed the pinned 3.1.0/1.26.0 → 7/7 MCP mount tests pass, smoke 577p/1s. Root cause proven: fastmcp 3.1.0 has ZERO transport_security refs and doesn't wire the Host check at all — the pin is load-bearing, not cosmetic. env-secrets=no-env-files; relevance-skipped=lint_frontend:no frontend paths. Phase 4: relevant unit 91p; integration 87p/11s; live UI=no infra (LIVE_UI_TEST_COMMAND=null, not a FAIL despite HIGH_BLAST); test-cache disabled (container no git HEAD). Phase 5: code-diagnosis Skill OBSERVED path-scoped 7 files; 0 bugs / 2 smells / 1 opportunity; security+performance categories RAN. Smell1: N+1 in _filter_projects_for_user (_shared.py) — user_can_access_project per-project re-runs allowed_project_ids+effective_group_ids (~3N queries on GET /projects), branch-introduced by 477566e. Smell2: MCP fix coupled to pinned allowlist default (auth.py). No access-widening (admin short-circuit + real-project membership byte-identical; only default_chat + own personal restored). Phase 7: 2 surfaced / 2 resolved-with-explicit-choice. Item1 FIXED this session — added optional `allowed` param to user_can_access_project (authz.py; backward-compat; auth-safe: only feeds real-project branch, virtual-surface + admin branches untouched), _filter_projects_for_user computes allowed once → 3 queries; verified ruff clean, mypy 0 net-new (13 pre-existing unrelated in _shared.py), test_project_access+test_conversation_sharing 37p, smoke 577p; user committed as 412eba7. Item2 investigated + STOPPED by design — no safe fix in pinned fastmcp 3.1.0 (http_app/__init__ expose no transport_security param; TransportSecuritySettings is a plain BaseModel, not env-configurable); recommended procedural mitigation (CI fresh --no-cache build so test_mcp_external_host_not_misdirected actually gates a dep bump; flag pin load-bearing to dependency-bot) + deferred code fix; proposed tracker row M-M2 (🟡 Medium) NOT filed (user deferred). Tracker check requested: confirmed NONE of the 5 dev commits close/complete any OPEN BUGS_AND_GAPS row (checked all Section 1+2 open IDs); the 4 inherited dev fixes shipped without tracker rows (pre-existing process gap, flagged; PT-2/PROD-7 empty-project rows are already closed + different root cause than the blank-project_id fix). User verbatim: 'apply the fix for number 1 in this branch (but first answer the questions below and wait for my approval)' / 'for item 2 are you sure you wont introduce any new bugs ?' / 'yes , implement both fixes in this bracnh procced' / 'merge approved'. Verdict GREEN — dev@412eba7 stable & correct vs dev_stable. User to push manually. Ledger/observer written to skill's own repo (outside intelligence-platform), no impact on the push."
+    },
     {
       "ts": "2026-07-02T13:48:16Z",
       "target": "this branch into dev (current mode; head=feat/skills-system; sha=eae88ca; base=dev)",
@@ -847,8 +890,8 @@
       "phase": "audit",
       "tag": "0-always-check-implementation-md-status",
       "text": "we should aleys check the status of the impletmation file , and I THINK IT SHOULD be updateed in this branch since the next step will be to merge to dev directly",
-      "applied_at": null,
-      "applied_via": null,
+      "applied_at": "2026-07-21T10:14:09Z",
+      "applied_via": "Signal 1 applied: Phase 5 step 4d (Roadmap-doc status check — informational, non-blocking) + ROADMAP_STATUS_DOC config key present in SKILL.md; the skill now READS and REPORTS the roadmap stream's status marker, ❌/🟡 steps that shipped in the diff, and plan-vs-implementation divergences. Signal 2 (whether the status flip should land IN the feature branch for a direct-ff-to-dev merge model) is DELIBERATELY NOT auto-applied — it contradicts CLAUDE.md's Documentation Sync Rule and is routed to the repo owner as an open policy question (see suggestions.md 2026-06-09 signal 2).",
       "sentiment": "neutral"
     }
   ],
@@ -857,7 +900,7 @@
     "last_validated_at": "2026-05-21T00:00:00+02:00",
     "last_research_at": null,
     "last_overlap_check_at": null,
-    "runs_since_validation": 31,
+    "runs_since_validation": 32,
     "thresholds": {
       "runs": 10,
       "days": 21
