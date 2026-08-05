@@ -699,6 +699,17 @@
       "evidence": "The skill trusted the first (stale-image) container test run's 1-FAIL result with no check that the image reflected the branch's dependency pins, even though backend/pyproject.toml was IN the diff (pinning fastmcp==3.1.0/mcp==1.26.0). Only an ad-hoc version probe (importlib.metadata) revealed fastmcp 3.4.3/mcp 1.28.1 were actually installed. No Phase 3/4 audit row asserts installed deps == pinned deps before trusting test tiers.",
       "interpretation": "When pyproject.toml / lockfiles are in the diff, Phase 3/4 results from a cached image can be false in either direction. A guard — force a fresh --no-cache build (or assert installed versions match the pins) before trusting the tiers — would make the verdict robust. This is a SKILL-side gap, not purely environmental.",
       "proposed_audit_tag": "3-test-image-stale-vs-branch-dep-pins"
+    },
+    {
+      "ts": "2026-07-24T10:31:43Z",
+      "run_ref": "2026-07-24T10:31:43Z",
+      "target": "this branch into dev (current=bot/sp-9-20260722; head=0024337; base=dev)",
+      "category": "missing_audit_category",
+      "_theme_slug": "base-advanced-complementarity-not-tested-on-merged-tree",
+      "phase": "2",
+      "evidence": "User asked verbatim after the audit: 'I need to confirm that the change in this branch wont affect the changes in dev and these chagens are only complementary'. Phase 2 proved only a TEXTUAL clean-merge (old-form merge-tree 0 markers + authoritative `git merge --no-commit --no-ff` exit0/0 unmerged), and the branch was 16 commits BEHIND origin/dev. Answering the question required an ad-hoc merged-tree functional probe not in any phase: `git merge --no-commit --no-ff origin/dev` to build the combined tree, then re-run smoke (580 pass) + the relevant schema_pool suite (54 pass) against the container's live bind-mount, then `git merge --abort`. Only that step confirmed dev+SP-9 work together (in addition to `git diff merge-base..origin/dev` showing dev touched 0 schema_pool files).",
+      "interpretation": "When head is many commits behind base, Phase 2's textual clean-merge does NOT confirm the combined tree still runs green — semantic regressions (a signature dev changed that head still calls, a moved import) merge cleanly yet break at runtime. A merged-tree relevant-tier run would catch that. Candidate: an optional Phase 2/4 step triggered when `git rev-list --count merge-base..origin/base` exceeds a threshold (e.g. >=10) — build the merged tree and run the Phase 4 relevant tiers against it, not just against head. This run did it manually only because the user asked; it should be a first-class step for stale-based branches.",
+      "proposed_audit_tag": null
     }
   ],
   "review_log": [

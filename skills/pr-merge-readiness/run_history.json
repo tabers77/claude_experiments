@@ -741,6 +741,34 @@
       "ts": "2026-06-22T09:04:57Z",
       "signal": "windows-worktree-path-length",
       "detail": "worktree checkout into deep temp path hit MAX_PATH on vendor file; short root works. Prefer git -C over cd-chaining."
+    },
+    {
+      "ts": "2026-07-21T10:44:12Z",
+      "target": "this branch into dev (current=bot/sp-8-20260721; head=24847b6; base=dev)",
+      "outcome": "closed",
+      "phases_failed": [],
+      "quality_derived": "clean",
+      "notes": "SP-8 LLM-verdict memoisation. GREEN verdict. Phase 2 clean (git 2.37 old-form merge-tree 0 markers + authoritative merge --no-ff exit 0). Phase 3 ruff clean; mypy 1 unused-type-ignore @818 confirmed PRE-EXISTING via git blame 81f79f78 (2026-04-28, present on origin/dev @711) -> not net-new. Phase 4 target file 39 passed + smoke 577 passed; unit/integration NOT re-run this session, user accepted for a Low-severity change. Phase 5 code-diagnosis observed: 0 bugs / 1 smell (unlocked module-level OrderedDict cache race, admin-only, tracked as follow-up near SP-9) / 3 opportunities; order-independent cache key disproven as a bug (verdict shape is symmetric joinable/confidence, no direction). Tracker pairing correct (SP-8 removed from BUGS_AND_GAPS, added to COMPLETED_STREAMS). User approved verbatim: 'merge approved'. Timing fields omitted: started_at not instrumented at Phase 0 (ledger not read until run end) -> not fabricated."
+    },
+    {
+      "ts": "2026-07-22T17:30:00Z",
+      "target": "merge this branch into dev (current=feat/gap-013-datasource-rbac; head=f9a40dc; base=dev)",
+      "outcome": "closed",
+      "phases_failed": [],
+      "quality_derived": "clean",
+      "notes": "GAP-013 data-source access control (two-gate: project + data-source; migrations 0039 polymorphic dataset_policies + 0040 lockdown). GREEN. Phase1 scope=full (23 files, 0039/0040 migrations, tools/ HIGH_BLAST); shallow-clone=no; git 2.37.0 (<2.38) -> old-form merge-tree dispatched (no exit-129). Phase2 clean: old-form marker scan exit0/0 markers + authoritative `git merge --no-commit --no-ff origin/dev` exit0 'Already up to date' (dev is ancestor, 14 ahead, ff-only merge). Phase3 rules-source=.claude/skills/shared-pre-commit-check.md; ruff clean on 14 changed .py; smoke 580 pass; env-secrets=no-env-files; protected=none; relevance-skipped=none. Phase4 targeted backend 105 pass + unit/integration 1611 pass/19 skip + FE typecheck+lint clean + 0039/0040 up/down round-trip; live-UI infra null (recorded, NOT a FAIL) + real live-probe run earlier this session (found+fixed an /orchestrate(/stream) data-source gate BYPASS -> commit 50634d7 + regression test 328d38e). Phase5 code-diagnosis Skill observed: 0 bugs / 2 low smells (data_sources.py:263 N+1 principal-name resolution, admin.py:693 broad except) / 1 refactor; TL;DR 0 blocks-merge; tracker diff-anomaly clean; closure-pairing skipped (<2 TRACKER_FILES); 5.4c 'unit+integration green' tracker claim reconciled by RE-RUNNING the tier this run (1611 pass); roadmap skipped (implementation.md not in diff). Phase7 surfaced=1 (live-probe skill bookkeeping observations.json/run_history.json committed in f9a40dc, in diff) resolved verbatim 'keep them'; 2 smells+1 refactor left informational per no follow-up request. User approved verbatim 'merge approved'. Timing fields omitted: started_at not machine-instrumented at Phase 0 -> not fabricated."
+    },
+    {
+      "ts": "2026-07-24T10:31:43Z",
+      "target": "this branch into dev (current=bot/sp-9-20260722; head=0024337; base=dev)",
+      "outcome": "closed",
+      "phases_failed": [],
+      "started_at": "2026-07-24T09:59:00Z",
+      "ended_at": "2026-07-24T10:31:43Z",
+      "duration_seconds": 1963,
+      "phase_durations": {"1": 60, "2": 40, "3": 150, "4": 120, "5": 360, "7": 900, "8": 300},
+      "quality_derived": "clean",
+      "notes": "SP-9 concurrent-discovery guard (in-process threading.Lock + _in_progress set in relationship_discovery.py; DiscoveryInProgressError -> HTTP 409 at api/routes/schema_pool.py). GREEN. Phase1 scope=lite (6 files, production .py count=2, no HIGH_BLAST/migration/auth/secret); shallow-clone=no; git 2.37.0 (<2.38) -> old-form merge-tree dispatched (no exit-129). Phase2 clean: old-form marker scan exit0/0 markers + authoritative `git merge --no-commit --no-ff origin/dev` exit0/0 unmerged/aborted; branch was 16 commits BEHIND dev but merged clean. Phase3 rules-source=.claude/skills/shared-pre-commit-check.md; ruff clean on 4 changed files (run in test container, ruff absent on host); smoke 580 pass/1 skip; env-secrets=no-env-files; protected=none; relevance-skipped=phase3_lint_frontend(no frontend paths). Phase4 smoke 580 pass + relevant unit (2 schema_pool files incl 4 new SP-9 tests) 54 pass; test-cache '[test-cache] disabled: no git HEAD' (container has no git); live-UI not required (no HIGH_BLAST match, schema_pool.py under routes/ != **/routes.py glob) + infra null. Phase5 code-diagnosis Skill observed: 0 bugs / 0 smells / 1 opportunity (relationship_discovery.py:672 anchor-keyed guard doesn't cover cross-anchor overlapping-pair race -> subsumed by SP-12 async fix, informational); TL;DR 0 blocks-merge/0 follow-up/1 refactoring; tracker diff-anomaly clean; closure-pairing auto-skipped (<2 TRACKER_FILES) but manually verified SP-9 row removed from BUGS_AND_GAPS + narrative added to COMPLETED_STREAMS; 5.4c falsifiable claims reconciled: '580 smoke'=matched (580 pass), 'ruff clean'=matched, 'mypy 17 pre-existing'=matched (17 errors all in schema_pool.py pre-existing no-untyped-def/dict type-arg, 0 in relationship_discovery.py, none on SP-9 code), '1522 unit'=NOT re-run -> user chose 'Accept with logged justification' (smoke+relevant-unit green, ruff+mypy clean, 0 bugs, +200 LOC additive isolated), 'code-diagnosis 0/0/0'=0 bugs/smells matched +1 informational opportunity; roadmap skipped (no matching implementation.md stream). EXTRA complementarity verification (user asked to confirm branch won't affect dev / changes only complementary): dev touched 0 schema_pool files since merge-base (git diff merge-base..origin/dev empty for the package); built MERGED tree (dev+SP-9, confirmed migrations 0039/0040 + guard code both present) and re-ran on container live bind-mount -> smoke 580 pass + schema_pool 54 pass on combined tree, then merge --abort restored clean. Phase7 surfaced=1 (1522-unit claim) resolved via AskUserQuestion verbatim 'Accept with logged justification'. User approved verbatim 'merge approved'."
     }
   ],
   "improvement_suggestions": [
@@ -900,7 +928,7 @@
     "last_validated_at": "2026-05-21T00:00:00+02:00",
     "last_research_at": null,
     "last_overlap_check_at": null,
-    "runs_since_validation": 32,
+    "runs_since_validation": 35,
     "thresholds": {
       "runs": 10,
       "days": 21
