@@ -206,6 +206,36 @@
       "remediation_hint": "In Phase 3 step 1a and Phase 5 step 1a, before honoring any `skip_*` decision, test the changed paths (case-insensitive substring) AND the diff body against the category's content signal (RELEVANCE_PREDICATES.content_signal_overrides.<category>). If the signal fires, the category/sub-check RUNS regardless of the glob predicate — the override can only force a check ON, never OFF. When the override fires AND the glob triggers matched zero diff paths, record this tag so the glob gets re-tuned. Project-specific: keep `skip_security_category.triggers` covering both `**/routes.py` and `**/routes/**` so the predicate survives a god-file->package split; keep `skip_performance_category.triggers` covering data-access dirs (repositories/dao/db/models/queries). Threshold=2 because one occurrence may be a novel path the globs legitimately don't cover yet; two means a glob needs updating.",
       "applied_at": "2026-07-21T10:14:09Z",
       "applied_via": "Seeded alongside applying suggestions.md 2026-06-24 relevance-predicate-globs-drift-from-real-paths (adopted the fail-safe content-signal override approach). RELEVANCE_PREDICATES.content_signal_overrides config block (security + performance signals), Phase 3 step 1a + Phase 5 step 1a fail-safe override text, and broadened skip_security_category (+`**/routes/**`) / skip_performance_category (+data-access dirs) triggers already present in SKILL.md; FAIL rule `3-or-5-predicate-glob-stale-after-refactor` (procedural, threshold=2) present in Phase 8 step 2. This counter completes the ledger wiring."
+    },
+    "1.5-redundancy-claim-without-evidence": {
+      "count": 0,
+      "threshold": 1,
+      "phase": "1.5",
+      "description": "Phase 1.5 raised a redundancy/overlap OR 'unnecessary branch' concern (any severity bucket) WITHOUT an observed codebase-search tool call (Grep/Glob/Read) citing the pre-existing implementation at a concrete file:line. Load-bearing because an unevidenced 'this is redundant' assertion is exactly the overconfident-hallucination failure mode the alignment gate exists to prevent — mirrors 5-code-diagnosis-narration-only.",
+      "occurrences": [],
+      "remediation_hint": "In Phase 1.5, the Necessity and Redundancy lenses MUST run an OBSERVABLE codebase search (Grep/Glob) by the capability's likely names before raising any concern. A redundancy/necessity concern must cite the pre-existing implementation at a concrete file:line drawn from that search. If no observed search + no cited file:line accompanies the concern, downgrade it to 'a question for the user' — do NOT raise it as a finding. Add explicit FAIL detection in Phase 8: if the Phase 1.5 audit row lists a redundancy/necessity concern but its 'redundancy/necessity searches observed' segment is 'none' OR no file:line is cited, mark FAIL.",
+      "applied_at": "2026-08-10T00:00:00Z",
+      "applied_via": "Seeded with the Phase 1.5 alignment-gate addition (2026-08-10). Phase 1.5 four-lens evidence discipline + Redundancy lens observed-search requirement present in SKILL.md; FAIL rule `1.5-redundancy-claim-without-evidence` (load-bearing, threshold=1) present in Phase 8 step 2. This counter completes the ledger wiring."
+    },
+    "1.5-scope-finding-without-intent-source": {
+      "count": 0,
+      "threshold": 2,
+      "phase": "1.5",
+      "description": "Phase 1.5 raised a scope-creep concern without quoting the branch's stated intent verbatim (the 'stated intent verbatim: \"<quote>\"' audit segment is absent or paraphrased). A scope judgement with no stated yardstick is unfalsifiable.",
+      "occurrences": [],
+      "remediation_hint": "In Phase 1.5 step 1, resolve the branch's stated intent per PR_INTENT_SOURCE (auto: PR title/body -> linked issue -> branch name -> ask user) and capture it VERBATIM. The Scope lens (step 2) must quote that intent as the yardstick before flagging any diff delta as scope-creep. Record 'stated intent verbatim: \"<quote>\"' + 'intent-source=<pr|issue|branch|ask>' in the Phase 1.5 audit row. Threshold=2 because a single occurrence may be a run where intent genuinely could not be resolved (recorded as intent-source=ask with a user-provided quote); two means the yardstick step is being skipped.",
+      "applied_at": "2026-08-10T00:00:00Z",
+      "applied_via": "Seeded with the Phase 1.5 alignment-gate addition (2026-08-10). Phase 1.5 step 1 (resolve stated intent per PR_INTENT_SOURCE, capture verbatim) + Scope lens yardstick requirement present in SKILL.md; FAIL rule `1.5-scope-finding-without-intent-source` (procedural, threshold=2) present in Phase 8 step 2. This counter completes the ledger wiring."
+    },
+    "1.5-alignment-gate-not-run": {
+      "count": 0,
+      "threshold": 2,
+      "phase": "1.5",
+      "description": "The Phase 1.5 audit row is absent entirely, i.e. the alignment gate (scope / objective / redundancy / necessity) did not run before Phase 2.",
+      "occurrences": [],
+      "remediation_hint": "Phase 1.5 MUST run before Phase 2 on every run and emit a Phase 8 audit row with the objective source, intent source, four-lens TL;DR, observed searches, block-on-principle concerns, and any early-exit user choice. If the audit table has no row 1.5, mark FAIL. Threshold=2 because a single occurrence may be the skill's first run on a project before PROJECT_OBJECTIVE_DOCS is configured; two means the gate is being bypassed.",
+      "applied_at": "2026-08-10T00:00:00Z",
+      "applied_via": "Seeded with the Phase 1.5 alignment-gate addition (2026-08-10). Phase 1.5 section + Phase 8 audit row 1.5 present in SKILL.md; FAIL rule `1.5-alignment-gate-not-run` (procedural, threshold=2) present in Phase 8 step 2. This counter completes the ledger wiring."
     }
   },
   "runs": [

@@ -236,6 +236,8 @@ Skills are organized by **development phase** — find the phase you're in, pick
 |  | Skill | When to use |
 |--|-------|-------------|
 | **Essential** | `/commit-ready` | Update docs, check for bugs in changed code, check test gaps, and commit before switching context |
+| *If needed* | `/pr-merge-readiness` | Validate a feature branch is ready to merge into `dev` — an **alignment gate** (in scope? on-objective? not redundant with existing code?) runs first, then clean-merge, pre-commit rules, relevant tests, and a no-new-bugs sweep. Emits a verdict; does **not** run the merge |
+| *If needed* | `/smart-test-selection` | Decide which pytest tests to run for a specific diff — full coverage of changed surfaces, prune irrelevant expensive tests |
 
 ### 6. Skill Building — standalone practice
 

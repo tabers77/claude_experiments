@@ -1,6 +1,6 @@
 ---
 name: pr-merge-readiness
-description: Validate a feature branch is ready to merge into dev — clean merge, pre-commit-check rules pass, relevant tests pass (incl. live UI when applicable), no-new-bugs sweep, and any .env/.env.local additions follow best practices. The skill emits a structured verdict — it does NOT run the merge. Keywords PR merge readiness feature branch dev clean merge pre-commit no-new-bugs live test env env.local best practices verdict approval gate.
+description: Validate a feature branch is ready to merge into dev — an alignment gate (is the branch in scope, on-objective, and not redundant with existing code) runs first, then clean merge, pre-commit-check rules pass, relevant tests pass (incl. live UI when applicable), no-new-bugs sweep, and any .env/.env.local additions follow best practices. The skill emits a structured verdict — it does NOT run the merge. Keywords PR merge readiness feature branch dev alignment gate scope creep objective drift redundant duplicate overlapping code unnecessary PR out of scope clean merge pre-commit no-new-bugs live test env env.local best practices verdict approval gate.
 metadata:
   pattern: self-learning
   schema-version: 1
@@ -8,9 +8,9 @@ metadata:
 
 # PR Merge Readiness
 
-End-to-end pre-merge validation for a feature branch targeting `dev`. The skill walks five gates — clean-merge probe, pre-commit-check rules (incl. env-file safety), relevant-tests run, no-new-bugs sweep, and explicit user resolution — then emits a structured verdict. It NEVER runs `git merge` or `gh pr merge`; the user takes that step manually after reading a green verdict.
+End-to-end pre-merge validation for a feature branch targeting `dev`. The skill walks six gates — an alignment gate (scope / objective / redundancy / necessity), clean-merge probe, pre-commit-check rules (incl. env-file safety), relevant-tests run, no-new-bugs sweep, and explicit user resolution — then emits a structured verdict. It NEVER runs `git merge` or `gh pr merge`; the user takes that step manually after reading a green verdict.
 
-**Load-bearing principle**: the merge is approved only when all five gates produce verbatim, falsifiable evidence: clean-merge proof, pre-commit-check rules (incl. env-file safety), relevant-tests pass (incl. live UI when applicable), no-new-bugs sweep, and explicit user resolution of every surfaced item.
+**Load-bearing principle**: the merge is approved only when all gates produce verbatim, falsifiable evidence: alignment concerns evidenced or downgraded, clean-merge proof, pre-commit-check rules (incl. env-file safety), relevant-tests pass (incl. live UI when applicable), no-new-bugs sweep, and explicit user resolution of every surfaced item. The alignment gate (Phase 1.5) checks whether the branch *should* merge — is it in scope, on-objective, and not redundant with code the repo already has — before the other gates check whether it *can*.
 
 ## Inputs
 
@@ -62,6 +62,26 @@ ROADMAP_STATUS_DOC: documentation/implementation_docs/implementation.md
   # REPORTS only — it never edits this file on a feature branch (per the
   # project's CLAUDE.md Documentation Sync Rule, status flips land on the base
   # branch after merge). null → skip the roadmap-doc status check entirely.
+
+PROJECT_OBJECTIVE_DOCS:
+  # Files that state the app's mission / intended scope. Phase 1.5 READS these
+  # (never edits) to build the "north star" it judges the branch against.
+  # First-listed-wins is NOT the rule here — every existing file is read and its
+  # relevant lines quoted verbatim as evidence. Empty list / null → skip the
+  # objective-alignment lens honestly (record "no objective docs configured")
+  # and fall back to asking the user for a one-line objective at Phase 1.5.
+  - "README.md"
+  - "CLAUDE.md"
+  - "documentation/implementation_docs/implementation.md"
+
+PR_INTENT_SOURCE: auto
+  # Where Phase 1.5 sources the branch's STATED intent (to test the diff against
+  # for scope-creep). Resolution order for `auto`:
+  #   1. pr mode  → PR title + body (`gh pr view <num> --json title,body`)
+  #   2. linked issue if the PR body references one (`gh issue view <n>`)
+  #   3. branch name (`feat/gap-002-tool-registry` → "tool registry")
+  #   4. none of the above yield intent → ASK the user for a one-line intent.
+  # Override to a literal source name (`pr` | `issue` | `branch` | `ask`) to pin it.
 
 LIVE_UI_TEST_COMMAND: null
   # Command to run the live UI tier in Phase 4. Set to a real command when the project has live UI test infra.
@@ -198,6 +218,7 @@ RELEVANCE_PREDICATES:
 ```
 
 **How configuration is consumed**:
+- Phase 1.5 reads `PROJECT_OBJECTIVE_DOCS` (every existing file) to build the objective north-star, and resolves the branch's stated intent per `PR_INTENT_SOURCE`.
 - Phase 3 reads `PRE_COMMIT_RULES_PATH` (first existing file) before falling back to defaults; Phase 3 step 1a evaluates `RELEVANCE_PREDICATES.phase3_*` against the diff before running each sub-check.
 - Phase 4 routes test tiers using `HIGH_BLAST_PATHS` (mandatory live tier trigger), `LIVE_UI_TEST_COMMAND` (the actual command to run), `DEV_STACK_PREFLIGHT_URL` (preflight gate), and `DEFAULT_TEST_COMMANDS` (per-tier commands).
 - Phase 5 reads `TRACKER_FILES` to bound the diff-anomaly check; Phase 5 step 1a evaluates `RELEVANCE_PREDICATES.phase5_code_diagnosis_categories.skip_*` to instruct the sub-skill which categories to skip (the Skill call itself remains load-bearing and always fires).
@@ -393,7 +414,64 @@ The ledger phase (9) does NOT stamp its own duration — Phase 9 IS the ledger w
 
    Record the classifier outcome verbatim in the Phase 1 audit row evidence: `scope=lite|full; reason=<the matching condition>`.
 
-   Lite-mode is informational, NOT a permission to skip load-bearing gates. Phase 2 (clean-merge), Phase 5 (no-new-bugs sweep with the Skill call), and Phase 7 (user-resolution gate) ALWAYS fire verbatim — the lite-mode budget applies only to OUTPUT VERBOSITY in Phases 3, 4, 5 reporting, and 8.
+   Lite-mode is informational, NOT a permission to skip load-bearing gates. Phase 1.5 (alignment gate), Phase 2 (clean-merge), Phase 5 (no-new-bugs sweep with the Skill call), and Phase 7 (user-resolution gate) ALWAYS fire verbatim — the lite-mode budget applies only to OUTPUT VERBOSITY in Phases 1.5, 3, 4, 5 reporting, and 8.
+
+## Phase 1.5 — Alignment gate (scope / objective / redundancy / necessity)
+
+Runs **before** any technical validation. The premise: this skill validates branches authored by contributors who generate ideas quickly but may lack the judgement to know whether a branch *should exist* — it may re-implement code the repo already has, smuggle in out-of-scope features, or drift from the app's core objective. Phases 2–5 only prove a branch is technically **correct**; none of them ask whether it is **wanted**. This gate does, and it runs first so a fundamentally-misaligned branch can be caught before the expensive test/bug-sweep phases burn time.
+
+**Load-bearing principle for THIS phase**: alignment is a judgement, and the skill is bad at judgements (same reason Phase 7 exists — "the user knows what they care about"). Therefore the gate NEVER auto-blocks and NEVER emits a RED verdict on its own. Its concerns route to Phase 7 like every other finding, and the **user decides**. What IS load-bearing is the *evidence discipline*: every concern the gate raises must cite verbatim, falsifiable evidence (a quoted objective line, a quoted stated-intent, a concrete diff delta, or an observed codebase-search hit at `file:line`). A concern without evidence is downgraded to "a question for the user" — it is NOT a finding. This is the anti-hallucination anchor: an LLM asserting "this is redundant / off-scope" is exactly as prone to overconfident invention as the branch authors this gate exists to check.
+
+1. **Resolve the two reference points** the gate judges against:
+
+   - **The objective north-star.** `Read` every existing file in `PROJECT_OBJECTIVE_DOCS`. Extract the lines that state the app's mission / intended scope and keep them for verbatim quoting. If `PROJECT_OBJECTIVE_DOCS` is empty/null OR no listed file exists, record `objective-docs=none-configured` and ask the user for a one-line objective before continuing (do NOT invent one). The objective lens still runs against whatever the user gives.
+   - **The branch's stated intent.** Resolve per `PR_INTENT_SOURCE` (default `auto`: PR title+body → linked issue → branch name → ask the user). Capture it **verbatim** — this is the yardstick the scope lens measures the diff against. If `auto` yields nothing usable (bare branch name like `dev-work`, empty PR body), fall through to asking the user; record which source was used.
+
+2. **Run the four lenses.** Each produces zero or more concerns; each concern MUST carry the lens's required evidence or it is not raised.
+
+   | Lens | Question | Required evidence (no evidence ⇒ downgrade to a user-question, not a finding) |
+   |---|---|---|
+   | **Necessity** | Does this branch need to exist at all? | A codebase search (Grep/Glob) for the capability + a tracker/issue check — is the need real and not already delivered? A "this is unnecessary" concern without a cited existing implementation OR a cited already-tracked duplicate is downgraded. |
+   | **Objective alignment** | Does the change advance the stated mission? | A **verbatim quote** from `PROJECT_OBJECTIVE_DOCS` (or the user-stated objective) + a mapping of each major diff area to an objective. A diff area that maps to no objective is flagged with the quote it fails to satisfy. |
+   | **Scope discipline** | Does the diff do *only* what the stated intent says? | The stated intent quoted **verbatim** (from step 1) + a concrete list of diff deltas (`git diff --name-only` grouped by capability). Any delta not covered by the stated intent = scope-creep concern, cited by `file`/capability. |
+   | **Redundancy / overlap** | Does it re-implement code the repo already has? | An **observed Grep/Glob/Read** call locating the pre-existing implementation, cited at `file:line`. This is load-bearing: a redundancy concern with no observed search + no cited pre-existing `file:line` is a `1.5-redundancy-claim-without-evidence` FAIL, never a valid finding. |
+
+   The codebase searches for the Necessity and Redundancy lenses are the mechanical core of this phase — run them, don't reason about them. Search by the capability's likely names (function/class/module/route names inferred from the diff), not just exact strings.
+
+3. **Classify each concern by severity** into the same three-bucket shape Phase 5 uses, and lead with a one-line TL;DR **before** any per-concern detail:
+
+   ```
+   Alignment — <N1> concern(s) block on principle / <N2> track as follow-up / <N3> informational.
+   ```
+
+   - **"block on principle"** = a concern that questions whether the branch should merge *at all*: whole-branch redundancy (the diff re-implements an existing module in its entirety), a core feature that maps to no stated objective, or scope-creep large enough that the branch is really two PRs. These are the SEVERE concerns.
+   - **"track as follow-up"** = partial overlap, a minor out-of-scope addition that is independently reasonable, a naming/placement divergence — real but not merge-questioning.
+   - **"informational"** = observations worth the author's awareness with no action implied.
+
+   Render the per-concern detail ordered block-on-principle first. **Lite-mode** (Phase 1 `scope=lite`): render only the TL;DR sentence + the block-on-principle bucket detail; other buckets by count only, expandable on request.
+
+4. **Early-exit offer (fires ONLY when ≥1 concern is in the "block on principle" bucket).** Because a doomed-on-principle branch shouldn't cost the user Phases 2–5, surface the severe concern(s) immediately and prompt — this is a Phase-7-style resolution presented early, and its outcome is recorded verbatim for the audit:
+
+   ```
+   Alignment gate found <N1> concern(s) that question whether this branch should merge:
+     1. [redundancy] auth/token.py:12-88 re-implements the existing services/auth/session.py:40-120 token cache
+     <...>
+
+   How do you want to proceed?
+     1. Abort now — skip the remaining technical validation (recommended when the branch shouldn't merge as-is)
+     2. Narrow scope — you'll revise the branch; re-run the skill after
+     3. Continue full validation — record these as unresolved items for Phase 7, run Phases 2–5 anyway
+   ```
+
+   Mark exactly one option `(recommended)` with a one-line rationale, per the same recommendation discipline as Phase 7 (default-recommend option 1 when the severe concern is whole-branch redundancy or clear off-mission; otherwise option 3). Record the user's literal choice.
+
+   - **Abort** → clean exit; ledger writes `outcome: "aborted"` with `phases_failed` reflecting the alignment concern. No verdict printed (same as a Phase 7 abort).
+   - **Narrow scope** → clean exit, same as abort but the run summary notes the branch is expected to be revised and re-submitted.
+   - **Continue** → the severe concerns become unresolved items carried into Phase 7; the run proceeds to Phase 2. Nothing is auto-blocked here.
+
+   When there are **zero** block-on-principle concerns, DO NOT prompt — the gate is silent-pass on the severe bucket. Any "track as follow-up" concerns still carry forward to Phase 7 as informational-unless-user-escalates items (mirroring Phase 5's follow-up handling); "informational" concerns are reported once and do not route to Phase 7.
+
+5. **Capture evidence verbatim** for the Phase 8 audit: the objective source (`docs=<resolved paths>|user-stated|none-configured`), the intent source used (`intent-source=<pr|issue|branch|ask>`), the four-lens TL;DR counts, each block-on-principle concern with its cited evidence, the observed codebase-search commands for the Necessity/Redundancy lenses, and — when the early-exit prompt fired — the user's literal choice.
 
 ## Phase 2 — Clean-merge probe
 
@@ -603,7 +681,7 @@ This phase number is intentionally left as a reserved placeholder rather than re
 
 Before the audit can run, every unresolved item from Phases 1–5 must be addressed by an explicit user choice. The skill is bad at judging "fine to skip"; the user knows what they care about.
 
-1. **List every unresolved item** in a numbered table. Sources: Phase 2 conflicts, Phase 3 rule failures (incl. env-file safety / env-secret heuristic trips, folded from former Phase 6), Phase 4 test failures or skipped tiers, Phase 5 diagnosis findings, plan deviations.
+1. **List every unresolved item** in a numbered table. Sources: Phase 1.5 alignment concerns (block-on-principle concerns carried forward when the user chose "continue full validation", plus any "track as follow-up" concern the user escalated), Phase 2 conflicts, Phase 3 rule failures (incl. env-file safety / env-secret heuristic trips, folded from former Phase 6), Phase 4 test failures or skipped tiers, Phase 5 diagnosis findings, plan deviations.
 
    ```
    Unresolved items before verdict:
@@ -703,6 +781,7 @@ The audit runs **before** the print. Print cannot fire until the user explicitly
    | Phase | Status | Evidence |
    |-------|--------|----------|
    | 1 | pass | input parsed: <mode> <target>; user input verbatim: "<literal quote>"; shallow-clone=<yes-unshallowed\|no>; scope=<lite\|full>; reason=<matching condition> |
+   | 1.5 | pass\|FAIL | objective docs=<resolved paths\|user-stated\|none-configured>; intent-source=<pr\|issue\|branch\|ask>; stated intent verbatim: "<literal quote>"; alignment TL;DR: <N1> block / <N2> follow-up / <N3> info; redundancy/necessity searches observed: <commands or "none">; block-on-principle concerns: <none\|<file:line + cited evidence per concern>>; early-exit: <not-triggered\|user chose "<literal quote>"> |
    | 2 | pass\|FAIL | git=<version>; probe=<merge-tree --write-tree\|old-form merge-tree>: exit=<code>, markers=<none\|<paths>>; authoritative `git merge --no-commit --no-ff origin/<BASE_BRANCH>`: exit=<code>, unmerged=<none\|<paths>>, aborted=<yes> |
    | 3 | pass\|FAIL | rules-source=<resolved PRE_COMMIT_RULES_PATH or "defaults">; outcomes: smoke=<...>, lint=<...>, protected=<...>, ownership=<...>, safety=<...>, env-secrets=<no-env-files\|pass\|FAIL+files>, relevance-skipped=<none\|<sub-check>:<skip_note>; ...> |
    | 4 | pass\|FAIL | tiers run: <list>; results: <pass/fail/skipped per tier>; test-cache: <verbatim lines or "not wired">; live UI: <ran\|skipped + reason> |
@@ -745,6 +824,9 @@ The audit runs **before** the print. Print cannot fire until the user explicitly
    - **`7-fix-now-default-for-branch-introduced-cheap-fixes` FAIL** (procedural, threshold=2): Phase 7 surfaced an item meeting the 4 original narrow-gate preconditions (LOC ≤15, code/docs only, smoke ≤60s, canonical small-fix category) AND `git blame` shows at least one cited file:line is in `origin/<BASE_BRANCH>...HEAD` BUT the option block landed `(recommended)` on `File as gap` or `Skip with logged justification` instead of `Fix it now`. Detection: re-run the git blame check at audit time on each cited file:line; if branch-introduced + all 4 narrow preconditions match but `(recommended)` was elsewhere, fail. Threshold=2 because a single occurrence may be a deliberate user override; two means the ranking logic is drifting in the wrong direction.
    - **`7-fix-now-applied-without-failing-state-observation` FAIL** (procedural, threshold=2): a Phase 7 `Fix it now` flow applied a tightening edit (per the tightening-fix detector in Phase 7 step 2a) WITHOUT recording the pre-edit verification sequence in the audit row evidence. Detection: scan the audit row for the Phase 7 step 2a evidence ("Pre-edit verification: actual=<X>, expected=<Y>, match=<y|n>"); if the row applied a tightening edit and that evidence string is absent, fail. Threshold=2 because a single occurrence may be a non-tightening edit the detector misclassified; two means the verification step is being skipped — the very failure mode this step exists to prevent.
    - **`1-scope-classifier-not-applied` FAIL** (procedural, threshold=2): Phase 1 audit row missing the `scope=lite|full; reason=<...>` evidence segment introduced by the 2026-05-19 scope-classifier remediation. Threshold=2 because a single occurrence may be the skill's first run on a new project before the operator has internalized the classifier; two means the gate logic is drifting.
+   - **`1.5-redundancy-claim-without-evidence` FAIL** (load-bearing, threshold=1): Phase 1.5 raised a redundancy/overlap OR "unnecessary branch" concern (in any severity bucket) WITHOUT an observed codebase-search tool call (Grep/Glob/Read) citing the pre-existing implementation at a concrete `file:line`. Detection: the Phase 1.5 audit row lists a redundancy/necessity concern but its `redundancy/necessity searches observed` segment is `none` OR no cited `file:line` accompanies the concern. Load-bearing because an unevidenced "this is redundant" assertion is exactly the overconfident-hallucination failure this gate exists to prevent — mirrors `5-code-diagnosis-narration-only`.
+   - **`1.5-scope-finding-without-intent-source` FAIL** (procedural, threshold=2): Phase 1.5 raised a scope-creep concern without quoting the branch's stated intent verbatim (the `stated intent verbatim: "<quote>"` segment is absent or paraphrased) — a scope judgement with no stated yardstick is unfalsifiable. Threshold=2 because a single occurrence may be a run where intent genuinely could not be resolved (recorded as `intent-source=ask` with a user-provided quote); two means the yardstick step is being skipped.
+   - **`1.5-alignment-gate-not-run` FAIL** (procedural, threshold=2): the Phase 1.5 audit row is absent entirely, i.e. the alignment gate did not run before Phase 2. Threshold=2 because a single occurrence may be the skill's first run on a project before `PROJECT_OBJECTIVE_DOCS` is configured; two means the gate is being bypassed.
    - **`3-or-5-relevance-prefilter-not-applied` FAIL** (procedural, threshold=2): Phase 3 or Phase 5 ran a sub-check whose `RELEVANCE_PREDICATES` predicate would have tripped given the diff content, but the prefilter step (Phase 3 step 1a or Phase 5 step 1a) was not invoked — i.e. the Phase 3 aggregate row is missing the `relevance-skipped=...` field entirely (not just `relevance-skipped=none`), OR Phase 5 evidence does not mention category skips when a predicate's triggers had zero diff-path matches. Threshold=2 because a single occurrence may be the skill's first run on a project before the predicates are tuned; two means the prefilter step is being bypassed.
    - **`3-or-5-predicate-glob-stale-after-refactor` FAIL** (procedural, threshold=2): a `skip_*` predicate's `triggers` globs matched ZERO diff paths (so the glob whitelist alone would have skipped the category/sub-check) BUT the fail-safe content-signal override (`RELEVANCE_PREDICATES.content_signal_overrides`) fired and forced the category/sub-check to run — meaning the glob whitelist has drifted from the project's real paths (incomplete enumeration, or a layout refactor invalidated a path literal such as `**/routes.py` after a `routes.py` → `routes/` split). The override kept the run safe; the stale glob still needs re-tuning. Threshold=2 because one occurrence may be a novel path the globs legitimately don't cover yet; two means a glob needs updating. Detection: the Phase 3/5 evidence records a content-signal-forced run alongside a zero-match glob predicate.
    - **`1-shallow-clone-not-unshallowed` FAIL** (procedural, threshold=2): Phase 1 step 2a was not invoked OR `git rev-parse --is-shallow-repository` returned `true` and the clone was not unshallowed before Phase 1 step 3 / Phase 2's ancestry probes ran. Detected when the Phase 1 audit row is missing the `shallow-clone=<yes-unshallowed|no>` evidence segment, OR the row records `shallow-clone=yes-not-unshallowed`. Threshold=2 because a single occurrence may be the skill's first run on a new host before the operator has internalized the check; two means the gate is drifting.
@@ -962,6 +1044,9 @@ This phase is OPTIONAL and was retrofitted to this skill from `library/templates
 5. **User's project has its own pre-commit-check skill under a different name**: edit `PRE_COMMIT_RULES_PATH` in the config block to point at the project's actual rules file. Do NOT ask at runtime — the config is the single place to change this.
 6. **Live UI test infrastructure not present in the project**: Phase 4 step 2 records "no live UI test infrastructure found"; this is NOT a `4-live-test-skipped-without-justification` failure — the rule applies only when the test exists and was skipped.
 7. **User aborts at Phase 7 or Phase 8**: clean exit. Run-history ledger still gets a `runs[]` entry with `outcome: "aborted"` and the phases that failed. No verdict printed.
+8. **No `PROJECT_OBJECTIVE_DOCS` configured / none exist**: Phase 1.5 records `objective-docs=none-configured` and asks the user for a one-line objective; the objective lens runs against that. This is NOT a failure — an unconfigured project is expected on first adoption. Configure the key to remove the per-run prompt.
+9. **Branch intent unresolvable** (bare branch name, empty PR body, no linked issue): Phase 1.5 falls through `PR_INTENT_SOURCE: auto` to asking the user, records `intent-source=ask` with the user's verbatim answer. The scope lens still runs against the user-stated intent — it does not silently skip.
+10. **User aborts at Phase 1.5 early-exit** (abort / narrow-scope): clean exit, same as a Phase 7 abort — `runs[]` gets `outcome: "aborted"`, the alignment concern is recorded in `phases_failed`, no verdict printed, and Phases 2–5 are never run (the whole point of the early gate).
 
 ## Plugin skills composed by this skill
 
@@ -995,7 +1080,7 @@ Tell Claude one of:
 /pr-merge-readiness                                # current branch
 ```
 
-The skill walks Phases 1–9 and asks for explicit approval before printing the verdict. Failure patterns accumulate in `run_history.json`; when a counter trips its threshold, the skill auto-edits its own SKILL.md per the `remediation_hint` and the user reviews the edit in their normal commit-review loop.
+The skill walks Phases 1–9 (an alignment gate at Phase 1.5 runs first, before any technical check) and asks for explicit approval before printing the verdict. Failure patterns accumulate in `run_history.json`; when a counter trips its threshold, the skill auto-edits its own SKILL.md per the `remediation_hint` and the user reviews the edit in their normal commit-review loop.
 
 ---
 
@@ -1003,10 +1088,10 @@ The skill walks Phases 1–9 and asks for explicit approval before printing the 
 
 Before the first invocation of this skill, verify:
 
-- [ ] `run_history.json` exists at the skill's root, initialized with the universal seed FAIL rules from `library/templates/self-learning-skill/run_history_schema_v1.md` ("Initial state" section) plus the 5 domain rules listed in Phase 8.
-- [ ] The audit phase (Phase 8) lists one row per domain phase, with concrete evidence shapes.
-- [ ] Every phase that consumes user input (Phases 1 and 7) has a row format that records the input **verbatim**, never paraphrased.
+- [ ] `run_history.json` exists at the skill's root, initialized with the universal seed FAIL rules from `library/templates/self-learning-skill/run_history_schema_v1.md` ("Initial state" section) plus the domain rules listed in Phase 8.
+- [ ] The audit phase (Phase 8) lists one row per domain phase (incl. Phase 1.5), with concrete evidence shapes.
+- [ ] Every phase that consumes user input (Phases 1, 1.5, and 7) has a row format that records the input **verbatim**, never paraphrased.
 - [ ] The verdict-print requires the literal `merge approved` token — silence, "ok", "looks good" do NOT advance.
-- [ ] At least one domain FAIL rule exists (5 are seeded).
+- [ ] At least one domain FAIL rule exists (the alignment gate adds `1.5-redundancy-claim-without-evidence` as a load-bearing anchor).
 - [ ] Threshold tiers match phase severity: load-bearing=1, procedural=2, cosmetic=5.
 - [ ] The ledger phase (Phase 9) is the last phase. No phase fires after it.
