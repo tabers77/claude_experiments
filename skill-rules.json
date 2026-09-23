@@ -134,6 +134,11 @@
       "skill": "meta-research-checkpoint",
       "triggers": ["research checkpoint", "check.*industry.*update", "latest.*update.*skill", "revalidate.*skill", "research.*improvements.*skill", "what.*new.*for.*skills", "freshness.*review.*skill", "are.*skills.*stale", "level 1.*level 2.*research"],
       "description": "Multi-level (L1 meta + L2 self-learning skills) research checkpoint — suggestion only"
+    },
+    {
+      "skill": "machine-perf-audit",
+      "triggers": ["slow (laptop|computer|machine|pc)", "(machine|computer|laptop|system).*(performance|slow)", "disk.*(full|space)", "free up.*space", "out of.*(disk|space)", "reclaim.*space", "low (ram|memory)", "memory pressure", "pagefile", "high cpu", "docker.*(disk|space|bloat)", "vhdx", "wsl.*(disk|slow)", "pip.*(outside|without).*venv", "user-?site", "orphan.*venv", "duplicate.*(torch|wheel)", "cache.*(sprawl|bloat)", "startup.*(bloat|programs)", "clean ?up.*(machine|laptop|disk)"],
+      "description": "Triage machine performance across seven lanes and emit a permission-tiered remediation tracker (read-only)"
     }
   ]
 }

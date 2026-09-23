@@ -239,6 +239,14 @@ Skills are organized by **development phase** — find the phase you're in, pick
 | *If needed* | `/pr-merge-readiness` | Validate a feature branch is ready to merge into `dev` — an **alignment gate** (in scope? on-objective? not redundant with existing code?) runs first, then clean-merge, pre-commit rules, relevant tests, and a no-new-bugs sweep. Emits a verdict; does **not** run the merge |
 | *If needed* | `/smart-test-selection` | Decide which pytest tests to run for a specific diff — full coverage of changed surfaces, prune irrelevant expensive tests |
 
+### 5.5 Machine & Environment
+
+*Not about the codebase — about the machine you build on.*
+
+|  | Skill | When to use |
+|--|-------|-------------|
+| *If needed* | `/machine-perf-audit` | The laptop is slow or out of disk. Bounded triage across seven lanes (disk, RAM, CPU, host-boundary IO, Docker, startup, Python/dev hygiene), ranked deep-dives into only the lanes that clear their evidence floor, then a permission-tiered remediation tracker (no-admin / admin / IT-ticket). Finds pip packages installed outside a venv, orphan venvs, duplicated heavy wheels, and cache sprawl. **Read-only** — emits the plan, never runs it |
+
 ### 6. Skill Building — standalone practice
 
 *Not tied to a specific project. Practice sessions you can do anytime.*
@@ -358,6 +366,7 @@ claude_experiments/
 │   ├── meta-research-checkpoint/
 │   ├── meta-self-learning-skill-gen/
 │   ├── meta-skill-audit/
+│   ├── machine-perf-audit/       # Self-learning: machine perf triage -> tiered tracker
 │   └── quality-sync-docs/
 ├── agents/                       # Agent definitions
 │   ├── code-reviewer.md

@@ -1,0 +1,128 @@
+{
+  "version": 1,
+  "fail_counters": {
+    "audit-paraphrased-user-input": {
+      "count": 0,
+      "threshold": 1,
+      "phase": "audit",
+      "description": "Audit row paraphrased user intent rather than quoting verbatim. Load-bearing honesty failure.",
+      "occurrences": [],
+      "remediation_hint": "Tighten the audit phase: 'Each verdict MUST cite objective evidence — a tool call observed, a command output, a file diff, or a literal quote from the user. Never paraphrase user input.' Add explicit FAIL detection for any audit row that paraphrases rather than quotes verbatim.",
+      "applied_at": null
+    },
+    "audit-no-explicit-approval-wait": {
+      "count": 0,
+      "threshold": 2,
+      "phase": "audit",
+      "description": "Skill advanced past a user-gate phase without observing the literal approval token.",
+      "occurrences": [],
+      "remediation_hint": "Add an explicit wait-for-token gate at the Phase 8 -> Phase 9 and Phase 9 -> doc-edit boundaries. Silence, 'looks good', 'ok', 'proceed' do NOT count as approval.",
+      "applied_at": null
+    },
+    "tool-claim-without-call": {
+      "count": 0,
+      "threshold": 1,
+      "phase": "any",
+      "description": "SKILL.md text claimed a probe or tool ran but no corresponding tool call was observed in the session.",
+      "occurrences": [],
+      "remediation_hint": "Audit phase MUST verify the actual tool-call trace, not narration. Mark FAIL when an audit row says 'probed X' but no Bash/PowerShell/Read call for X exists in the session.",
+      "applied_at": null
+    },
+    "plan-silent-skip": {
+      "count": 0,
+      "threshold": 1,
+      "phase": "0.5",
+      "description": "A baseline domain step neither ran nor was explicitly skipped with a reason in the run plan — it vanished silently.",
+      "occurrences": [],
+      "remediation_hint": "Tighten Phase 0.5: every baseline step MUST land in exactly one of reused/adapted/skipped. Tighten the audit's run-plan reconciliation to FAIL when a baseline_steps id is absent from both executed rows and skip rows.",
+      "applied_at": null
+    },
+    "plan-skipped-load-bearing-step-without-justification": {
+      "count": 0,
+      "threshold": 1,
+      "phase": "0.5",
+      "description": "A load-bearing baseline step was skipped with an empty or placeholder justification.",
+      "occurrences": [],
+      "remediation_hint": "Tighten Phase 0.5: load-bearing baseline steps (Phases 1, 3, 4, 5, 6, 7) may be skipped ONLY with a substantive justification. Tighten the audit to FAIL when a load-bearing skip row has an empty/placeholder reason (n/a, -, none, whitespace).",
+      "applied_at": null
+    },
+    "recommended-destructive-prune-without-computed-keep-list": {
+      "count": 0,
+      "threshold": 1,
+      "phase": "7",
+      "description": "The emitted plan contains a destructive command (prune, rmi, rm -rf, Remove-Item -Recurse, --volumes, unregister, an uninstaller, a registry delete) whose action row has an empty or absent keep-list, or whose keep-list was not derived from a Phase 5 probe output observed in this session.",
+      "occurrences": [],
+      "remediation_hint": "Tighten Phase 7 step 2: make the keep-list column mandatory and non-empty for every destructive command, and require it to cite the Phase 5 probe output it was computed from. Add the explicit destructive-verb list to the phase body so the check is mechanical rather than judgment-based.",
+      "applied_at": null
+    },
+    "claimed-space-freed-without-host-level-remeasure": {
+      "count": 0,
+      "threshold": 1,
+      "phase": "6",
+      "description": "A reclaim figure was asserted without an apparent/host-level label and a verification command, or a figure sourced from a guest-internal tool (docker system df, guest df) was presented as a host-drive gain.",
+      "occurrences": [],
+      "remediation_hint": "Tighten Phase 6 step 2: every reclaim figure carries an explicit apparent|host-level label plus the exact verify command. Tighten step 3 so the two totals are printed separately and never summed. Add the guest-internal tool list (docker system df, guest df) to the FAIL condition so detection is mechanical.",
+      "applied_at": null
+    },
+    "suggested-touching-protected-corporate-agent": {
+      "count": 0,
+      "threshold": 1,
+      "phase": "7",
+      "description": "An action row named a PROTECTED_PROCESSES entry with a verb outside the permitted set (ask IT to reschedule, request exclusion, observe, report).",
+      "occurrences": [],
+      "remediation_hint": "Tighten Phase 6 step 4 and Phase 7 step 5: screen every action row against PROTECTED_PROCESSES before rendering, and enumerate the four permitted verbs inline in the phase body so the check needs no judgment. Add the offending process name to the config block if it was missing from the registry.",
+      "applied_at": null
+    },
+    "assumed-cache-path-without-querying-owning-tool": {
+      "count": 0,
+      "threshold": 1,
+      "phase": "5",
+      "description": "A cache path appeared in the plan with no corresponding CACHE_OWNER_QUERIES invocation in this session's tool-call trace.",
+      "occurrences": [],
+      "remediation_hint": "Tighten Phase 5.python step h: state that NO cache path may enter the report unless it was returned by its owning tool's query command in THIS run. Add the missing tool to CACHE_OWNER_QUERIES in the config block if the path came from a tool not yet listed.",
+      "applied_at": null
+    },
+    "deep-dive-lane-not-justified-by-triage-evidence": {
+      "count": 0,
+      "threshold": 1,
+      "phase": "4",
+      "description": "A lane in Phase 4's selected set had a ranking row citing no Phase 3 metric, or citing a metric below that lane's LANE_SELECTION_FLOOR.",
+      "occurrences": [],
+      "remediation_hint": "Tighten Phase 4 step 3: every selected-lane row MUST carry a Basis column quoting the Phase 3 metric and the floor it cleared. Tighten step 4 so a user-named lane below its floor triggers an explicit ask rather than silent inclusion.",
+      "applied_at": null
+    },
+    "probe-ran-without-platform-gate": {
+      "count": 0,
+      "threshold": 1,
+      "phase": "1",
+      "description": "A Phase 5 probe executed for a component Phase 1 recorded absent or unknown, or Phase 5 ran with no Phase 1 fingerprint in run state.",
+      "occurrences": [],
+      "remediation_hint": "Tighten Phase 1 step 3 and Phase 5: every probe block declares its required components in its heading, and Phase 5 must read the fingerprint before running anything. Add the missing component to the Phase 1 fingerprint table if the probe depended on something not yet fingerprinted.",
+      "applied_at": null
+    },
+    "ordering-constraint-violated": {
+      "count": 0,
+      "threshold": 1,
+      "phase": "7",
+      "description": "The emitted tracker listed an action before one of its ORDERING_CONSTRAINTS prerequisites.",
+      "occurrences": [],
+      "remediation_hint": "Tighten Phase 7 step 3: enforce ORDERING_CONSTRAINTS as a topological sort before rendering, and mark any action whose prerequisite is unreachable as blocked rather than reordering around it. Add the violated constraint to the config block if it was not yet declared.",
+      "applied_at": null
+    }
+  },
+  "runs": [],
+  "friction_log": [],
+  "improvement_suggestions": [],
+  "validation_freshness": {
+    "created_at": "2026-09-22T17:23:29Z",
+    "last_validated_at": "2026-09-22T17:23:29Z",
+    "last_research_at": null,
+    "last_overlap_check_at": null,
+    "runs_since_validation": 0,
+    "thresholds": {
+      "runs": 10,
+      "days": 21
+    },
+    "review_log": []
+  }
+}

@@ -25,7 +25,7 @@ CI runs three jobs on push/PR: `validate-skills`, `test-project`, `validate-plug
 
 ### Plugin Loading
 - **Manifest:** `.claude-plugin/plugin.json` — defines hooks inline (SessionStart/UserPromptSubmit/PreToolUse/PostToolUse)
-- **Skills:** Auto-discovered from `skills/<name>/SKILL.md` (25 skills)
+- **Skills:** Auto-discovered from `skills/<name>/SKILL.md` (30 skills)
 - **Agents:** Auto-discovered from `agents/<name>.md` (2 agents)
 - **Local dev:** `bash setup-local.sh` creates symlink junctions so skills work without `--plugin-dir`
 
@@ -96,7 +96,7 @@ When updating roadmap status, priorities, or completed items:
 
 If a new priority item is added or an existing one is split/merged/completed, update both files in the same edit session.
 
-## Available Skills (29)
+## Available Skills (30)
 
 | Phase | Skills |
 |-------|--------|
@@ -106,6 +106,7 @@ If a new priority item is added or an existing one is split/merged/completed, up
 | Reviewing & Refactoring | `code-diagnosis`, `quality-bug-sweep`, `safe-changes-impact-check`, `safe-changes-refactor-safe`, `quality-sync-docs` |
 | Wrapping Up | `commit-ready`, `pr-merge-readiness`, `smart-test-selection` |
 | Learning | `learning-algo-practice`, `learning-concept-recall`, `learning-debug-training`, `learning-code-review-eye` |
+| Machine & Environment | `machine-perf-audit` |
 | Library Maintenance | `meta-agent-teams`, `meta-discover-claude-features`, `meta-experiment-feature`, `meta-skill-audit`, `meta-self-learning-skill-gen`, `meta-research-checkpoint` |
 
 ## Skill Decision Guide
@@ -135,6 +136,16 @@ If a new priority item is added or an existing one is split/merged/completed, up
 | Scan entire project for bugs with severity | `/quality-bug-sweep` |
 | Review recent git changes for issues | `code-reviewer` agent |
 | Broad quality score with prioritized improvements | `/quality-review` |
+
+### For machine / environment work
+
+| Goal | Skill |
+|------|-------|
+| Laptop is slow, disk is full, want to know what to reclaim | `/machine-perf-audit` |
+| Check whether pip packages leaked outside a venv, find orphan venvs | `/machine-perf-audit python` |
+| See what changed on the machine since the last audit | `/machine-perf-audit delta` |
+
+> Scope note: every other skill in this library is **repo**-scoped. `machine-perf-audit` is the only **machine**-scoped one — it never reads project code, and it is strictly read-only (emits a tracker, never executes it). The tracker layout it emits is defined in the skill's own Phase 7 step 6. A filled-in real-world example lives at `documentation/MACHINE_TUNING_EXAMPLE.md`, which is **gitignored** — it carries machine and corporate-software inventory and must not enter git history.
 
 ### For all three combined (full health check)
 

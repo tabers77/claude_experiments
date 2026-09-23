@@ -18,3 +18,5 @@ __pycache__/
 
 .claude\settings.local.json
 .claude\edit_log.txt
+# Local machine audit example — contains machine + corporate software inventory
+documentation/MACHINE_TUNING_EXAMPLE.md
