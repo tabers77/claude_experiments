@@ -96,9 +96,16 @@
       "threshold": 1,
       "phase": "1",
       "description": "A Phase 5 probe executed for a component Phase 1 recorded absent or unknown, or Phase 5 ran with no Phase 1 fingerprint in run state.",
-      "occurrences": [],
+      "occurrences": [
+        {
+          "ts": "2026-09-23T07:37:27Z",
+          "target": "python",
+          "detail": "Phase 5.python step d chained `where python ; where pip ; py -0p ; conda env list` into one command. Phase 1 recorded conda=absent, so the conda probe ran for an absent component. Harmless output, but the gate was lost by chaining."
+        }
+      ],
       "remediation_hint": "Tighten Phase 1 step 3 and Phase 5: every probe block declares its required components in its heading, and Phase 5 must read the fingerprint before running anything. Add the missing component to the Phase 1 fingerprint table if the probe depended on something not yet fingerprinted.",
-      "applied_at": null
+      "applied_at": "2026-09-23T07:37:27Z",
+      "applied_via": "Phase 5.python step d: split the chained command into per-tool rows with an explicit 'run only when Phase 1 recorded <component> present' table, plus a rule against chaining tool probes."
     },
     "ordering-constraint-violated": {
       "count": 0,
@@ -110,7 +117,75 @@
       "applied_at": null
     }
   },
-  "runs": [],
+  "runs": [
+    {
+      "ts": "2026-09-23T07:37:27Z",
+      "target": "python",
+      "outcome": "closed",
+      "phases_failed": [
+        "probe-ran-without-platform-gate"
+      ],
+      "started_at": "2026-09-23T05:08:37Z",
+      "ended_at": "2026-09-23T07:37:27Z",
+      "duration_seconds": 8930,
+      "phase_durations": {
+        "1": 120,
+        "2": 45,
+        "3": 420,
+        "4": 30,
+        "5": 1500,
+        "6": 90,
+        "7": 120,
+        "8": 2400
+      },
+      "quality_derived": "partial",
+      "invocation_mode": "standalone",
+      "parent": null,
+      "parent_run_ts": null,
+      "run_plan": {
+        "request": "python",
+        "baseline_steps": [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8"
+        ],
+        "reused": [
+          "1",
+          "3",
+          "6",
+          "7",
+          "8"
+        ],
+        "adapted": [
+          {
+            "step": "2",
+            "how": "no baseline store existed; captured vector, reported delta as first-run"
+          },
+          {
+            "step": "4",
+            "how": "restricted selectable set to user scope \"python\"; still ranked all 7 lanes"
+          },
+          {
+            "step": "5",
+            "how": "ran only the 5.python probe catalog"
+          }
+        ],
+        "skipped": [],
+        "created": []
+      },
+      "lanes_selected": [
+        "python"
+      ],
+      "reclaim_host_level_gb": 9.8,
+      "reclaim_apparent_gb": 0.0,
+      "notes": "A1 executed by user-directed direct action, NOT by the skill; skill remained read-only. Three probe-design defects found and fixed pre-ledger (commit c74f2e3): unbounded disk triage, circular python floor, bare-pip cache query. Docker lane outscored python 5.00 vs 3.50 but was excluded by user scope; 88.36 GB remains trapped in the VHDX."
+    }
+  ],
   "friction_log": [],
   "improvement_suggestions": [],
   "validation_freshness": {
@@ -118,7 +193,7 @@
     "last_validated_at": "2026-09-22T17:23:29Z",
     "last_research_at": null,
     "last_overlap_check_at": null,
-    "runs_since_validation": 0,
+    "runs_since_validation": 1,
     "thresholds": {
       "runs": 10,
       "days": 21

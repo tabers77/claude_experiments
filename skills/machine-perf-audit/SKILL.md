@@ -624,10 +624,21 @@ python -m pip config list
 When unset, this is a **prevention** finding, not a cleanup one: setting it makes a future bare `pip install` fail loudly instead of silently leaking into user-site. It belongs in the tracker's no-admin tier as a config action.
 
 **d. Interpreter sprawl.**
-```bash
-where python ; where pip ; py -0p ; conda env list
-```
-Flag the Microsoft Store `WindowsApps\python.exe` stub if present, and any case where `where python` and `where pip` resolve to different installations — that mismatch is why "pip installed it but python can't import it".
+
+**Gate each command on the Phase 1 fingerprint — do not chain them.** Chaining
+tool probes into one line is how a probe for an `absent` component gets executed
+by accident: the line runs as a unit, so the gate on one tool is silently lost
+for the others. Run each separately, and run each ONLY when Phase 1 recorded its
+component `present`:
+
+| Command | Run only when Phase 1 recorded |
+|---|---|
+| `where python` | python = present |
+| `where pip` | python = present |
+| `py -0p` | py launcher = present |
+| `conda env list` | **conda = present** |
+
+Flag the Microsoft Store `WindowsApps\python.exe` stub if present, and any case where `where python` and `where pip` resolve to different installations — that mismatch is why "pip installed it but python can't import it". When `where pip` finds nothing but `python -m pip` works, record it: it means every bare-`pip` command in this skill's own config would silently no-op (see `CACHE_OWNER_QUERIES`).
 
 **e. `PYTHONPATH` pollution.**
 ```powershell

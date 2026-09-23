@@ -20,3 +20,6 @@ __pycache__/
 .claude\edit_log.txt
 # Local machine audit example — contains machine + corporate software inventory
 documentation/MACHINE_TUNING_EXAMPLE.md
+
+# Machine perf tracker output -- contains machine + corporate software inventory
+documentation/MACHINE_PERF_TRACKER.md
