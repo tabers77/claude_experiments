@@ -84,13 +84,18 @@ LANE_SELECTION_FLOOR:
   # Minimum triage signal for a lane to be ELIGIBLE for deep-dive. A lane below
   # its floor cannot be selected — selecting it anyway is an automatic FAIL
   # (`deep-dive-lane-not-justified-by-triage-evidence`).
-  disk:    "free < 25% OR any single top-level tree > 5 GB"
+  #
+  # INVARIANT — every floor MUST be computable from Phase 3 triage metrics
+  # ALONE. A floor that references a metric only Phase 5 produces is circular:
+  # you would need the deep-dive to decide whether to deep-dive. When adding or
+  # editing a floor, check its metric appears in the Phase 3 probe table first.
+  disk:    "free < 25% OR pagefile allocated exceeds observed peak by > 10 GB"
   ram:     "free < 15% OR memory compression > 500 MB"
   cpu:     "any non-protected process > 1h cumulative CPU OR sustained load > 80%"
   io:      "host-boundary process > 30m cumulative CPU OR >0 bind mounts into running containers"
   docker:  "docker present AND (reclaimable > 5 GB OR (vhdx_on_disk_gb - docker_used_gb) > 10 GB)"
   startup: ">8 auto-start entries OR uptime > 7 days"
-  python:  "user-site packages > 0 OR orphan venvs > 2 OR duplicate heavy wheels > 1"
+  python:  "user-site packages > 0 OR venv count > 3 OR (active interpreter is BASE AND PIP_REQUIRE_VIRTUALENV unset)"
 
 DEEP_DIVE_MAX_LANES: 3
   # Cap on lanes deep-dived per run. The funnel's entire value is NOT probing
@@ -100,7 +105,13 @@ CACHE_OWNER_QUERIES:
   # NEVER hardcode a cache path. Every path comes from its owning tool, queried
   # in this run. Using a remembered or assumed path is an automatic FAIL
   # (`assumed-cache-path-without-querying-owning-tool`).
-  pip:         "pip cache dir"
+  #
+  # Prefer the MODULE form (`python -m pip`) over a bare console-script shim
+  # wherever one exists. A shim can be missing from PATH even when the tool is
+  # fully installed — `where pip` returning nothing while `python -m pip` works
+  # is common — and a bare-shim query then yields an empty path, which reads as
+  # "tool absent" and silently drops a real cache from the report.
+  pip:         "python -m pip cache dir"
   npm:         "npm config get cache"
   poetry:      "poetry config cache-dir"
   uv:          "uv cache dir"
@@ -398,15 +409,30 @@ Run a small, cheap, bounded set of probes — roughly one or two per lane, a doz
 
 2. **Run the triage probes**, respecting the Phase 1 fingerprint. Each lane yields one headline metric plus the raw output that produced it.
 
+   **Triage probe budget (hard rule).** The line that matters is not recursion
+   depth — it is **name enumeration vs. size computation**.
+
+   | Allowed in Phase 3 | Forbidden in Phase 3 |
+   |---|---|
+   | CIM / registry / API queries, process lists, a tool's own accounting command (`docker system df`) | Any `Measure-Object Length -Sum` over a recursive file listing |
+   | A **name-filtered, depth-capped** search (`-Filter pyvenv.cfg -Recurse -Depth 3`) — enumerates names, reads no file sizes | Summing sizes of a top-level tree on `C:` |
+
+   Size computation is a **Phase 5** activity. `Get-ChildItem -Recurse | Measure-Object Length -Sum`
+   over a top-level `C:` directory is a whole-volume scan no matter what depth
+   the enclosing loop claims — it will run for minutes and blow the triage
+   budget. If a lane's headline appears to need one, the headline is wrong for
+   triage: pick a cheaper proxy (see `disk` below, which uses the O(1) pagefile
+   gap instead of the largest tree).
+
    | Lane | Headline metric | Triage probe |
    |---|---|---|
-   | disk | `C:` free % + largest top-level tree | `Get-CimInstance Win32_LogicalDisk`; per-directory size bounded to depth 1 |
+   | disk | `C:` free % + pagefile allocated-vs-peak gap | `Get-CimInstance Win32_LogicalDisk`; `Get-CimInstance Win32_PageFileUsage` — both O(1), no tree walk |
    | ram | free RAM % + memory-compression MB | `Get-CimInstance Win32_OperatingSystem`; `Get-Process MemCompression` |
    | cpu | top non-protected cumulative CPU-time process | `Get-Process \| Sort-Object CPU -Descending \| Select-Object -First 5 Name, Id, CPU` |
    | io | host-boundary CPU burn | `Get-Process dllhost, vmmem, vmmemWSL -ErrorAction SilentlyContinue \| Select-Object Name, Id, CPU` |
    | docker | reclaimable GB + VHDX-vs-used gap | `docker system df`; `Get-ChildItem $env:LOCALAPPDATA\Docker -Recurse -Filter *.vhdx` |
    | startup | auto-start entry count | `Get-ItemProperty HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run` + the HKLM equivalent — count only |
-   | python | user-site package count + venv count | `python -m site --user-site`; `python -c "import sys; print(sys.prefix != sys.base_prefix)"` |
+   | python | user-site package count + venv count + guard state | `python -m site --user-site` (O(1)); `python -c "import sys; print(sys.prefix != sys.base_prefix)"` (O(1)); `PIP_REQUIRE_VIRTUALENV` env read (O(1)); `Get-ChildItem <REPO_ROOTS> -Filter pyvenv.cfg -Recurse -Depth 3` (name-only, no sizing) |
 
    **Cumulative CPU time, not instantaneous percent.** A process at 2% right now that has burned 20 hours since boot is the finding; a process spiking to 40% for three seconds is not. This is the single most common misread in machine tuning.
 
@@ -475,8 +501,12 @@ Run a small, cheap, bounded set of probes — roughly one or two per lane, a doz
 
 ### 5.disk — Disk pressure  *(requires: none)*
 
+This is where directory **sizing** happens — it is deliberately not in Phase 3.
+Expect this probe to take minutes on a large volume; that cost is acceptable
+here because the lane already earned its deep-dive.
+
 ```powershell
-# Top-level trees, bounded — do not recurse the whole volume
+# Top-level trees. This DOES sum file sizes and IS expensive — Phase 5 only.
 Get-ChildItem C:\ -Directory -Force -ErrorAction SilentlyContinue | ForEach-Object {
   [PSCustomObject]@{ Path=$_.FullName
     GB=[math]::Round((Get-ChildItem $_.FullName -Recurse -File -Force -ErrorAction SilentlyContinue |
