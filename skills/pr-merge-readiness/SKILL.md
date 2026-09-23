@@ -1,6 +1,6 @@
 ---
 name: pr-merge-readiness
-description: Validate a feature branch is ready to merge into dev — an alignment gate (is the branch in scope, on-objective, and not redundant with existing code) runs first, then clean merge, pre-commit-check rules pass, relevant tests pass (incl. live UI when applicable), no-new-bugs sweep, and any .env/.env.local additions follow best practices. The skill emits a structured verdict — it does NOT run the merge. Keywords PR merge readiness feature branch dev alignment gate scope creep objective drift redundant duplicate overlapping code unnecessary PR out of scope clean merge pre-commit no-new-bugs live test env env.local best practices verdict approval gate.
+description: Validate a feature branch is ready to merge into dev — an alignment gate (is the branch in scope, on-objective, and not redundant with existing code) runs first, then a consequences gate (what landing actually causes — which defaults ship enabled and to whom, what runs automatically on deploy, whether the capability reaches every entry point it claims, what the target branch already collides with, what is added to a per-request path), then clean merge, pre-commit-check rules pass, relevant tests pass (incl. live UI when applicable), no-new-bugs sweep, and any .env/.env.local additions follow best practices. The skill emits a structured verdict — it does NOT run the merge. Add the `consequences` depth flag to run the consequences gate alone: read-only, no approval token, and the only depth that completes unattended in a read-only CI reviewer. Keywords PR merge readiness feature branch dev alignment gate scope creep objective drift redundant duplicate overlapping code unnecessary PR out of scope clean merge pre-commit no-new-bugs live test env env.local best practices verdict approval gate consequences landing what happens on merge shipped default enabled by default resulting total entry point completeness silently inert migration collision per-request coupling external dependency deploy trigger read-only advisory.
 metadata:
   pattern: self-learning
   schema-version: 1
@@ -8,9 +8,11 @@ metadata:
 
 # PR Merge Readiness
 
-End-to-end pre-merge validation for a feature branch targeting `dev`. The skill walks six gates — an alignment gate (scope / objective / redundancy / necessity), clean-merge probe, pre-commit-check rules (incl. env-file safety), relevant-tests run, no-new-bugs sweep, and explicit user resolution — then emits a structured verdict. It NEVER runs `git merge` or `gh pr merge`; the user takes that step manually after reading a green verdict.
+End-to-end pre-merge validation for a feature branch targeting `dev`. The skill walks seven gates — an alignment gate (scope / objective / redundancy / necessity), a consequences gate (what landing causes), clean-merge probe, pre-commit-check rules (incl. env-file safety), relevant-tests run, no-new-bugs sweep, and explicit user resolution — then emits a structured verdict. It NEVER runs `git merge` or `gh pr merge`; the user takes that step manually after reading a green verdict.
 
-**Load-bearing principle**: the merge is approved only when all gates produce verbatim, falsifiable evidence: alignment concerns evidenced or downgraded, clean-merge proof, pre-commit-check rules (incl. env-file safety), relevant-tests pass (incl. live UI when applicable), no-new-bugs sweep, and explicit user resolution of every surfaced item. The alignment gate (Phase 1.5) checks whether the branch *should* merge — is it in scope, on-objective, and not redundant with code the repo already has — before the other gates check whether it *can*.
+**Load-bearing principle**: the merge is approved only when all gates produce verbatim, falsifiable evidence: alignment concerns evidenced or downgraded, landing consequences enumerated with worked examples, clean-merge proof, pre-commit-check rules (incl. env-file safety), relevant-tests pass (incl. live UI when applicable), no-new-bugs sweep, and explicit user resolution of every surfaced item.
+
+The first two gates are a pair, and both run before the technical ones. The alignment gate (Phase 1.5) asks whether the branch *should* merge — is it in scope, on-objective, and not redundant with code the repo already has. The consequences gate (Phase 1.6) asks what **happens when it does** — which defaults ship enabled, what runs automatically on deploy, whether the capability reaches every entry point it claims, and what the branch adds to a per-request path. Phases 2–5 answer neither: they prove a branch is internally correct, which it can be while still changing production behaviour nobody chose.
 
 ## Inputs
 
@@ -23,6 +25,20 @@ The user invokes the skill with one of:
 | (no arg) | uses current branch | `current` |
 
 If the input is none of the above, dump the current branch name and `gh pr list --head <current>` and ask the user to pick a real target. Do not guess.
+
+**Depth** is a second, independent axis. It says how much of the skill runs against the target resolved above:
+
+| Depth | Example | What runs |
+|---|---|---|
+| full (default) | `/pr-merge-readiness 123` | Phases 0–10. Every gate, approval token required. |
+| `consequences` | `/pr-merge-readiness 123 consequences` | Phases 0, 1, 1.6 → verdict → stop. |
+
+`consequences` runs the Phase 1.6 gate on its own and nothing else. It exists for two situations the full skill serves badly:
+
+- **Early.** The questions in 1.6 are answerable before a single test has been written — as soon as the diff exists. Running them at that point is the cheapest moment to discover that a default is wrong.
+- **Unattended.** Phases 2, 3, 4, 5 and 9 all write (a staged merge, lint/test caches, a diagnosis report, the ledger), and Phases 7 and 8 block on human tokens. A read-only automated reviewer cannot complete any of them. Phase 1.6 writes nothing and asks for nothing, so it completes where the full skill stalls.
+
+The trade-off is explicit: in `consequences` depth the run is **advisory and unledgered** — Phases 9 and 10 do not fire, so the run contributes no self-learning counters. Never report a `consequences` run as a merge-readiness verdict; it answers one question of the several the full skill answers, and the verdict must say so in its first line.
 
 ---
 
@@ -473,6 +489,61 @@ Runs **before** any technical validation. The premise: this skill validates bran
 
 5. **Capture evidence verbatim** for the Phase 8 audit: the objective source (`docs=<resolved paths>|user-stated|none-configured`), the intent source used (`intent-source=<pr|issue|branch|ask>`), the four-lens TL;DR counts, each block-on-principle concern with its cited evidence, the observed codebase-search commands for the Necessity/Redundancy lenses, and — when the early-exit prompt fired — the user's literal choice.
 
+## Phase 1.6 — Consequences gate (what landing causes)
+
+Runs immediately after the alignment gate and **before** any technical validation. The two are a pair: Phase 1.5 asks whether the branch *should* merge; this phase asks **what happens when it does**. Phases 2–5 answer neither — they prove the branch is internally correct, which a branch can be while still flipping a platform-wide default, deploying an un-run migration, or silently doing nothing on half its entry points.
+
+The gate exists because of a measured failure mode: a review that reads the *diff* systematically misses consequences that live in **resulting state** rather than in changed lines. A diff shows `+33 tools`; the finding is `68 total`. A diff shows a new `is_global` column; the finding is that the seed sets it `True` and the deploy target already has the environment variable that makes the seed fire. Nothing was hidden — the questions were simply never asked.
+
+**Load-bearing principle for THIS phase**: *a consequence without a worked example is not a finding.* Every concern raised here must be expressible as a concrete scenario — a specific thing a user does, and what goes wrong — and the gate must state it. A concern that cannot be made concrete is an abstraction the skill has not actually verified, and it is downgraded to a user-question, exactly as in Phase 1.5. The second anchor is observation: this gate reports resulting state it has **counted, listed or quoted**, never state it inferred. "The migration numbering looks next-in-sequence" read from a documented range is not evidence; a listing of the target branch's actual migration directory is.
+
+This phase is **read-only by construction**. It runs no tests, stages no merge, writes no files, and requires no approval token — which is what makes it the one gate that completes unattended in a read-only CI environment (see the `consequences` depth mode in Inputs).
+
+1. **Run the six lenses.** Each produces zero or more concerns; each concern MUST carry the lens's required evidence *and* a worked example, or it is not raised.
+
+   | Lens | Question | Required evidence (no evidence ⇒ downgrade to a user-question, not a finding) |
+   |---|---|---|
+   | **Entry-point completeness** | Does this work on *every* path it claims, or only the one that was tested? | Enumerate the call sites of the changed capability by Grep — every handler, route, factory or builder that constructs the affected object — and report threaded vs not-threaded as a list. A "the feature works" claim with no observed enumeration is a `1.6-completeness-not-enumerated` FAIL. Optional parameters added to a shared signature are the highest-yield case: added at six sites and missed at four leaves every affected endpoint returning 200. |
+   | **Resulting totals** | Not "what was added" — **what is the total now?** | For any collection the diff extends (tool catalogs, allowlists, registered handlers, prompt sections, middleware chains), count the pre-existing size by observation and report `before → after`. A delta reported without its total is a `1.6-total-not-counted` FAIL. The total is frequently the finding when the delta is unremarkable. |
+   | **Shipped defaults** | For every new flag, seeded row, allowlist or default value — what is it set to, and **who does it affect**? | The literal value quoted from the diff, plus the population it applies to (this project / every project / every user). Defaults are the review surface: a flag whose code is correct and whose default is wrong ships the wrong behaviour to everyone, and no test fails. |
+   | **Landing chain** | What runs **automatically** when this merges? | The deploy trigger configuration and the startup/migration command, both quoted. For anything gated on configuration (an env var, a feature flag, a secret), resolve whether that configuration is **already populated in each deploy target** — an unset gate makes a change inert, a set one makes it live on the next deploy. Asserting "this is gated, so it is safe" without resolving the gate's actual value is a `1.6-landing-chain-unresolved` FAIL. |
+   | **Target-state collision** | Does `BASE_BRANCH` **already contain** something this collides with? | A listing of the target's actual state — the migration directory, the route table, the registry, the config keys — taken from the checked-out target, never from a documented range in a doc file (those go stale and the drift is invisible). Sequentially-numbered artefacts (migrations, fixtures) are the canonical case: two branches that share **zero files** still collide here, and the merge probe in Phase 2 passes cleanly because git has nothing to conflict on. |
+   | **Per-request coupling** | What does this add to a path that runs on **every** request? | The added network call, database query or import, plus three observed properties: is it cached, is it bounded by an explicit timeout, and does it multiply (per iteration, per sub-task, per user)? Removal of an early exit or short-circuit is a specific trigger for this lens — grep the diff for deleted guard clauses. A change that makes an external service a *precondition* rather than an *option* belongs in the severe bucket. |
+
+   The enumerations and counts in the first, second and fifth lenses are the mechanical core of this phase — **run them, don't reason about them**. The gate's value comes from arithmetic and listings the reviewer would otherwise assume.
+
+2. **Classify each concern by severity** into the same three-bucket shape Phases 1.5 and 5 use, and lead with a one-line TL;DR **before** any per-concern detail:
+
+   ```
+   Consequences — <N1> change production behaviour on landing / <N2> track as follow-up / <N3> informational.
+   ```
+
+   - **"change production behaviour on landing"** = the merge itself alters what users experience, with no further human action: a default that ships enabled to a population wider than the branch's stated intent, a migration that runs automatically under configuration that is already populated, a capability that silently does nothing on a documented entry point, or a new per-request dependency on a service outside the system. These are the SEVERE concerns.
+   - **"track as follow-up"** = a real cost that does not change behaviour on landing — an uncached call on an already-attached path, a total that grew but stayed within a reasonable bound, a collision that only bites if another branch merges first.
+   - **"informational"** = observations worth the author's awareness with no action implied.
+
+   Render the per-concern detail ordered severe-first, and **each severe concern carries its worked example inline** — one or two sentences naming a concrete user action and the observable wrong outcome. **Lite-mode** (Phase 1 `scope=lite`): render only the TL;DR sentence + the severe-bucket detail with examples; other buckets by count only.
+
+3. **Early-exit offer (fires ONLY when ≥1 concern is in the severe bucket).** Same shape and discipline as Phase 1.5 step 4 — surface the severe concern(s) immediately rather than spending Phases 2–5 on a branch whose defaults need changing first:
+
+   ```
+   Consequences gate found <N1> concern(s) that change production behaviour on merge:
+     1. [shipped default] seeds/x.py sets is_global=True — reaches every project, not just the one this branch targets
+        Example: a finance project that attached nothing gains 33 tools on the next deploy, with no admin action.
+     <...>
+
+   How do you want to proceed?
+     1. Pause and change the default(s) — you'll revise the branch; re-run the skill after
+     2. Continue full validation — record these as unresolved items for Phase 7, run Phases 2–5 anyway
+     3. Accept deliberately — you intend this behaviour; record the choice and continue
+   ```
+
+   Mark exactly one option `(recommended)` with a one-line rationale — default-recommend option 1 when a severe concern is a shipped default reaching a wider population than the stated intent, otherwise option 2. Record the user's literal choice. Outcomes mirror Phase 1.5: pause → clean exit noting the branch is expected to be revised; continue → concerns carry into Phase 7; accept → recorded verbatim as a deliberate decision and carried into the audit, NOT silently dropped.
+
+   When there are **zero** severe concerns, DO NOT prompt — the gate is silent-pass on the severe bucket, and follow-up concerns carry to Phase 7 as in Phase 1.5.
+
+4. **Capture evidence verbatim** for the Phase 8 audit: the per-lens TL;DR counts; each severe concern with its cited evidence AND its worked example; the observed enumeration/count commands for the completeness, totals and collision lenses; the resolved landing chain (`trigger=<quoted>`, `migrations-run=<quoted>`, `gate-config=<name>=<set|unset> per target`); and — when the early-exit prompt fired — the user's literal choice.
+
 ## Phase 2 — Clean-merge probe
 
 Verify the feature branch will merge cleanly into `BASE_BRANCH` *as it stands right now*. The conflict-marker pre-screen (step 3) is read-only; the authoritative arbiter (step 4) briefly stages a merge in the working tree and immediately aborts it (no commit is created), so the working tree must be clean before this phase runs.
@@ -782,6 +853,7 @@ The audit runs **before** the print. Print cannot fire until the user explicitly
    |-------|--------|----------|
    | 1 | pass | input parsed: <mode> <target>; user input verbatim: "<literal quote>"; shallow-clone=<yes-unshallowed\|no>; scope=<lite\|full>; reason=<matching condition> |
    | 1.5 | pass\|FAIL | objective docs=<resolved paths\|user-stated\|none-configured>; intent-source=<pr\|issue\|branch\|ask>; stated intent verbatim: "<literal quote>"; alignment TL;DR: <N1> block / <N2> follow-up / <N3> info; redundancy/necessity searches observed: <commands or "none">; block-on-principle concerns: <none\|<file:line + cited evidence per concern>>; early-exit: <not-triggered\|user chose "<literal quote>"> |
+   | 1.6 | pass\|FAIL | consequences TL;DR: <N1> change-on-landing / <N2> follow-up / <N3> info; enumerations observed: <commands or "none">; totals reported: <collection: before→after, ...\|none applicable>; shipped defaults: <name=value → population, ...\|none added>; landing chain: trigger=<quoted\|not-resolved>, migrations-run=<quoted\|n/a>, gate-config=<NAME>=<set\|unset> per target; target-state collision check: <listing observed\|none applicable>; per-request additions: <call + cached=<y/n> + timeout=<y/n> + multiplies=<y/n>\|none>; severe concerns: <none\|<concern + cited evidence + worked example>>; early-exit: <not-triggered\|user chose "<literal quote>"> |
    | 2 | pass\|FAIL | git=<version>; probe=<merge-tree --write-tree\|old-form merge-tree>: exit=<code>, markers=<none\|<paths>>; authoritative `git merge --no-commit --no-ff origin/<BASE_BRANCH>`: exit=<code>, unmerged=<none\|<paths>>, aborted=<yes> |
    | 3 | pass\|FAIL | rules-source=<resolved PRE_COMMIT_RULES_PATH or "defaults">; outcomes: smoke=<...>, lint=<...>, protected=<...>, ownership=<...>, safety=<...>, env-secrets=<no-env-files\|pass\|FAIL+files>, relevance-skipped=<none\|<sub-check>:<skip_note>; ...> |
    | 4 | pass\|FAIL | tiers run: <list>; results: <pass/fail/skipped per tier>; test-cache: <verbatim lines or "not wired">; live UI: <ran\|skipped + reason> |
@@ -1080,7 +1152,14 @@ Tell Claude one of:
 /pr-merge-readiness                                # current branch
 ```
 
-The skill walks Phases 1–9 (an alignment gate at Phase 1.5 runs first, before any technical check) and asks for explicit approval before printing the verdict. Failure patterns accumulate in `run_history.json`; when a counter trips its threshold, the skill auto-edits its own SKILL.md per the `remediation_hint` and the user reviews the edit in their normal commit-review loop.
+Add a depth flag to run the consequences gate alone — read-only, no approval token, no ledger:
+
+```
+/pr-merge-readiness 123 consequences               # Phase 1.6 only, advisory
+/pr-merge-readiness consequences                   # current branch, Phase 1.6 only
+```
+
+The skill walks Phases 1–9 (an alignment gate at Phase 1.5 and a consequences gate at Phase 1.6 run first, before any technical check) and asks for explicit approval before printing the verdict. Failure patterns accumulate in `run_history.json`; when a counter trips its threshold, the skill auto-edits its own SKILL.md per the `remediation_hint` and the user reviews the edit in their normal commit-review loop.
 
 ---
 
@@ -1089,9 +1168,9 @@ The skill walks Phases 1–9 (an alignment gate at Phase 1.5 runs first, before 
 Before the first invocation of this skill, verify:
 
 - [ ] `run_history.json` exists at the skill's root, initialized with the universal seed FAIL rules from `library/templates/self-learning-skill/run_history_schema_v1.md` ("Initial state" section) plus the domain rules listed in Phase 8.
-- [ ] The audit phase (Phase 8) lists one row per domain phase (incl. Phase 1.5), with concrete evidence shapes.
-- [ ] Every phase that consumes user input (Phases 1, 1.5, and 7) has a row format that records the input **verbatim**, never paraphrased.
+- [ ] The audit phase (Phase 8) lists one row per domain phase (incl. Phases 1.5 and 1.6), with concrete evidence shapes.
+- [ ] Every phase that consumes user input (Phases 1, 1.5, 1.6, and 7) has a row format that records the input **verbatim**, never paraphrased.
 - [ ] The verdict-print requires the literal `merge approved` token — silence, "ok", "looks good" do NOT advance.
-- [ ] At least one domain FAIL rule exists (the alignment gate adds `1.5-redundancy-claim-without-evidence` as a load-bearing anchor).
+- [ ] At least one domain FAIL rule exists (the alignment gate adds `1.5-redundancy-claim-without-evidence` as a load-bearing anchor; the consequences gate adds `1.6-consequence-without-worked-example` as its own, plus `1.6-completeness-not-enumerated`, `1.6-total-not-counted` and `1.6-landing-chain-unresolved`).
 - [ ] Threshold tiers match phase severity: load-bearing=1, procedural=2, cosmetic=5.
 - [ ] The ledger phase (Phase 9) is the last phase. No phase fires after it.
