@@ -175,7 +175,8 @@ Inputs (all optional): repo (default: the current one), `since` (default: that r
 ```
 MAIN SESSION — publish the drill (2 calls):
 1. ArtifactData batch, url <artifact_url>: one {op:"set", collection:"cards", doc_id:<id>, file_path:"<abs path>/docs/<id>.json"} per card
-2. ArtifactData list, url <artifact_url>, collection "attempts", query {limit:1000}, out_dir "<abs path to drill/inbox>"
+2. ArtifactData list, url <artifact_url>, collection "attempts", query {limit:1000} — NO out_dir (it refuses
+   paths under ~/.claude); then write each returned doc as JSON to "<abs path>/drill/inbox/attempts/<id>.json"
 ```
 
 The page reads `cards` live, so no republish is needed. Call 2 exports this round's results for the next refresh to fold in.
